@@ -188,7 +188,7 @@ details.eff li .nt{color:var(--muted)}
   <details>
     <summary>この計算の前提と限界</summary>
     <ul>
-      <li>上の3つは、通常プレイの中で「1ターン目に1点で成功 → 2ターン目も成功して累計4点以上 → 3ターン目も成功して累計7点以上」になった割合です（1ターン目が1点ライブに限られるため、表の「スコア 1→4→7 の順」の3ターン以内と同じか、それより少し低い数字になります）。</li>
+      <li>上の3つと表の「スコア 1→4→7 の順」は、各ターンのライブ1回分の点数で数えています。「1回目の成功が1点以上、2回目の成功が4点以上、3回目の成功が7点以上（合計12点以上）」を満たした割合です（累計ではなく、そのターンに成功したライブの点数です）。上の3つは、それが1・2・3ターン目に連続して起きた割合です。</li>
       <li>平均ターンは通常プレイのモデルで、ライブ成功3回に届いた試行だけで平均しています。登場時・起動・ライブ開始時・ライブ成功時の効果の多く（サーチ、回収、ドロー、エネルギー支払い、START!! のデッキトップ操作など）を、簡易な判断ルールで入れています。効果の使いどころは機械的な目安なので、実際の最善手とは少し違います。1〜3ターン目の計算には、サーチ類とSTART!!の効果だけが入っています（3ターンの動きには回収や起動を使う余地がないため）。</li>
       <li>相手のスコアは考えていません。1ターン目のドローは常にあります。</li>
       <li>ポイント制限は、確認できた一部のカード（葉月 恋 bp1-005、若菜四季 sd1-019、鬼塚夏美 sd1-020、嵐 千砂都 pb1-014、LL-bp2-001）だけ判定します。</li>
@@ -669,7 +669,7 @@ class Game{
         if(pr<(this.turn<=1&&p.th1!==undefined?p.th1:p.attempt_th)||pr<=0)continue;
         let sc=0;for(const L of sub)sc+=L.score;
         if(p.pace){
-          const tg=this.succ===0?1:this.succ===1?4-this.scoreTotal:7-this.scoreTotal;
+          const tg=this.succ===0?1:this.succ===1?4:7;
           const key=sc>=tg?1000-sc:sc;
           if(best===null||key>best[0][1]||(key===best[0][1]&&pr>best[0][0]+1e-9))best=[[pr,key],sub];
         }else if(p.sel_mode===1){
@@ -860,7 +860,7 @@ class Game{
       this.lastScore=0;
       this.livePhase(leftover);
       res.push([this.succ,this.scoreTotal,this.lastScore]);
-      if(this.log&&this.succ>=3){this.lg('res','ライブ成功3回に到達：'+t+'ターン目で勝利');break;}
+      if(this.succ>=3&&(this.log||this.p.stop3)){this.lg('res','ライブ成功3回に到達：'+t+'ターン目で勝利');break;}
     }
     return res;
   }
@@ -879,13 +879,14 @@ function makeEvaluator(deck,turns,seed,params){
         let fs=r.findIndex(x=>x[0]>=1);fs=fs<0?turns+1:fs+1;
         let t3=r.findIndex(x=>x[0]>=3);t3=t3<0?turns+1:t3+1;
         acc.first.push(fs);acc.t3.push(t3);
-        // 1→4→7：2回目の成功時点で累計4点以上、3回目の成功時点で累計7点以上
+        // 1→4→7：1回目の成功が1点以上、2回目の成功が4点以上、3回目の成功が7点以上（そのターンのライブ合計点。累計12点以上）
         let pc=turns+1;const sl=g.succLog;
-        if(sl.length>=3&&sl[1][1]>=4&&sl[2][1]>=7)pc=sl[2][0];
+        const sc1=sl.length>0?sl[0][1]:0,sc2=sl.length>1?sl[1][1]-sl[0][1]:0,sc3=sl.length>2?sl[2][1]-sl[1][1]:0;
+        if(sl.length>=3&&sc1>=1&&sc2>=4&&sc3>=7)pc=sl[2][0];
         acc.pace.push(pc);
-        if(sl.length>=1&&sl[0][0]===1&&sl[0][1]===1){acc.st[0]++;
-          if(sl.length>=2&&sl[1][0]===2&&sl[1][1]>=4){acc.st[1]++;
-            if(sl.length>=3&&sl[2][0]===3&&sl[2][1]>=7)acc.st[2]++;}}
+        if(sl.length>=1&&sl[0][0]===1&&sc1>=1){acc.st[0]++;
+          if(sl.length>=2&&sl[1][0]===2&&sc2>=4){acc.st[1]++;
+            if(sl.length>=3&&sl[2][0]===3&&sc3>=7)acc.st[2]++;}}
         r.forEach((x,j)=>{acc.succ[j+1]+=x[0];acc.score[j+1]+=x[1];});
         acc.fails+=g.failCount;acc.n++;
       }
@@ -1490,7 +1491,7 @@ function traceOnce(){
 
 /* ---------- 保存デッキ ---------- */
 const SAVE_KEY='catchu-decks-v1';
-const SIM_VER=3;   // 計算の中身を変えたら上げる（古い結果に印を付けるため）
+const SIM_VER=4;   // 計算の中身を変えたら上げる（古い結果に印を付けるため）
 let decks=[],editIdx=-1,armDel=-1,armSave=false,armTimer=null;
 function deckKey(rows){return rows.map(([r,c])=>r[0]+' '+c).sort().join(',');}
 function loadDecks(){
