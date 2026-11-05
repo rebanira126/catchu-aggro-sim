@@ -1289,7 +1289,7 @@ function refreshDeck(){
   const pills=[];
   pills.push(`<span class="pill ${v.members===48?'ok':'wn'}">メンバー ${v.members}/48</span>`);
   pills.push(`<span class="pill ${v.lives===12?'ok':'wn'}">ライブ ${v.lives}/12</span>`);
-  pills.push(`<span class="pill ${v.pts>9?'ng':''}">ポイント ${v.pts}/9（判定できる範囲）</span>`);
+  pills.push(`<span class="pill ${v.pts>9?'ng':''}">ポイント ${v.pts}/9（2026/11/5時点の制限）</span>`);
   $('pills').innerHTML=pills.join('');
   $('issues').innerHTML=issues.map(i=>`<li class="${i.t}">${esc(i.m)}</li>`).join('');
   const rows=deckRows(entries);
