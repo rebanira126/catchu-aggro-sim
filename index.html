@@ -1502,7 +1502,7 @@ function loadDecks(){
   try{const a=JSON.parse(s);decks=Array.isArray(a)?a.filter(d=>d&&typeof d.name==='string'&&typeof d.text==='string'):[];}catch(e){decks=[];}
 }
 function storeDecks(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(decks));return true;}catch(e){return false;}}
-function fmtDate(ts){const d=new Date(ts);const z=n=>String(n).padStart(2,'0');return `${d.getMonth()+1}/${d.getDate()} ${z(d.getHours())}:${z(d.getMinutes())}`;}
+function fmtDate(ts){const d=new Date(ts);return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;}
 function msg(id,text){$(id).textContent=text;clearTimeout(msg[id]);msg[id]=setTimeout(()=>{$(id).textContent='';},4000);}
 function disarm(){armSave=false;armDel=-1;$('saveDeck').textContent='入力中のデッキを保存';}
 function renderDecks(){
