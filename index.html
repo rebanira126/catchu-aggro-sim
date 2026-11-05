@@ -338,7 +338,7 @@ function effLive(L,stage,E,leftover){
   return {card:L,need,score,allbh:L.allbh,genbh:L.genbh,bh:L.bh};
 }
 
-const DEFAULT_PARAMS={mull_cost:5,mull_lives:1,mull_live_maxscore:3,mull_live_maxneed:7,yield_density:0.35,conf:0.8,hand_min:4,junk_cost:9,dig:3,fill:1,mull_k2:1,mull_km:99,play_pen:1,prot_turns:3,prot_one:1,attempt_th:0.5,th1:0.3,right_first:0.02,search_live:1,fill_always:1,est_n:24,prot_cost:1,sel_mode:1,prot_big:1,top_key:1,name_bonus:0.8,search_bonus:2,pace:1,s5:1,s5b:3,l37_bonus:1};
+const DEFAULT_PARAMS={mull_cost:5,mull_lives:1,mull_live_maxscore:3,mull_live_maxneed:7,yield_density:0.35,conf:0.8,hand_min:4,junk_cost:9,dig:3,fill:1,mull_k2:1,mull_km:99,play_pen:1,prot_turns:3,prot_one:1,attempt_th:0.5,th1:0.3,right_first:0.02,search_live:1,fill_always:1,est_n:24,prot_cost:1,sel_mode:1,prot_big:1,top_key:1,name_bonus:0.8,search_bonus:2,pace:1,p7:1,b7:1,d7:0.2,w7:30,th7:0.15,s5:1,s5b:3,l37_bonus:1};
 
 class Game{
   constructor(deck,rnd,params,log){
@@ -391,6 +391,7 @@ class Game{
       const m5=this.hand.filter(c=>c.kind==='メンバー'&&c.cost>=3&&c.cost<=p.mull_cost).sort((a,b)=>this.val(b)-this.val(a));
       if(p.prot_one)m5.slice(0,1).forEach(c=>ps.add(c));else m5.forEach(c=>ps.add(c));
     }
+    if(p.p7&&this.turn>=2)for(const c of this.hand)if(c.kind==='ライブ'&&c.score>=6)ps.add(c);
     if(p.prot_big&&this.turn<=2){
       const mb=this.hand.filter(c=>c.kind==='メンバー'&&c.cost>=9).sort((a,b)=>(sum(b.h)-sum(a.h))||(b.blades-a.blades));
       if(mb.length)ps.add(mb[0]);
@@ -413,7 +414,8 @@ class Game{
     const lim=this.turn<=1?3:8;
     const want=!this.hand.some(x=>x.kind==='ライブ'&&sum(x.need)<=lim);
     const want5=this.p.s5&&this.turn<=2&&!this.hand.some(x=>x.kind==='メンバー'&&x.cost===5);
-    return c=>(want&&c.kind==='ライブ'&&sum(c.need)<=lim)?100-sum(c.need)+c.score*0.1:(want5&&c.kind==='メンバー'&&c.cost===5)?50+this.val(c)*0.01:this.val(c);
+    const want7=this.p.p7&&this.turn>=2&&!this.hand.some(x=>x.kind==='ライブ'&&x.score>=6);
+    return c=>(want&&c.kind==='ライブ'&&sum(c.need)<=lim)?100-sum(c.need)+c.score*0.1:(want7&&c.kind==='ライブ'&&c.score>=6)?90:(want5&&c.kind==='メンバー'&&c.cost===5)?50+this.val(c)*0.01:this.val(c);
   }
   lookTop(n,pred){
     const top=[];
@@ -447,7 +449,8 @@ class Game{
     }else if(n==='PL!SP-bp2-007'){
       if(this.costDiscard(c)!==null){const pick=this.lookTop(5,x=>x.kind==='メンバー');if(pick)this.hand.push(pick);}
     }else if(n==='PL!SP-bp7-018'){
-      const lv=this.hand.filter(x=>x.kind==='ライブ');
+      const prot7=this.p.p7?this.protectedSet():new Set();
+      const lv=this.hand.filter(x=>x.kind==='ライブ'&&!prot7.has(x));
       if(lv.length){
         let d=lv[0];for(const x of lv)if(this.val(x)<this.val(d))d=x;
         this.removeFromHand(d);this.disc.push(d);
@@ -541,14 +544,25 @@ class Game{
     const hand0=this.hand.slice();
     const H=hand0.length;
     const noLive=!hand0.some(c=>c.kind==='ライブ');
+    const L7=(P.p7&&this.succ===2)?hand0.find(c=>c.kind==='ライブ'&&c.score>=6):null;
+    const Eg=this.E,self=this;
     const no5=P.s5&&this.turn<=2&&!hand0.some(c=>c.kind==='メンバー'&&c.cost===5);
     const visited=new Set();
     const stage0=this.stage.slice();
-    function extra(stage,plays){
+    function extra(stage,plays,energyLeft){
       let v=0;
       const nmset=new Set();
       for(let i=0;i<3;i++){const m=stage[i];if(m){v+=P.right_first*i;if(m.unit==='CatChu!')nmset.add(m.name);}}
       v+=P.name_bonus*nmset.size;
+      if(L7){
+        const eff=effLive(L7,stage,Eg,0);
+        if(eff.score>=7)v+=P.b7;
+        let hv=0,B=0;
+        for(let i=0;i<3;i++){const m=stage[i];if(!m)continue;const mh=memberHearts(m,i,Eg,0,true);hv+=mh[1]+mh[2]+mh[3]+mh[4]+mh[5]+mh[6]+(mh[0]||0);B+=memberBlades(m,i);}
+        const nd=eff.need.reduce((a,b)=>a+b,0);
+        v-=P.d7*Math.max(0,nd-(hv+B*d));
+        if(P.w7>0&&eff.score>=7)v+=P.w7*self.estP([effLive(L7,stage,Eg,energyLeft)],energyLeft,stage);
+      }
       for(const pl of plays){
         const c=pl[0];
         if(noLive&&c.no==='PL!SP-bp1-005')v+=P.search_bonus;
@@ -561,7 +575,7 @@ class Game{
       const key=mask+'|'+sid[0]+','+sid[1]+','+sid[2]+'|'+entered[0]+entered[1]+entered[2]+'|'+energyLeft;
       if(visited.has(key))return;
       visited.add(key);
-      const obj=stageObj(stage,E0,energyLeft,d)-pen*plays.length+extra(stage,plays);
+      const obj=stageObj(stage,E0,energyLeft,d)-pen*plays.length+extra(stage,plays,energyLeft);
       if(best===null||obj>best[0]+1e-9)best=[obj,plays.slice()];
       if(depth===3)return;
       const seen=new Set();
@@ -626,9 +640,9 @@ class Game{
     return t/pool.length;
   }
   /* デッキの残りの中身から、このライブ構成が成功する確率を見積もる */
-  estP(sub,leftover){
+  estP(sub,leftover,stageArg){
     const lb=sub.some(L=>sum(L.need)>=8);
-    const [h2,B2]=stageSummary(this.stage,this.E,leftover,lb);
+    const [h2,B2]=stageSummary(stageArg||this.stage,this.E,leftover,lb);
     h2[2]+=this.liveRed;
     let pool=this.deck.length>=B2?this.deck:this.deck.concat(this.disc);
     if(!pool.length||B2<=0){return satisfy(sub,h2,0,0)?1:0;}
@@ -666,8 +680,9 @@ class Game{
     if(p.attempt_th>=0){
       for(const sub of combos){
         const pr=this.estP(sub,leftover);
-        if(pr<(this.turn<=1&&p.th1!==undefined?p.th1:p.attempt_th)||pr<=0)continue;
         let sc=0;for(const L of sub)sc+=L.score;
+        const thr=(p.pace&&p.p7&&this.succ===2&&sc>=7)?p.th7:(this.turn<=1&&p.th1!==undefined?p.th1:p.attempt_th);
+        if(pr<thr||pr<=0)continue;
         if(p.pace){
           const tg=this.succ===0?1:this.succ===1?4:7;
           const key=sc>=tg?1000-sc:sc;
@@ -1142,10 +1157,10 @@ function summarizeDream(res){
 }
 
 /* ===== 1ゲームの動きを記録する（確認用） ===== */
-function traceGame(deck,seed,turns){
+function traceGame(deck,seed,turns,params){
   const rnd=mulberry32(seed);
   const log=[];
-  const g=new Game(deck,rnd,Object.assign({},DEFAULT_PARAMS),log);
+  const g=new Game(deck,rnd,Object.assign({},DEFAULT_PARAMS,params||{}),log);
   const res=g.run(turns);
   return {log:log,res:res,won:g.succ>=3,succ:g.succ};
 }
