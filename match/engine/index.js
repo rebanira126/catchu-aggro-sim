@@ -43,7 +43,7 @@ export function makeMatchRunner({ db, effects, a, b, seedBase = 1, firstMode = '
   };
 }
 
-// ひとり回し1試合：相手はライブをしない「かかし」。成功ライブの枚数は数えず、毎ターンの点数だけを見る
+// ひとり回し1試合：相手はライブをしない「かかし」。毎ターンの点数を見る（成功ライブは2枚までにして試合を続ける）
 export function playSolo({ db, effects, deck, seed, turns = 6, trace = false }) {
   const idle = { mulligan: () => [], main: () => {}, setLives: () => [], chooseSuccess: () => 0 };
   const g = new Game({
@@ -61,7 +61,8 @@ export function playSolo({ db, effects, deck, seed, turns = 6, trace = false }) 
     for (const X of g.order()) g.normalPhase(X);
     g.livePhase();
     g.result = null;
-    P.success.length = 0;
+    // 成功ライブは2枚まで残す（3枚目で勝ちにならないように）。「成功ライブが2枚以上」の効果を試せる
+    while (P.success.length > 2) P.success.pop();
   }
   return g;
 }
