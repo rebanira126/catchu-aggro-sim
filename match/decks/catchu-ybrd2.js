@@ -33,8 +33,15 @@ export default {
     key: "11澁谷かのん、11米女メイ、13平安名すみれ（CatChu!名称の人数でディストーションが強化）",
     refs: ["https://note.com/happy_sloth5502/n/n9041888e2147", "https://note.com/brave_fairy8464/n/n4ce2ef4e0c96", "https://note.com/poke_lovelive/n/nbfe1b972d27f"],
   },
-  // プレイ方針：マリガンで5コストまで残し、ライブは2枚まで（必要ハート9以上の6点ディストーションは3ターン目用なので戻す）
+  // プレイ方針（旧CatChu!シミュレーターと結果がほぼ同じになるよう調整）
+  // ・マリガン：コスト2は1枚、5コストまで、ライブは必要ハート7以下を1枚だけ残す
+  // ・盤面：CatChu!の名前の種類を揃える（ディストーションが強くなる）。同じ盤面ならカードを使わない方
+  // ・ライブ：1→4→7点の進行をねらう。空いた枠には不要なメンバーを伏せて引き直す
+  // ・6点のディストーションは2ターン目から1枚残す
   strategy: {
-    mulliganOpt: { keepCost: 5, maxLives: 2, maxNeed: 8 },
+    prefer: { unit: 'CatChu!', w: 1, bigLive: 6 },
+    mulliganOpt: { keepCost: 5, maxLives: 1, maxNeed: 7, maxLow: 1 },
+    mainOpt: { playPen: 0.3, unitBonus: { unit: 'CatChu!', w: 0.8 }, topK: 60 },
+    liveOpt: { fill: true, pace: [1, 4, 7], minP: 0.5, th1: 0.3, thLast: 0.15 },
   },
 };

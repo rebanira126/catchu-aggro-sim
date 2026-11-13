@@ -16,7 +16,7 @@
 | `decks/` | 組み込みの環境デッキ。1デッキ1ファイルで、レシピ・回し方の目安（plan）・プレイ方針の上書き（strategy）を持つ |
 | `store/` | 保存デッキの窓口。今は LocalStorage。DBに移すときは同じ形のクラスを作って差し替える |
 | `data/` | カードデータ（`rabuka_cards.json` をそのまま使う）、前回取り込んだカード番号（`known-ids.json`）、ポイント制限 |
-| `tools/` | 新弾レポート（`report.mjs`） |
+| `tools/` | 新弾レポート（`report.mjs`）、旧CatChu!シミュレーターとの比較（`compare-old.mjs`） |
 | `test/` | 動作確認（`node match/test/smoke.mjs`） |
 
 ## カードデータの更新（新弾のとき）

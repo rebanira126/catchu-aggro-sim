@@ -1,5 +1,5 @@
 // カード効果を書くときの共通の道具（判断のしかたも含む）
-import { memberValue } from '../engine/ai.js';
+import { memberValue, protectedCards, preferBonus } from '../engine/ai.js';
 
 export const inGroup = (def, g) => def.groups.includes(g);
 export const inUnit = (def, u) => def.unit === u;
@@ -34,15 +34,20 @@ export function cardWorth(g, me, card) {
   if (isLive(card)) {
     // 自分以外に手札にあるライブの枚数で決める（同じライブが2枚あっても両方を低く見ないように）
     const others = me.hand.filter(isLive).length - (inHand ? 1 : 0);
-    const base = others === 0 ? 9 : others === 1 ? 6 : 2;
-    return base + card.def.score * 0.1;
+    const base = others === 0 ? 9 : others === 1 ? 7 : others === 2 ? 5 : 2;
+    const need = card.def.need.reduce((a, b) => a + b, 0);
+    // 決めの大きいライブは、手札に無ければ探す価値が高い
+    const bl = me.prefer && me.prefer.bigLive;
+    if (bl && g.turn >= 2 && card.def.score >= bl && !me.hand.some(c => c !== card && isLive(c) && c.def.score >= bl)) return 8.5;
+    return base + (need <= 8 ? 0.5 : 0) + card.def.score * 0.05;
   }
   const e = me.energy.n;
   // バトンタッチで減る分も考えた、次のターンに出すのに必要なエネルギー
   const onStage = Math.max(0, ...me.stage.filter(Boolean).map(s => s.card.def.cost));
   const c = Math.max(0, card.def.cost - onStage);
-  if (c <= e + 1) return 4 + memberValue(card.def) / 4;
-  if (c <= e + 4) return 3 + memberValue(card.def) / 8;
+  const v = memberValue(card.def) + preferBonus(me, card.def);
+  if (c <= e + 1) return 4 + v / 4;
+  if (c <= e + 4) return 3 + v / 8;
   return 1;
 }
 
@@ -59,8 +64,11 @@ export function pickBest(g, me, cards, pred = () => true) {
 // 手札を n 枚控え室に置く（持っておきたさが低いものから）
 export function discardWorst(g, me, n, keep = new Set()) {
   const out = [];
+  // このターンに出す予定のカード（me.reserved）と、次のターン以降のために残すカードはなるべく捨てない
+  const soft = new Set([...keep, ...(me.reserved || []), ...protectedCards(g, me)]);
   for (let k = 0; k < n; k++) {
-    const cand = me.hand.filter(c => !keep.has(c.uid));
+    let cand = me.hand.filter(c => !soft.has(c.uid));
+    if (!cand.length) cand = me.hand.filter(c => !keep.has(c.uid));
     if (!cand.length) break;
     cand.sort((a, b) => cardWorth(g, me, a) - cardWorth(g, me, b));
     const c = cand[0];
@@ -72,11 +80,12 @@ export function discardWorst(g, me, n, keep = new Set()) {
   return out;
 }
 
-// 「手札を1枚控え室に置いてもよい」を払うか：手札に捨ててよいカードがあるときだけ払う
+// 「手札を1枚控え室に置いてもよい」を払うか：残したいカード以外に、捨ててよいカードがあるときだけ払う
 export function willDiscard(g, me, n = 1) {
-  if (me.hand.length < n) return false;
-  const sorted = me.hand.slice().sort((a, b) => cardWorth(g, me, a) - cardWorth(g, me, b));
-  return cardWorth(g, me, sorted[n - 1]) <= 4 || me.hand.length >= 5;
+  const soft = new Set([...(me.reserved || []), ...protectedCards(g, me)]);
+  const cand = me.hand.filter(c => !soft.has(c.uid)).sort((a, b) => cardWorth(g, me, a) - cardWorth(g, me, b));
+  if (cand.length < n) return false;
+  return cardWorth(g, me, cand[n - 1]) <= ((me.prefer && me.prefer.discardAt) ?? 5.5);
 }
 
 // 控え室から条件に合うカードを1枚手札に加える
