@@ -1,5 +1,9 @@
 // 加点Liella!：特別予選 Bブロック Top4
 // レシピは出典の入賞レシピ（デッキコード）そのまま。回し方は plan に書いたnoteの内容を目安にしている。
+const LBO = 'PL!SP-bp5-026';  // Let's be ONE
+const HAJI = 'PL!SP-sd2-023'; // 始まりは君の空
+const SV = 'PL!SP-bp5-023';   // Shooting Voice!!
+
 export default {
   id: "liella-katen",
   type: "加点Liella!",
@@ -45,6 +49,14 @@ export default {
   strategy: {
     mulliganOpt: { keepCost: 4, maxLives: 2, maxNeed: 5, maxLow: 2 },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
+    // ターンごとの目標（noteの回し方より）
+    turnPlan: {
+      1: { board: [[2, 2], [4]], lives: [[LBO], [HAJI]] },
+      2: { board: [[4, 2, 2], [9]], lives: [[LBO], [HAJI]] },
+      3: { board: [[9, 4, 2]] },
+      4: { board: [[17, 9, 2], [17, 9]], lives: [[SV, HAJI]] },
+      5: { board: [[17, 17]], lives: [[SV, HAJI], [SV, SV]] },
+    },
     liveOpt: { fill: true, fillMaxCost: 4, pace: [1, 1, 10], minP: 0.4, th1: 0.3, thLast: 0.3 },
   },
 };

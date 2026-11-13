@@ -1,5 +1,11 @@
 // Aqours系（恋アク）：九州・沖縄エリア予選 入賞（恋アクAqours）
 // レシピは出典の入賞レシピ（デッキコード）そのまま。回し方は plan に書いたnoteの内容を目安にしている。
+const GN = 'PL!S-bp7-025';        // Guilty Night, Guilty Kiss!
+const MW = 'PL!S-bp3-019';        // MIRACLE WAVE
+const KOIAQ = 'PL!S-bp7-022';     // 恋になりたいAQUARIUM
+const KOWARE = 'PL!S-bp6-024';    // コワレヤスキ
+const YOSHIKO13 = 'PL!S-bp3-006'; // 津島善子（コスト13）
+
 export default {
   id: "aqours-koiaq",
   type: "Aqours系（恋アク）",
@@ -45,6 +51,15 @@ export default {
   strategy: {
     mulliganOpt: { keepCost: 9, maxLives: 1, maxNeed: 6, maxLow: 2 },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
+    // ターンごとの目標（13善子進行のnoteより）
+    turnPlan: {
+      1: { board: [[4]] },
+      2: { board: [[9]], lives: [[GN]] },
+      3: { board: [[{ id: YOSHIKO13, area: 1 }, 4], [{ id: YOSHIKO13, area: 1 }, 2]], lives: [[GN]] },
+      4: { board: [[13, 13, 2]], lives: [[GN, MW]] },
+      5: { board: [[15, 15, 2], [15, 15, 4]], lives: [[KOIAQ, MW], [KOIAQ], [KOWARE]] },
+      6: { board: [[15, 15, 9]], lives: [[KOIAQ, KOIAQ]] },
+    },
     // MIRACLE WAVE は、4ターン目に Guilty Night, Guilty Kiss! と、5ターン目に恋になりたいAQUARIUM と一緒に置くときだけ使う
     // （盤面ハート＋ブレードハートが必要ハートとほぼ同じになり、余剰ハートが出にくい）
     liveOpt: {

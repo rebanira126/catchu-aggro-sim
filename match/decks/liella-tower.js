@@ -1,5 +1,11 @@
 // タワーLiella!：ファンミ第三幕 Day2 Aブロック Top4（加点軸タワー）
 // レシピは出典の入賞レシピ（デッキコード）そのまま。回し方は plan に書いたnoteの内容を目安にしている。
+const LBO = 'PL!SP-bp5-026';    // Let's be ONE
+const GO = 'PL!SP-bp2-023';     // Go!! リスタート
+const SV = 'PL!SP-bp5-023';     // Shooting Voice!!
+const CHISATO10 = 'PL!SP-bp7-003'; // 嵐 千砂都（コスト10・下にメンバーを積む）
+const KEKE13 = 'PL!SP-bp5-002';    // 唐 可可（コスト13・左サイドで起動）
+
 export default {
   id: "liella-tower",
   type: "タワーLiella!",
@@ -45,6 +51,15 @@ export default {
   strategy: {
     mulliganOpt: { keepCost: 10, maxLives: 1, maxNeed: 5, maxLow: 1 },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
+    // ターンごとの目標（noteの回し方より。10千砂都は右サイドに置いて下にメンバーを積む、13可可は左サイド）
+    turnPlan: {
+      1: { board: [[4]] },
+      2: { board: [[{ id: CHISATO10, area: 2 }]], lives: [[LBO], [GO]] },
+      3: { board: [[4, 2, { id: CHISATO10, area: 2 }]], lives: [[LBO], [GO]] },
+      4: { board: [[{ id: KEKE13, area: 0 }, 2, { id: CHISATO10, area: 2 }]], lives: [[SV, LBO]] },
+      5: { board: [[17, 2, { id: CHISATO10, area: 2 }]], lives: [[SV, LBO, LBO]] },
+      6: { board: [[17, 20, { id: CHISATO10, area: 2 }]], lives: [[SV, SV, LBO]] },
+    },
     liveOpt: { fill: true, fillMaxCost: 4, pace: [1, 1, 10], minP: 0.4, th1: 0.3, thLast: 0.3 },
   },
 };
