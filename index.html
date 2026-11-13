@@ -115,6 +115,13 @@ details.eff h4{margin:14px 0 4px;font-size:13px}
 details.eff ul{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--fg)}
 details.eff li .mk{color:var(--good);font-weight:700;margin-right:4px}
 details.eff li .nt{color:var(--muted)}
+.stp{display:inline-flex;align-items:center;gap:6px}
+.stp button{min-width:36px;min-height:36px;padding:0;font-size:18px;line-height:1}
+.stp output{min-width:2.2em;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.stp .u{color:var(--muted)}
+.sld{display:flex;align-items:center;gap:10px;min-width:180px}
+.sld input{flex:1;min-width:110px;accent-color:var(--accent)}
+.sld output{min-width:3.2em;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
 #traceBox,#oppTraceBox{display:flex;flex-direction:column;gap:12px}
 #traceBox[hidden],#oppTraceBox[hidden],#oppRes[hidden]{display:none}
 #savedTable td.memo{white-space:normal;min-width:120px;max-width:240px;color:var(--muted)}
@@ -200,7 +207,7 @@ details.eff li .nt{color:var(--muted)}
 <section id="oppSec">
   <h2>仮想敵との対戦</h2>
   <p class="hint">毎ターン、こちらと相手が1回ずつライブをして点数を比べます。点数が高い方が成功ライブを1枚もらい、同点なら両者がもらいます。先に3枚そろえた方の勝ちで、同時にそろえたら引き分けです。相手は「成功率」の確率でその点数のライブを成功させ、失敗したら0点です。6ターン目以降は「6〜」の行を使います。</p>
-  <div class="tablewrap"><table id="oppTable"><thead><tr><th>ターン</th><th class="n">相手のライブ点数</th><th class="n">成功率（%）</th></tr></thead><tbody></tbody></table></div>
+  <div class="tablewrap"><table id="oppTable"><thead><tr><th>ターン</th><th class="n">相手のライブ点数</th><th>成功率</th></tr></thead><tbody></tbody></table></div>
   <div class="settings">
     <label class="f" for="nOpp">試行回数
       <select id="nOpp"><option value="500">500回（速い）</option><option value="2000" selected>2,000回</option><option value="5000">5,000回</option><option value="20000">20,000回（時間がかかる）</option></select></label>
@@ -1684,7 +1691,7 @@ function oppLoad(){
 function oppRender(){
   const labels=['1ターン目','2ターン目','3ターン目','4ターン目','5ターン目','6ターン目〜'];
   let h='';
-  oppCfg.forEach((r,i)=>{h+=`<tr><td>${labels[i]}</td><td class="n"><input type="number" min="0" max="99" step="1" data-oi="${i}" data-of="0" value="${r[0]}" aria-label="${labels[i]}の相手のライブ点数" style="width:5em"> 点</td><td class="n"><input type="number" min="0" max="100" step="5" data-oi="${i}" data-of="1" value="${r[1]}" aria-label="${labels[i]}の成功率" style="width:5em"> %</td></tr>`;});
+  oppCfg.forEach((r,i)=>{h+=`<tr><td>${labels[i]}</td><td class="n"><span class="stp"><button type="button" class="ghost" data-step="-1" data-oi="${i}" aria-label="${labels[i]}の点数を1下げる">−</button><output id="os${i}">${r[0]}</output><span class="u">点</span><button type="button" class="ghost" data-step="1" data-oi="${i}" aria-label="${labels[i]}の点数を1上げる">＋</button></span></td><td><span class="sld"><input type="range" min="0" max="100" step="5" data-oi="${i}" data-of="1" value="${r[1]}" aria-label="${labels[i]}の成功率"><output id="oq${i}">${r[1]}%</output></span></td></tr>`;});
   document.querySelector('#oppTable tbody').innerHTML=h;
 }
 function oppRead(){
@@ -1774,7 +1781,8 @@ function init(){
   $('importBtn').addEventListener('click',importDecks);
   $('traceBtn').addEventListener('click',traceOnce);
   oppLoad();oppRender();
-  $('oppTable').addEventListener('input',e=>{const el=e.target;if(el.dataset.oi===undefined)return;oppCfg[+el.dataset.oi][+el.dataset.of]=el.value===''?0:+el.value;oppStore();});
+  $('oppTable').addEventListener('input',e=>{const el=e.target;if(el.type!=='range')return;const i=+el.dataset.oi;oppCfg[i][1]=+el.value;$('oq'+i).textContent=el.value+'%';oppStore();});
+  $('oppTable').addEventListener('click',e=>{const b=e.target.closest('button[data-step]');if(!b)return;const i=+b.dataset.oi;const v=Math.max(0,Math.min(99,(+oppCfg[i][0]||0)+(+b.dataset.step)));oppCfg[i][0]=v;$('os'+i).textContent=v;oppStore();});
   $('goOpp').addEventListener('click',goOpp);
   $('oppTraceBtn').addEventListener('click',oppTrace);
   $('oppReset').addEventListener('click',()=>{oppCfg=oppDefaults();oppStore();oppRender();});
