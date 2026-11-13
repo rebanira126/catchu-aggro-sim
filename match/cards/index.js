@@ -3,9 +3,13 @@
 // ・BY_TEXT：効果の文章で登録（同じ文章のカードは全部これで動く）
 // どちらにも無いカードは、コスト・ハート・ブレードなどの数値だけで動く。
 import liella from './liella.js';
+import muse from './muse.js';
+import niji from './niji.js';
+import hasu from './hasu.js';
+import aqours from './aqours.js';
 import common from './common.js';
 
-export const BY_ID = Object.assign({}, liella);
+export const BY_ID = Object.assign({}, liella, muse, niji, hasu, aqours);
 export const BY_TEXT = Object.assign({}, common);
 
 export function resolveEffect(def) {

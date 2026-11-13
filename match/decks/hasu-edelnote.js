@@ -38,5 +38,12 @@ export default {
     refs: ["https://note.com/taki087/n/n76c6a1479109", "https://note.com/umi_kuku/n/ndbfeb1cadc39", "https://note.com/poke_lovelive/n/nbfe1b972d27f"],
   },
   // プレイ方針の上書き（まだ標準の方針のまま）
-  strategy: {},
+  // プレイ方針（仮。7デッキの効果がそろったので、あとでnoteの回し方に合わせて調整する）
+  // ・マリガン：コスト4まで、コスト2は2枚、必要ハート6以下のライブを1枚残す
+  // ・ライブ置き場の空き枠にコスト4以下のメンバーを伏せて引き直す
+  strategy: {
+    mulliganOpt: { keepCost: 4, maxLives: 1, maxNeed: 6, maxLow: 2 },
+    mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
+    liveOpt: { fill: true, fillMaxCost: 4, minP: 0.4, th1: 0.3 },
+  },
 };

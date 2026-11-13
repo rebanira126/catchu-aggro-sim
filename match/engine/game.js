@@ -1,7 +1,7 @@
 // ラブカの1試合を進める本体（総合ルール ver.1.06 に沿う）
 // カード効果は cards/ の登録表から呼び出す。登録のないカードは数値だけのカードとして動く。
 import { makeRng } from './rng.js';
-import { emptyPool, addHearts, addBladeHeart, meetAll } from './hearts.js';
+import { emptyPool, addHearts, addBladeHeart, meetAll, poolTotal } from './hearts.js';
 
 export const AREAS = ['左サイド', 'センター', '右サイド'];
 
@@ -74,6 +74,11 @@ export class Game {
     return P.deck.shift() || null;
   }
 
+  bottomCard(P) {
+    this.refresh(P);
+    return P.deck.pop() || null;
+  }
+
   draw(P, n = 1) {
     let got = 0;
     for (let k = 0; k < n; k++) {
@@ -113,6 +118,32 @@ export class Game {
     });
     return true;
   }
+
+  // 成功ライブカード置き場（と、指定があればライブカード置き場）にあるカードの常時能力。同じカードは重複しない
+  zoneStatics(P, hook, { live = false } = {}) {
+    const seen = new Set();
+    const out = [];
+    const cards = live ? P.success.concat(P.liveZone) : P.success;
+    for (const c of cards) {
+      const ef = this.effect(c);
+      if (!ef || !ef[hook] || seen.has(c.def.id)) continue;
+      if (live && ef.zones && !ef.zones.some(z => (z === 'success' ? P.success : P.liveZone).includes(c))) continue;
+      seen.add(c.def.id);
+      out.push({ ef, card: c });
+    }
+    return out;
+  }
+
+  // ライブの必要ハート（成功ライブ置き場のカードの常時能力 needMod を反映）
+  liveNeed(P, card) {
+    const need = card.def.need.slice();
+    for (const { ef } of this.zoneStatics(P, 'needMod')) ef.needMod({ g: this, me: P, card, need });
+    for (let i = 0; i < need.length; i++) need[i] = Math.max(0, need[i]);
+    return need;
+  }
+
+  // エネルギーカード（メンバーの下に置くとき用）
+  energyCard() { return { uid: uidSeq++, def: { kind: 'E', id: 'ENERGY', name: 'エネルギー' } }; }
 
   // [ターン1回] などの回数制限。使えたら true を返して回数を数える
   useOnce(slot, key, limit = 1) {
@@ -190,25 +221,43 @@ export class Game {
       const se = this.effect(s.card);
       if (se && se.costMod) c += se.costMod({ g: this, me: P, card, slot: s }) || 0;
     }
+    for (const { ef } of this.zoneStatics(P, 'costMod')) c += ef.costMod({ g: this, me: P, card }) || 0;
     return Math.max(0, c);
   }
 
   // 手札のメンバーをプレイする。成功したら true
-  play(P, handIdx, area, baton = true) {
+  play(P, handIdx, area, baton = true, area2 = null) {
     const card = P.hand[handIdx];
     if (!card || card.def.kind !== 'M') return false;
     if (!this.canTarget(P, area)) return false;
     const prev = P.stage[area];
     const doBaton = !!(baton && prev);
-    const cost = this.playCost(P, card, area, doBaton);
+    let cost = this.playCost(P, card, area, doBaton);
+    // 2人とバトンタッチ（doubleBaton を持つカード）
+    let second = null;
+    const ef = this.effect(card);
+    if (area2 != null) {
+      second = P.stage[area2];
+      if (!doBaton || !ef || !ef.doubleBaton || area2 === area || !second || !this.canTarget(P, area2)) return false;
+      cost = Math.max(0, cost - second.card.def.cost);
+    }
     if (!this.payEnergy(P, cost)) return false;
+    const handCost = this.costOf(P, card);
     P.hand.splice(handIdx, 1);
-    this.putMember(P, card, area, { baton: doBaton, from: 'hand' });
+    // 別のコストの払い方（手札を控え室に置いてコストを下げる、など）
+    if (ef && ef.onPay) ef.onPay({ g: this, me: P, card, cost: handCost });
+    if (second) {
+      P.stage[area2] = null;
+      for (const u of second.under) { if (u.def.kind === 'E') P.energyDeck++; else P.waiting.push(u); }
+      P.waiting.push(second.card);
+      this.log(P, 'play', `${AREAS[area2]}の${second.card.def.name}ともバトンタッチ`);
+    }
+    this.putMember(P, card, area, { baton: doBaton, from: 'hand', second });
     return true;
   }
 
   // メンバーをエリアに置く（プレイでも効果による登場でも使う）
-  putMember(P, card, area, { baton = false, from = 'hand' } = {}) {
+  putMember(P, card, area, { baton = false, from = 'hand', second = null } = {}) {
     const prev = P.stage[area];
     const slot = { card, active: true, under: [], enteredTurn: this.turn, mods: [] };
     if (prev) {
@@ -220,11 +269,19 @@ export class Game {
       // 「バトンタッチで控え室に置かれたとき、そのメンバーの下に置く」カード
       if (baton && pe && pe.underOnBaton) slot.under.push(prev.card);
       else P.waiting.push(prev.card);
+      // 「バトンタッチして控え室に置かれたとき」の自動能力
+      if (baton && pe && pe.onBatonOut) pe.onBatonOut({ g: this, me: P, card: prev.card, newCard: card });
     }
     P.stage[area] = slot;
     this.log(P, 'play', `${AREAS[area]}に${card.def.name}（コスト${card.def.cost}）を${baton ? 'バトンタッチで' : ''}登場`);
     const ef = this.effect(card);
-    if (ef && ef.onEnter) ef.onEnter({ g: this, me: P, opp: this.opp(P), card, slot, area, baton, batonFrom: baton ? prev : null, from });
+    if (ef && ef.onEnter) ef.onEnter({ g: this, me: P, opp: this.opp(P), card, slot, area, baton, batonFrom: baton ? prev : null, second, from });
+    // 「自分のステージにメンバーが登場したとき」の自動能力（ステージのほかのメンバーも含む）
+    P.stage.forEach((s, a) => {
+      if (!s) return;
+      const se = this.effect(s.card);
+      if (se && se.onAnyEnter) se.onAnyEnter({ g: this, me: P, opp: this.opp(P), card: s.card, slot: s, area: a, entered: slot, enteredArea: area });
+    });
     return slot;
   }
 
@@ -236,6 +293,12 @@ export class Game {
     const ef = this.effect(slot.card);
     if (ef && ef.blades) b += ef.blades({ g: this, me: P, slot, area }) || 0;
     for (const m of slot.mods) if (m.blades) b += m.blades;
+    // ステージのメンバーがほかのメンバーに与えるブレード（bladeAura）
+    for (const o of P.stage) {
+      if (!o) continue;
+      const oe = this.effect(o.card);
+      if (oe && oe.bladeAura) b += oe.bladeAura({ g: this, me: P, slot, area, source: o }) || 0;
+    }
     // 下に置かれたカードが与えるブレード（underBlades）
     for (const u of slot.under) {
       const ue = u.def.kind === 'M' && this.effect(u);
@@ -295,7 +358,7 @@ export class Game {
 
   normalPhase(P) {
     // アクティブフェイズ
-    for (const s of P.stage) if (s) { s.active = true; }
+    for (const s of P.stage) if (s) { if (s.lockActive) s.lockActive = false; else s.active = true; }
     P.energy.active = Math.max(0, P.energy.n - (P.energy.locked || 0));
     P.energy.locked = 0;
     // エネルギーフェイズ
@@ -312,7 +375,7 @@ export class Game {
     return {
       g, me: P, opp: this.opp(P), turn: this.turn,
       isFirst: P === this.p[this.first],
-      play: (handIdx, area, baton = true) => g.play(P, handIdx, area, baton),
+      play: (handIdx, area, baton = true, area2 = null) => g.play(P, handIdx, area, baton, area2),
       activate: (area, abilityIdx = 0) => g.activate(P, area, abilityIdx),
       view: () => g.view(P),
     };
@@ -355,7 +418,7 @@ export class Game {
     P.liveZone = P.liveZone.filter(c => c.def.kind === 'L');
     P.waiting.push(...nonLive);
     if (!P.liveZone.length) { this.log(P, 'live', 'ライブなし'); return; }
-    P.lives = P.liveZone.map(card => ({ card, need: card.def.need.slice(), bonus: 0 }));
+    P.lives = P.liveZone.map(card => ({ card, need: this.liveNeed(P, card), bonus: 0 }));
     const perf = { cheerN: 0, cheer: [], scoreIcons: 0, ok: false, score: 0, setCount: P.liveZone.length, totalBonus: 0 };
     P.perf = perf;
     this.log(P, 'live', `ライブ：${P.lives.map(l => l.card.def.name).join('＋')}`);
@@ -364,10 +427,13 @@ export class Game {
     // エール（8.3.10〜8.3.12）
     let blades = 0;
     P.stage.forEach((s, area) => { if (s && s.active) blades += this.bladesOf(P, s, area); });
+    blades += perf.cheerBonus || 0;
     perf.cheerN = blades;
+    // 「エールをデッキの下から行う」常時能力（ライブカード置き場のライブ）
+    const fromBottom = P.liveZone.some(c => { const e = this.effect(c); return e && e.cheerFromBottom; });
     let draws = 0;
     for (let k = 0; k < blades; k++) {
-      const c = this.topCard(P);
+      const c = fromBottom ? this.bottomCard(P) : this.topCard(P);
       if (!c) break;
       perf.cheer.push(c);
       if (c.def.icon === 'draw') draws++;
@@ -388,6 +454,8 @@ export class Game {
     perf.pool = pool;
     const res = meetAll(pool, P.lives.map(l => l.need));
     perf.ok = res.ok;
+    // 余剰ハート：必要ハートを満たしたあとに残ったハートの数
+    perf.excess = res.ok ? poolTotal(res.rest) : 0;
     this.log(P, 'cheer', `エール${blades}枚（ドロー${draws}・スコア${perf.scoreIcons}）→ ${res.ok ? '成功' : '失敗'}`);
     if (!res.ok) {
       P.waiting.push(...P.liveZone);
@@ -400,6 +468,7 @@ export class Game {
     let s = 0;
     for (const l of P.lives) s += l.card.def.score + l.bonus;
     s += (P.perf ? P.perf.scoreIcons : 0) + (P.perf ? (P.perf.totalBonus || 0) : 0);
+    for (const { ef } of this.zoneStatics(P, 'zoneScoreBonus', { live: true })) s += ef.zoneScoreBonus({ g: this, me: P }) || 0;
     // 「ライブの合計スコアを＋１する」常時能力（ステージのメンバー、ライブ終了時までの効果）
     P.stage.forEach((sl, area) => {
       if (!sl) return;

@@ -376,6 +376,38 @@ export default {
     },
     inheritUnder: def => inGroup(def, 'Liella!'),
   },
+
+  // ================= Burn!!（混成）で使うLiella!のカード =================
+  // ウィーン・マルガレーテ（2）bp7-010
+  'PL!SP-bp7-010': {
+    note: '起動：自分を控え室に置く→エネルギー1枚をエネルギーデッキに戻し、控え室のカードを1枚手札に',
+    activated: [{
+      ai: ({ me }) => !me.hand.some(isLive) && me.waiting.some(isLive) && me.energy.n >= 4,
+      run({ g, me, slot, area }) {
+        me.stage[area] = null; me.waiting.push(slot.card);
+        if (me.energy.n > 0) {
+          if (me.energy.active >= me.energy.n) me.energy.active--;
+          me.energy.n--; me.energyDeck++;
+        }
+        recover(g, me, () => true, 'ウィーン・マルガレーテ：');
+      },
+    }],
+  },
+  // 嵐 千砂都（11）pb2-014：フォーメーションチェンジ（位置で変わる効果を持つメンバーがいないので何もしない）
+  'PL!SP-pb2-014': {
+    note: '登場：ステージが5yncri5e!だけならフォーメーションチェンジしてよい（位置の影響が出ないため何もしない）',
+    onEnter() {},
+  },
+  // 嵐 千砂都（15）sd1-003：手札2枚でブレード+5
+  'PL!SP-sd1-003': {
+    note: 'ライブ開始時：手札を2枚捨ててよい→ライブ終了時までブレード+5',
+    order: { liveStart: 6 },
+    liveStart({ g, me, slot }) {
+      if (me.hand.length < 3 || !willDiscard(g, me, 2)) return;
+      discardWorst(g, me, 2);
+      slot.mods.push({ blades: 5, untilLiveEnd: true });
+    },
+  },
 };
 
 function applyDistortion6(me, live) {
