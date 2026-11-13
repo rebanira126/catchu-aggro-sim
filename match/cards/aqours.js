@@ -1,6 +1,6 @@
 // Aqours（と恋アクで使うほかのグループのカード）のカード効果（カード番号で登録）
 import { inGroup, isLive, isMember, discardWorst, willDiscard, recover, waitOpp, waitOppN, searchBigOnEnter, scry, hasBladeHeart, hasName, lookTake, takeTop, cardWorth, oppYetToPerform } from './lib.js';
-import { memberValue } from '../engine/ai.js';
+import { memberValue, bestPlays } from '../engine/ai.js';
 
 const AQ = 'Aqours';
 const isAq = c => inGroup(c.def, AQ);
@@ -86,12 +86,13 @@ export default {
     note: '登場：控え室から登場した場合、デッキの上3枚から1枚手札に、残りを控え室に',
     onEnter({ g, me, from }) { if (from === 'waiting') lookTake(g, me, 3, () => true, '国木田花丸：'); },
   },
-  // 小原鞠莉（4）cl1-008：ブレードを失う手札交換なので、AIは使わない
+  // 小原鞠莉（4）cl1-008：このターンにバトンタッチで入れ替える予定のときだけ使う（ウェイトになっても、バトンタッチ後のメンバーはアクティブ）
   'PL!S-cl1-008': {
-    note: '起動（ターン1回）：自分をウェイトにし手札1枚を捨てる→1枚引く（ブレードを失うのでAIは使わない）',
+    note: '起動（ターン1回）：自分をウェイトにし手札1枚を捨てる→1枚引く（このターンにこのメンバーからバトンタッチする予定のときだけ使う）',
     activated: [{
       once: 1,
       can: ({ slot, me }) => slot.active && me.hand.length >= 1,
+      ai: ({ g, me, slot, area }) => slot.active && me.hand.length >= 2 && willBatonFrom(g, me, area),
       run({ g, me, slot }) { slot.active = false; discardWorst(g, me, 1); g.draw(me, 1); },
     }],
   },
@@ -178,18 +179,26 @@ export default {
     },
   },
   // 渡辺 曜（15）bp7-005
+  // 登場：控え室のブレードハートを持たないメンバーを下に置く（リフレッシュ後のエールで外れを減らす）
+  // 起動（センター）：手札2枚で、自分と、登場時の効果が強いAqoursメンバー（高海千歌9・国木田花丸11 など）の登場時の効果をもう一度使う
   'PL!S-bp7-005': {
-    note: '登場：控え室のメンバー1枚をステージのメンバー1人の下に置く。常時：下にメンバーがいるAqoursメンバーはブレード+1（センターの起動能力はAIは使わない）',
-    onEnter({ g, me, slot }) {
-      const c = me.waiting.filter(isMember).sort((a, b) => cardWorth(g, me, a) - cardWorth(g, me, b))[0];
-      if (!c) return;
-      // 下にメンバーがいないAqoursメンバーを優先（ブレード+1が増える）
-      const t = me.stage.find(s => s && isAq(s.card) && !s.under.some(isMember)) || slot;
-      me.waiting.splice(me.waiting.indexOf(c), 1);
-      t.under.push(c);
-      g.log(me, 'eff', `渡辺 曜：${c.def.name}を${t.card.def.name}の下に置いた`);
-    },
+    note: '登場：控え室のメンバー1枚をステージのメンバーの下に置く（ブレードハートを持たないメンバーを優先）。常時：下にメンバーがいるAqoursメンバーはブレード+1。起動（センター・ターン1回）：手札2枚を捨て、自分とほかのAqoursメンバー1人の登場時の効果を使う',
+    onEnter({ g, me, slot }) { youUnder(g, me, slot); },
     bladeAura({ slot }) { return isAq(slot.card) && slot.under.some(isMember) ? 1 : 0; },
+    activated: [{
+      once: 1,
+      can: ({ area, me }) => area === 1 && me.hand.length >= 2,
+      ai: ({ g, me, slot, area }) => area === 1 && me.hand.length >= 3 && !!reEnterTarget(g, me, slot) && willDiscard(g, me, 2),
+      run({ g, me, slot, area }) {
+        const t = reEnterTarget(g, me, slot);
+        if (!t) return false;
+        discardWorst(g, me, 2);
+        g.log(me, 'eff', `渡辺 曜：自分と${t.slot.card.def.name}の登場時の効果を使う`);
+        youUnder(g, me, slot);
+        const ef = g.effect(t.slot.card);
+        ef.onEnter({ g, me, opp: g.opp(me), card: t.slot.card, slot: t.slot, area: t.area, baton: false, batonFrom: null, from: 'effect' });
+      },
+    }],
   },
   // 黒澤ダイヤ（15）cl1-004
   'PL!S-cl1-004': {
@@ -211,3 +220,39 @@ function swapTarget(g, me, self) {
   });
   return best;
 }
+
+// このターン、このエリアのメンバーからバトンタッチする予定があるか（盤面の計画を立てて確かめる）
+function willBatonFrom(g, me, area) {
+  const plan = bestPlays(g, me, {});
+  return plan.some(st => st.area === area);
+}
+
+// 渡辺 曜の登場時の効果：控え室のメンバーを1枚、ステージのメンバーの下に置く
+function youUnder(g, me, slot) {
+  const cand = me.waiting.filter(isMember);
+  if (!cand.length) return;
+  // ブレードハートを持たないメンバーを優先（デッキに戻ると、エールの外れになるため）
+  const c = cand.sort((a, b) => (hasBladeHeart(a.def) - hasBladeHeart(b.def)) || (cardWorth(g, me, a) - cardWorth(g, me, b)))[0];
+  const t = me.stage.find(s => s && isAq(s.card) && !s.under.some(isMember)) || slot;
+  me.waiting.splice(me.waiting.indexOf(c), 1);
+  t.under.push(c);
+  g.log(me, 'eff', `渡辺 曜：${c.def.name}を${t.card.def.name}の下に置いた`);
+}
+
+// 登場時の効果をもう一度使う価値があるAqoursメンバー
+const RE_ENTER = {
+  'PL!S-bp7-001': (g, me) => me.waiting.some(c => isMember(c) && c.def.cost >= 10), // 高海千歌9：大型を回収（梨子・曜ならブレード+2）
+  'PL!S-bp7-007': (g, me) => me.waiting.some(c => isMember(c) && c.def.cost <= 2),  // 国木田花丸11：コスト2以下を回収
+  'PL!S-bp2-005': () => true,                                                          // 渡辺 曜13：デッキの上7枚から3枚まで
+  'PL!S-bp5-003': (g, me) => me.waiting.some(c => isLive(c) && isAq(c)),             // 松浦果南13：ライブを回収
+};
+function reEnterTarget(g, me, self) {
+  let best = null;
+  me.stage.forEach((s, area) => {
+    if (!s || s === self || !isAq(s.card)) return;
+    const f = RE_ENTER[s.card.def.id];
+    if (f && f(g, me) && !best) best = { slot: s, area };
+  });
+  return best;
+}
+

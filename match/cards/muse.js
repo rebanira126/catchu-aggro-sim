@@ -146,24 +146,27 @@ export default {
     },
     aiBonus({ me }) { return me.waiting.some(c => isLive(c) && isMuse(c)) ? 1 : 0; },
   },
-  // 西木野真姫（17）bp6-006：5枚がすべて指定色を含むことは少ないので、AIは使わない
+  // 西木野真姫（17）bp6-006：色を指定してデッキの上5枚を公開。5枚すべてがその色を持てば、μ'sを1枚手札に＋ブレード+3
+  // メンバーは「持っているハート」、ライブは「必要ハート」で判定。公開する前に、デッキの中で一番多くのカードが持つ色を指定する
   'PL!-bp6-006': {
-    note: '起動（ターン1回）：手札1枚を捨て、色を指定してデッキの上5枚を公開。5枚すべてがその色を持つならμ\'sを1枚手札に、ブレード+3（成立しにくいのでAIは使わない）',
+    note: '起動（ターン1回）：手札1枚を捨て、色を指定してデッキの上5枚を公開。5枚すべてがその色のハート（ライブは必要ハート）を持つなら、μ\'sを1枚手札に・ライブ終了時までブレード+3（デッキで一番多くのカードが持つ色を指定。成立の見込みが2割以上のときに使う）',
     activated: [{
       once: 1,
       can: ({ me }) => me.hand.length >= 1,
+      ai: ({ g, me }) => bestColor(me).p >= 0.2 && willDiscard(g, me),
       run({ g, me, slot }) {
+        const { col } = bestColor(me);
         discardWorst(g, me, 1);
         const top = [];
         for (let k = 0; k < 5; k++) { const c = g.topCard(me); if (c) top.push(c); }
-        const has = (c, col) => (isMember(c) ? c.def.hearts[col - 1] > 0 : isLive(c) && c.def.need[col] > 0);
-        const col = [1, 2, 3, 4, 5, 6].sort((a, b) => top.filter(c => has(c, b)).length - top.filter(c => has(c, a)).length)[0];
-        if (top.length === 5 && top.every(c => has(c, col))) {
-          const pick = top.find(isMuse);
+        const ok = top.length === 5 && top.every(c => hasColor(c, col));
+        if (ok) {
+          const pick = top.filter(isMuse).sort((a, b) => cardWorth(g, me, b) - cardWorth(g, me, a))[0];
           if (pick) { top.splice(top.indexOf(pick), 1); me.hand.push(pick); }
           slot.mods.push({ blades: 3, untilLiveEnd: true });
         }
         me.waiting.push(...top);
+        g.log(me, 'eff', `西木野真姫：${COLOR[col]}を指定して5枚公開 → ${ok ? '成立（1枚手札に、ブレード+3）' : '不成立'}`);
       },
     }],
   },
@@ -192,3 +195,22 @@ export default {
   },
 };
 
+const COLOR = ['', '桃', '赤', '黄', '緑', '青', '紫'];
+// カードが色 col（1=桃〜6=紫）を持つか：メンバーはハート、ライブは必要ハート
+function hasColor(c, col) {
+  if (isMember(c)) return c.def.hearts[col - 1] > 0;
+  if (isLive(c)) return c.def.need[col] > 0;
+  return false;
+}
+// デッキの中で一番多くのカードが持つ色と、5枚すべてがその色になる見込み
+function bestColor(me) {
+  const deck = me.deck.length >= 5 ? me.deck : me.deck.concat(me.waiting);
+  let best = { col: 6, p: 0 };
+  for (let col = 1; col <= 6; col++) {
+    const k = deck.filter(c => hasColor(c, col)).length, n = deck.length;
+    let p = 1;
+    for (let i = 0; i < 5; i++) p *= Math.max(0, k - i) / Math.max(1, n - i);
+    if (p > best.p) best = { col, p };
+  }
+  return best;
+}

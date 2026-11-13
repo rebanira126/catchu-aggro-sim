@@ -198,10 +198,13 @@ export default {
     },
     aiBonus({ me }) { return me.hand.some(c => isMember(c) && c.def.cost >= 9) ? 0 : 1.5; },
   },
-  // 鬼塚夏美（4）：ウェイトの付け合い。自分のメンバーのブレードを失うため、AIは使わない
+  // 鬼塚夏美（4）pb2-009：自分のLiella!メンバーをウェイトにして、相手のメンバーをウェイトにする妨害
+  // 使うのは、相手のアクティブフェイズが済んでいて（自分が後攻）、自分のメンバーをウェイトにしても損が小さいとき
+  // （このターンにライブをしない／ウェイトにするメンバーのブレードより、止める相手のブレードの方が多い）
   'PL!SP-pb2-009': {
-    note: '登場／ライブ開始時：Liella!メンバー1人をウェイトにしてよい→相手のブレードが2つ以上少ないメンバー1人をウェイト（自分のブレードの方が多く減るので使わない）',
-    onEnter() {},
+    note: '登場／ライブ開始時：Liella!メンバー1人をウェイトにしてよい→相手の、元々のブレードが2つ以上少ないメンバー1人をウェイト（自分が余裕のあるときに使う）',
+    onEnter({ g, me, opp }) { if (g.order()[1] === me) natsumiWait(g, me, opp, !me.hand.some(isLive)); },
+    liveStart({ g, me, opp }) { if (g.order()[0] === me) natsumiWait(g, me, opp, false); },
   },
   // 葉月 恋（9）
   'PL!SP-bp7-005': {
@@ -459,3 +462,22 @@ function canSum10(me) {
   for (const x of costs) { const next = new Set(sums); for (const v of sums) if (v + x <= 50) next.add(v + x); sums = next; }
   return [10, 20, 30, 40, 50].some(v => sums.has(v));
 }
+
+// 鬼塚夏美 pb2-009 の判断：自分のどのメンバーをウェイトにして、相手の誰を止めるか
+function natsumiWait(g, me, opp, noLive) {
+  let best = null;
+  me.stage.forEach((s, a) => {
+    if (!s || !s.active || !inGroup(s.card.def, 'Liella!')) return;
+    const myLoss = noLive ? 0 : g.bladesOf(me, s, a);
+    opp.stage.forEach((t, b) => {
+      if (!t || !t.active || t.card.def.blades > s.card.def.blades - 2) return;
+      const gain = g.bladesOf(opp, t, b) - myLoss;
+      if (gain > 0 && (!best || gain > best.gain)) best = { s, t, gain };
+    });
+  });
+  if (!best) return;
+  best.s.active = false;
+  best.t.active = false;
+  g.log(me, 'eff', `鬼塚夏美：${best.s.card.def.name}をウェイトにして、相手の${best.t.card.def.name}をウェイトにした`);
+}
+

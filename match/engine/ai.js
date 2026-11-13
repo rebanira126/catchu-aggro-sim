@@ -225,6 +225,7 @@ function bestLiveSet(g, me, lives, samples, minP, opt = {}) {
   for (let mask = 1; mask < (1 << n); mask++) {
     const pick = lives.slice(0, n).filter((_, k) => mask & (1 << k));
     if (pick.length > 3) continue;
+    if (pick.length === 1 && opt.pairOnly && opt.pairOnly.includes(pick[0].def.id)) continue;
     const st = {};
     const p = successRate(g, me, pick, est, samples, st);
     if (p < minP) continue;
@@ -254,6 +255,8 @@ export function defaultSetLives(v, opt = {}) {
   for (let mask = 1; mask < (1 << n); mask++) {
     const pick = lives.slice(0, n).filter((_, k) => mask & (1 << k));
     if (pick.length > 3) continue;
+    // 単独では置かないライブ（opt.pairOnly：ほかのライブと組み合わせて使うもの）
+    if (pick.length === 1 && opt.pairOnly && opt.pairOnly.includes(pick[0].c.def.id)) continue;
     combos.push(pick);
   }
   const est = combos.length ? estimateContext(g, me) : null;
@@ -395,7 +398,7 @@ export function makePolicy(strategy = {}) {
   return {
     mulligan: v => ((v.me.prefer = strategy.prefer || null), strategy.mulligan ? strategy.mulligan(v, defaultMulligan) : defaultMulligan(v, strategy.mulliganOpt)),
     // ライブの点数の進行（pace）は、盤面づくりでも同じ目標を使う
-    main: api => (strategy.main ? strategy.main(api, defaultMain) : defaultMain(api, { pace: strategy.liveOpt && strategy.liveOpt.pace, ...strategy.mainOpt })),
+    main: api => (strategy.main ? strategy.main(api, defaultMain) : defaultMain(api, { pace: strategy.liveOpt && strategy.liveOpt.pace, pairOnly: strategy.liveOpt && strategy.liveOpt.pairOnly, ...strategy.mainOpt })),
     setLives: v => (strategy.setLives ? strategy.setLives(v, defaultSetLives) : defaultSetLives(v, strategy.liveOpt)),
     chooseSuccess: (v, zone) => (strategy.chooseSuccess ? strategy.chooseSuccess(v, zone) : 0),
   };

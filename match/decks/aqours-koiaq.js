@@ -45,6 +45,6 @@ export default {
   strategy: {
     mulliganOpt: { keepCost: 9, maxLives: 1, maxNeed: 6, maxLow: 2 },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
-    liveOpt: { fill: true, fillMaxCost: 4, minP: 0.4, th1: 0.3 },
+    liveOpt: { fill: true, fillMaxCost: 4, minP: 0.4, th1: 0.3, pairOnly: ["PL!S-bp3-019"] },
   },
 };
