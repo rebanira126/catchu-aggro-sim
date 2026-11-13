@@ -28,10 +28,25 @@ export default {
   'PL!SP-bp7-023': {
     note: 'ライブ成功時：エールで公開したLiella!のカードを1枚デッキの一番上に置いてよい',
     liveSuccess({ g, me }) {
-      const next = me.energy.n + 1;
-      const score = c => (isMember(c) ? (c.def.cost <= next ? c.def.cost : -1) : (me.hand.some(isLive) ? -1 : 0.5));
-      const pick = me.cheer.filter(c => inGroup(c.def, 'Liella!')).sort((a, b) => score(b) - score(a))[0];
-      if (pick && score(pick) >= 0) {
+      // 次のターンに足りないものだけをデッキの上に置く：ライブ → 5コスト → 大型 の順
+      const hand = me.hand, stage = me.stage.filter(Boolean).map(x => x.card.def);
+      const needSum = d => d.need.reduce((a, b) => a + b, 0);
+      const needLive = !hand.some(c => isLive(c) && needSum(c.def) <= 8);
+      const need5 = g.turn <= 2 && !hand.some(c => isMember(c) && c.def.cost >= 3 && c.def.cost <= 5) && !stage.some(d => d.cost >= 5);
+      const needBig = g.turn >= 2 && !hand.some(c => isMember(c) && c.def.cost >= 9) && stage.some(d => d.cost >= 3 && d.cost <= 5);
+      const rank = c => {
+        if (isLive(c)) return needLive && needSum(c.def) <= 8 ? 3 : 0;
+        if (c.def.cost >= 3 && c.def.cost <= 5) return need5 ? 2 : 0;
+        if (c.def.cost >= 9) return needBig ? 1 : 0;
+        return 0;
+      };
+      let pick = null, br = 0;
+      for (const c of me.cheer) {
+        if (!inGroup(c.def, 'Liella!')) continue;
+        const r = rank(c);
+        if (r > br) { br = r; pick = c; }
+      }
+      if (pick) {
         me.cheer.splice(me.cheer.indexOf(pick), 1);
         me.deck.unshift(pick);
         g.log(me, 'eff', `START!! True dreams：${pick.def.name}をデッキの一番上に置いた`);
@@ -49,6 +64,12 @@ export default {
   'PL!SP-bp1-005': {
     note: '登場：手札1枚を捨ててよい→デッキの上5枚からLiella!のカードを1枚まで手札に',
     onEnter({ g, me }) { if (willDiscard(g, me)) { discardWorst(g, me, 1); lookTake(g, me, 5, c => inGroup(c.def, 'Liella!'), '葉月 恋：'); } },
+    // 手札にライブがない／序盤に5コストがないときは、探しに行く価値が高い
+    aiBonus({ g, me }) {
+      if (!me.hand.some(isLive)) return 2;
+      if (g.turn <= 2 && !me.hand.some(c => isMember(c) && c.def.cost === 5)) return 3;
+      return 0;
+    },
   },
   // 澁谷かのん（2）：ライブ置き場に必要ハート合計8以上のLiella!ライブがあれば黄+1
   'PL!SP-bp5-012': {
@@ -70,7 +91,7 @@ export default {
   // 米女メイ（2）：ライブ開始時、名前の異なるほかのCatChu!1人につきエネルギー1枚アクティブ
   'PL!SP-pb2-018': {
     note: 'ライブ開始時：このメンバーと名前の異なるCatChu!1人につきエネルギーを1枚アクティブ',
-    order: { liveStart: 4 },
+    order: { liveStart: 0 }, // 先にアクティブにしておくと、かのんの支払いに回せる
     liveStart({ me, slot }) {
       const own = new Set(slot.card.def.names);
       const names = new Set();
@@ -91,7 +112,7 @@ export default {
   // 澁谷かのん（11）：ライブ開始時 エネルギー2を払わないなら手札2枚を捨てる／ライブ成功時 エネルギー6でスコア+1
   'PL!SP-pb1-001': {
     note: 'ライブ開始時：エネルギー2を払うか手札2枚を捨てる。ライブ成功時：エネルギー6を払ってよい→合計スコア+1',
-    order: { liveStart: 1 },
+    order: { liveStart: 2 },
     liveStart({ g, me }) { if (!g.payEnergy(me, 2)) discardWorst(g, me, Math.min(2, me.hand.length)); },
     liveSuccess({ g, me }) {
       if (me.perf && g.payEnergy(me, 6)) { me.perf.totalBonus += 1; g.log(me, 'eff', '澁谷かのん：エネルギー6でスコア+1'); }

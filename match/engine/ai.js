@@ -3,6 +3,16 @@
 import { emptyPool, addHearts, addBladeHeart, meetAll, needTotal } from './hearts.js';
 
 // メンバー1人の「強さ」の目安：ハートの数＋ブレードの数（ブレードはエールの枚数）
+// デッキごとの「優先したいメンバー」（strategy.prefer）：{ unit, ids, w }。手札の評価・マリガン・入れ替えで少し高く見る
+export function preferBonus(me, def) {
+  const pf = me && me.prefer;
+  if (!pf || def.kind !== 'M') return 0;
+  let b = 0;
+  if (pf.unit && def.unit === pf.unit) b += pf.w ?? 1;
+  if (pf.ids && pf.ids.includes(def.id)) b += pf.idW ?? pf.w ?? 1;
+  return b;
+}
+
 export function memberValue(def) {
   return def.hearts.reduce((a, b) => a + b, 0) + def.blades;
 }
@@ -24,6 +34,12 @@ export function defaultMulligan(v, opt = {}) {
     .sort((a, b) => needTotal(a.c.def.need) - needTotal(b.c.def.need));
   lives.forEach((x, k) => { if (k >= maxLives) back.push(x.i); });
   hand.forEach((c, i) => { if (c.def.kind === 'M' && c.def.cost > keepCost) back.push(i); });
+  // コスト2以下のメンバーは maxLow 枚まで残す（多いと序盤にライブを引けないため）
+  if (opt.maxLow != null) {
+    hand.map((c, i) => ({ c, i })).filter(x => x.c.def.kind === 'M' && x.c.def.cost <= 2)
+      .sort((a, b) => memberValue(b.c.def) + preferBonus(v.me, b.c.def) - memberValue(a.c.def) - preferBonus(v.me, a.c.def))
+      .forEach((x, k) => { if (k >= opt.maxLow) back.push(x.i); });
+  }
   return back;
 }
 
@@ -33,12 +49,28 @@ export function defaultMulligan(v, opt = {}) {
 export function defaultMain(api, opt = {}) {
   const { g, me } = api;
   useAbilities(api);
-  const plan = bestPlays(g, me, opt);
-  for (const step of plan) {
+  // 1枚出すごとに組み直す（登場時の効果で手札が変わるため）。出す予定の残りのカードは捨てないよう me.reserved に入れておく
+  for (let k = 0; k < 4; k++) {
+    const plan = bestPlays(g, me, opt);
+    if (!plan.length) break;
+    const step = firstStep(g, me, plan);
     const idx = me.hand.findIndex(c => c.uid === step.uid);
     if (idx < 0) break;
-    if (!api.play(idx, step.area, true)) break;
+    me.reserved = new Set(plan.filter(x => x !== step).map(x => x.uid));
+    const ok = api.play(idx, step.area, true);
+    me.reserved = null;
+    if (!ok) break;
   }
+}
+
+// 先に出すカード：登場時に手札を見る・引く効果のあるメンバーを先に（結果を見て組み直せるように）
+function firstStep(g, me, plan) {
+  const rank = st => {
+    const c = me.hand.find(x => x.uid === st.uid);
+    const ef = c && g.effect(c);
+    return ef && ef.onEnter ? 0 : 1;
+  };
+  return plan.slice().sort((a, b) => rank(a) - rank(b))[0];
 }
 
 // 起動能力：効果側の ai(ctx) が true を返したら使う（使うと盤面が変わるので1つずつ確認）
@@ -66,7 +98,7 @@ export function bestPlays(g, me, opt = {}) {
   const stage0 = me.stage.map(s => (s ? { def: s.card.def, locked: s.enteredTurn === g.turn, slot: s } : null));
   const handM = me.hand.filter(c => c.def.kind === 'M');
   const cands = [{ stage: stage0, left: energy, plan: [] }];
-  const seen = new Set();
+  const seen = new Map();
   const dfs = (stage, left, used, plan) => {
     if (plan.length >= 3) return;
     for (let a = 0; a < 3; a++) {
@@ -81,10 +113,12 @@ export function bestPlays(g, me, opt = {}) {
         if (cost > left) continue;
         const ns = stage.slice(); ns[a] = { def: c.def, locked: true, card: c };
         const key = ns.map(x => (x ? x.def.id : '-')).join('|') + '#' + (left - cost);
-        if (seen.has(key)) continue;
-        seen.add(key);
         const np = plan.concat([{ uid: c.uid, area: a }]);
-        cands.push({ stage: ns, left: left - cost, plan: np });
+        // 同じ盤面・同じ残りエネルギーになる手順は、使うカードが少ない方だけ残す
+        const prev = seen.get(key);
+        if (prev && prev.plan.length <= np.length) continue;
+        if (prev) { prev.plan = np; prev.stage = ns; }
+        else { const cand = { stage: ns, left: left - cost, plan: np }; seen.set(key, cand); cands.push(cand); }
         used.add(c.uid);
         dfs(ns, left - cost, used, np);
         used.delete(c.uid);
@@ -92,21 +126,38 @@ export function bestPlays(g, me, opt = {}) {
     }
   };
   dfs(stage0, energy, new Set(), []);
-  for (const c of cands) c.v = stageValue2(c.stage, value);
+  for (const c of cands) {
+    c.v = stageValue2(c.stage, value);
+    c.u = 0;
+    // ユニットの名前の種類を揃えると強くなるデッキ用（例：CatChu!のディストーション）
+    if (opt.unitBonus) {
+      const names = new Set();
+      for (const x of c.stage) if (x && x.def.unit === opt.unitBonus.unit) x.def.names.forEach(n => names.add(n));
+      c.u = opt.unitBonus.w * names.size;
+    }
+  }
   // 盤面の強さだけで選ぶ（ライブを見ない）
-  const byValue = (a, b) => b.v - a.v || b.left - a.left;
+  const byValue = (a, b) => (b.v + b.u) - (a.v + a.u) || b.left - a.left;
   cands.sort(byValue);
   const lives = me.hand.filter(c => c.def.kind === 'L');
-  if (opt.liveAware === false || !lives.length || cands.length === 1) return cands[0].plan;
-  // 手札のライブを成功させやすい盤面を選ぶ：上位の候補ごとに「出せるライブの期待点」を見積もる
+  // 登場時効果の価値（効果側の aiBonus：サーチで足りないカードを探しに行く、など）
+  const bonusOf = c => c.plan.reduce((sum, st) => {
+    const card = me.hand.find(x => x.uid === st.uid);
+    const ef = card && g.effect(card);
+    return sum + (ef && ef.aiBonus ? ef.aiBonus({ g, me, card, area: st.area }) || 0 : 0);
+  }, 0);
+  const useLive = opt.liveAware !== false && lives.length > 0;
   const top = cands.slice(0, opt.topK ?? 30);
   const w = opt.liveWeight ?? 3;
   let best = null;
   for (const c of top) {
-    const ev = withStage(me, c.stage, g, () => bestLiveSet(g, me, lives, opt.samples ?? 16, opt.minP ?? 0).ev);
-    c.score = ev * w + c.v * 0.2 + c.left * 0.01;
+    const ev = useLive ? withStage(me, c.stage, g, () => bestLiveSet(g, me, lives, opt.samples ?? 16, opt.minP ?? 0, opt).ev) : 0;
+    // 同じくらいの盤面なら、手札を使わない方（カードを温存）を選ぶ
+    c.score = ev * w + c.v * (useLive ? 0.2 : 1) + c.u + c.left * 0.01 + bonusOf(c) - (opt.playPen ?? 0) * c.plan.length;
+    c.ev = ev;
     if (!best || c.score > best.score) best = c;
   }
+  if (opt.debug) opt.debug(top);
   return best.plan;
 }
 
@@ -118,8 +169,10 @@ function withStage(me, stage, g, fn) {
 }
 
 // ライブの組み合わせから「成功率 × 点数」が一番高いものを選ぶ
-function bestLiveSet(g, me, lives, samples, minP) {
+function bestLiveSet(g, me, lives, samples, minP, opt = {}) {
   const n = Math.min(lives.length, 8);
+  // 点数の進行（pace）があるときは、目標点に届く組み合わせを高く見る
+  const tg = opt.pace ? opt.pace[Math.min(me.turnLog.filter(t => t.ok).length, opt.pace.length - 1)] : null;
   const est = estimateContext(g, me);
   let best = { ev: 0, p: 0, pick: [] };
   for (let mask = 1; mask < (1 << n); mask++) {
@@ -127,7 +180,8 @@ function bestLiveSet(g, me, lives, samples, minP) {
     if (pick.length > 3) continue;
     const p = successRate(g, me, pick, est, samples);
     if (p < minP) continue;
-    const ev = p * pick.reduce((s, c) => s + previewScore(g, me, c), 0);
+    const sc = pick.reduce((s, c) => s + previewScore(g, me, c), 0);
+    const ev = p * (tg != null && sc >= tg ? sc + (opt.paceBonus ?? 4) : sc);
     if (ev > best.ev + 1e-9 || (Math.abs(ev - best.ev) < 1e-9 && pick.length < best.pick.length)) best = { ev, p, pick };
   }
   return best;
@@ -145,24 +199,79 @@ export function defaultSetLives(v, opt = {}) {
   const samples = opt.samples ?? 40;
   const minP = opt.minP ?? 0.45;
   const lives = me.hand.map((c, i) => ({ c, i })).filter(x => x.c.def.kind === 'L');
-  if (!lives.length) return [];
+  // これまでに成功したライブの数（ひとり回しでも数えられるよう、ターンの記録から数える）
+  const succ = me.turnLog.filter(t => t.ok).length;
   const combos = [];
-  const n = lives.length;
+  const n = Math.min(lives.length, 8);
   for (let mask = 1; mask < (1 << n); mask++) {
-    const pick = lives.filter((_, k) => mask & (1 << k));
+    const pick = lives.slice(0, n).filter((_, k) => mask & (1 << k));
     if (pick.length > 3) continue;
     combos.push(pick);
   }
-  const est = estimateContext(g, me);
+  const est = combos.length ? estimateContext(g, me) : null;
   let best = null;
   for (const pick of combos) {
     const p = successRate(g, me, pick.map(x => x.c), est, samples);
     const score = pick.reduce((s, x) => s + previewScore(g, me, x.c), 0);
+    if (opt.pace) {
+      // 点数の進行（例：1→4→7）に合わせる：目標に届く中で一番小さい点数、届かなければ一番大きい点数
+      const tg = opt.pace[Math.min(succ, opt.pace.length - 1)];
+      const th = g.turn <= 1 && opt.th1 != null ? opt.th1 : (succ === opt.pace.length - 1 && score >= tg && opt.thLast != null ? opt.thLast : minP);
+      if (p < th || p <= 0) continue;
+      const key = score >= tg ? 1000 - score : score;
+      if (!best || key > best.key || (key === best.key && p > best.p + 1e-9)) best = { key, p, score, pick };
+      continue;
+    }
     const ev = p * score;
     if (p < minP) continue;
     if (!best || ev > best.ev + 1e-9 || (Math.abs(ev - best.ev) < 1e-9 && pick.length < best.pick.length)) best = { ev, p, score, pick };
   }
-  return best ? best.pick.map(x => x.i) : [];
+  const out = best ? best.pick.map(x => x.i) : [];
+  // 空いた枠に不要なメンバーを伏せて、同じ枚数を引き直す（ライブでないカードは控え室へ行く）
+  if (opt.fill && out.length < 3) {
+    const keep = protectedCards(g, me, opt);
+    const cand = me.hand.map((c, i) => ({ c, i }))
+      .filter(x => x.c.def.kind === 'M' && !keep.has(x.c.uid))
+      .sort((a, b) => handVal(a.c, me) - handVal(b.c, me));
+    for (const x of cand) { if (out.length >= 3) break; out.push(x.i); }
+  }
+  return out;
+}
+
+// 手札の並べ替え用のおおまかな価値
+function handVal(c, me) {
+  const d = c.def;
+  if (d.kind === 'M' && me) return 2 + (d.cost >= 9 ? 0.2 : 0) + d.hearts.reduce((a, b) => a + b, 0) * 0.2 + d.blades * 0.1 + preferBonus(me, d) * 0.5;
+  if (d.kind === 'L') return 3 + d.score * 0.3;
+  return 2 + (d.cost >= 9 ? 0.2 : 0) + d.hearts.reduce((a, b) => a + b, 0) * 0.2 + d.blades * 0.1;
+}
+
+// 入れ替えに使わずに残すカード：次に出す中コストの一番いい1枚と、序盤は大型の一番いい1枚
+export function protectedCards(g, me, opt = {}) {
+  const keep = new Set();
+  const mid = opt.midCost ?? 5;
+  const ms = me.hand.filter(c => c.def.kind === 'M');
+  if (g.turn <= (opt.protTurns ?? (me.prefer && me.prefer.protTurns) ?? 3)) {
+    const m5 = ms.filter(c => c.def.cost >= 3 && c.def.cost <= mid).sort((a, b) => handVal(b, me) - handVal(a, me));
+    if (m5[0]) keep.add(m5[0].uid);
+  }
+  // ステージの空き枠を次のターンに埋めるための低コストのメンバー
+  const empty = me.stage.filter(x => !x).length;
+  if (empty && opt.protFill !== false) {
+    const low = ms.filter(c => c.def.cost <= 2 && !keep.has(c.uid)).sort((a, b) => memberValue(b.def) - memberValue(a.def));
+    low.slice(0, empty).forEach(c => keep.add(c.uid));
+  }
+  // 決めの大きいライブ（strategy.prefer.bigLive 点以上）は2ターン目から1枚残す
+  const bl = me.prefer && me.prefer.bigLive;
+  if (bl && g.turn >= 2) {
+    const L = me.hand.filter(c => c.def.kind === 'L' && c.def.score >= bl).sort((a, b) => b.def.score - a.def.score);
+    if (L[0]) keep.add(L[0].uid);
+  }
+  if (g.turn <= 2) {
+    const big = ms.filter(c => c.def.cost >= 9).sort((a, b) => memberValue(b.def) - memberValue(a.def) || b.def.blades - a.def.blades);
+    if (big[0]) keep.add(big[0].uid);
+  }
+  return keep;
 }
 
 function previewScore(g, me, card) {
@@ -216,8 +325,9 @@ export function successRate(g, me, cards, est, samples) {
 // 標準方針をまとめたもの。deck.strategy で一部を差し替えられる
 export function makePolicy(strategy = {}) {
   return {
-    mulligan: v => (strategy.mulligan ? strategy.mulligan(v, defaultMulligan) : defaultMulligan(v, strategy.mulliganOpt)),
-    main: api => (strategy.main ? strategy.main(api, defaultMain) : defaultMain(api, strategy.mainOpt)),
+    mulligan: v => ((v.me.prefer = strategy.prefer || null), strategy.mulligan ? strategy.mulligan(v, defaultMulligan) : defaultMulligan(v, strategy.mulliganOpt)),
+    // ライブの点数の進行（pace）は、盤面づくりでも同じ目標を使う
+    main: api => (strategy.main ? strategy.main(api, defaultMain) : defaultMain(api, { pace: strategy.liveOpt && strategy.liveOpt.pace, ...strategy.mainOpt })),
     setLives: v => (strategy.setLives ? strategy.setLives(v, defaultSetLives) : defaultSetLives(v, strategy.liveOpt)),
     chooseSuccess: (v, zone) => (strategy.chooseSuccess ? strategy.chooseSuccess(v, zone) : 0),
   };

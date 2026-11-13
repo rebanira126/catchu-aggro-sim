@@ -35,8 +35,15 @@ export default {
     key: "自作の基本形（このプロジェクトで作成）",
     refs: [],
   },
-  // プレイ方針：マリガンで5コストまで残し、ライブは2枚まで（必要ハート9以上の6点ディストーションは3ターン目用なので戻す）
+  // プレイ方針（旧CatChu!シミュレーターと結果がほぼ同じになるよう調整）
+  // ・マリガン：コスト2は1枚、5コストまで、ライブは必要ハート7以下を1枚だけ残す
+  // ・盤面：CatChu!の名前の種類を揃える（ディストーションが強くなる）。同じ盤面ならカードを使わない方
+  // ・ライブ：1→4→7点の進行をねらう。空いた枠には不要なメンバーを伏せて引き直す
+  // ・6点のディストーションは2ターン目から1枚残す
   strategy: {
-    mulliganOpt: { keepCost: 5, maxLives: 2, maxNeed: 8 },
+    prefer: { unit: 'CatChu!', w: 1, bigLive: 6 },
+    mulliganOpt: { keepCost: 5, maxLives: 1, maxNeed: 7, maxLow: 1 },
+    mainOpt: { playPen: 0.3, unitBonus: { unit: 'CatChu!', w: 0.8 }, topK: 60 },
+    liveOpt: { fill: true, pace: [1, 4, 7], minP: 0.5, th1: 0.3, thLast: 0.15 },
   },
 };
