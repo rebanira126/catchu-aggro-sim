@@ -295,10 +295,26 @@ export function defaultSetLives(v, opt = {}) {
   }
   const est = combos.length ? estimateContext(g, me) : null;
   let best = null;
+  // 相手の点数の見込みがあるとき（対戦）は、相手と比べた勝ち負けで選ぶ
+  const oppD = opt.oppAware === false ? null : oppDistribution(g, me);
+  let bestU = null;
   for (const pick of combos) {
     const st = {};
     const p = successRate(g, me, pick.map(x => x.c), est, samples, st);
     const score = pick.reduce((s, x) => s + previewScore(g, me, x.c), 0) + (st.adj || 0);
+    if (oppD) {
+      const ids = pick.map(x => x.c.def.id);
+      let u = liveUtility(g, me, oppD, p, score);
+      if (planLives(g, me, ids)) u += opt.planUtil ?? 0.08;               // そのターンに置きたい組み合わせ
+      else if (usesReserved(g, me, ids)) u -= opt.reserveUtil ?? 0.08;    // 後のターン用のライブを使う
+      if (opt.pace) {                                                       // 点数の進行（目標点）に届くなら少し高く
+        const tg = opt.pace[Math.min(succ, opt.pace.length - 1)];
+        if (score >= tg) u += 0.03;
+      }
+      u -= 0.02 * pick.length;                                              // 使うライブは少ない方がよい
+      if (!bestU || u > bestU.u + 1e-9) bestU = { u, p, score, pick };
+      continue;
+    }
     if (opt.pace) {
       // 点数の進行（例：1→4→7）に合わせる：目標に届く中で一番小さい点数、届かなければ一番大きい点数
       const tg = opt.pace[Math.min(succ, opt.pace.length - 1)];
@@ -324,6 +340,11 @@ export function defaultSetLives(v, opt = {}) {
     }
     if (!best || ev > best.ev + 1e-9 || (Math.abs(ev - best.ev) < 1e-9 && pick.length < best.pick.length)) best = { ev, p, score, pick };
   }
+  if (oppD) {
+    // 置かない（しゃがむ）ときより得になるなら置く
+    const u0 = -oppD.pSucc;
+    best = bestU && bestU.u > u0 + (opt.oppMargin ?? 0.02) ? bestU : null;
+  }
   const out = best ? best.pick.map(x => x.i) : [];
   // 空いた枠に不要なメンバーを伏せて、同じ枚数を引き直す（ライブでないカードは控え室へ行く）
   // 山札を削りたいデッキ（prefer.mill）は、空いた枠をいつも埋めて引き直す
@@ -335,6 +356,46 @@ export function defaultSetLives(v, opt = {}) {
     for (const x of cand) { if (out.length >= 3) break; out.push(x.i); }
   }
   return out;
+}
+
+// ---------------- 相手の点数を意識したライブの判断 ----------------
+// 相手のこのターンの点数の見込み：{ none: 成功しない確率, pSucc, dist: [[点数, 確率], ...] }
+// ・相手のデッキのひとり回しの結果（me.oppModel）から引く
+// ・自分が後攻なら、先攻が伏せた枚数が見える。0枚ならライブなし
+export function oppDistribution(g, me) {
+  const model = me.oppModel;
+  if (!model) return null;
+  const opp = g.opp(me);
+  const second = g.order()[1] === me;
+  if (second && opp.liveZone.length === 0) return { none: 1, pSucc: 0, dist: [] };
+  const prof = model[Math.min(g.turn, model.length - 1)];
+  if (!prof || !prof.n) return null;
+  let none = prof.none / prof.n;
+  let dist = Object.entries(prof.scores).map(([sc, c]) => [+sc, c / prof.n]);
+  // 後攻で、先攻がカードを伏せているのが見えるなら「ライブなし」の分を減らす（伏せたのが全部メンバーのこともあるので半分）
+  if (second && opp.liveZone.length > 0 && none < 1) {
+    const k = 0.5;
+    const succ = 1 - none;
+    const scale = (succ + none * k) / succ;
+    dist = dist.map(([sc, q]) => [sc, q * scale]);
+    none = none * (1 - k);
+  }
+  return { none, pSucc: 1 - none, dist };
+}
+
+// 置き方の良さ：（自分がライブに勝つ確率）−（相手がライブに勝つ確率）
+// 同点は両方勝ち。ただし両方が成功ライブ2枚の千秋楽で同点なら、どちらも移動しない
+function liveUtility(g, me, D, p, s) {
+  const opp = g.opp(me);
+  const finalTie = me.success.length === 2 && opp.success.length === 2;
+  let weWin = D.none, oppWin = 0;
+  for (const [os, q] of D.dist) {
+    if (os < s) weWin += q;
+    else if (os === s) { if (!finalTie) { weWin += q; oppWin += q * p; } }
+    else oppWin += q * p;
+    oppWin += q * (1 - p);
+  }
+  return p * weWin - oppWin;
 }
 
 // 控え室に置いておきたいカードか（控え室にまだ無いときだけ）

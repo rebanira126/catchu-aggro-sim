@@ -6,7 +6,7 @@ export { Game } from './game.js';
 export { makePolicy } from './ai.js';
 
 // 1試合
-export function playOne({ db, effects, a, b, seed, first, trace = false, maxTurns = 12 }) {
+export function playOne({ db, effects, a, b, seed, first, trace = false, maxTurns = 12, oppAware = true }) {
   const g = new Game({
     db, effects, seed, first, trace,
     players: [
@@ -14,8 +14,32 @@ export function playOne({ db, effects, a, b, seed, first, trace = false, maxTurn
       { name: b.name, list: b.list, policy: makePolicy(b.strategy) },
     ],
   });
+  // 相手のデッキの点数の見込み（ひとり回しで先に調べたもの）。ライブを置くかどうかの判断に使う
+  if (oppAware) {
+    g.p[0].oppModel = soloProfile({ db, effects, deck: b });
+    g.p[1].oppModel = soloProfile({ db, effects, deck: a });
+  }
   g.run(maxTurns);
   return g;
+}
+
+// デッキの「ターンごとの点数の見込み」：ひとり回しを何回かして、各ターンに何点で成功したか（失敗・ライブなしは none）を数える
+// 同じデッキは一度だけ調べる（キャッシュ）
+const profileCache = new Map();
+export function soloProfile({ db, effects, deck, n = 120, turns = 10 }) {
+  const key = (deck.id || deck.name) + '#' + JSON.stringify(deck.list);
+  if (profileCache.has(key)) return profileCache.get(key);
+  const prof = Array.from({ length: turns + 1 }, () => ({ n: 0, none: 0, scores: {} }));
+  for (let s = 1; s <= n; s++) {
+    const g = playSolo({ db, effects, deck, seed: 100003 + s * 7919, turns });
+    g.p[0].turnLog.forEach((r, k) => {
+      const t = prof[k + 1]; if (!t) return;
+      t.n++;
+      if (r.ok) t.scores[r.score] = (t.scores[r.score] || 0) + 1; else t.none++;
+    });
+  }
+  profileCache.set(key, prof);
+  return prof;
 }
 
 // 集計器。step(k) を何度も呼んで少しずつ回せる（画面を止めないため）
