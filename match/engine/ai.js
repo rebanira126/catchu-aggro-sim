@@ -54,6 +54,8 @@ function keepListMulligan(v, keep) {
   if (tw) { const i = hand.findIndex(c => tw.includes(c.def.id)); if (i >= 0) kept.add(i); }
   const groupLeft = {}; // 同じ group のルールは残す枚数を共有する（「AかBのどちらか1枚」）
   for (const rule of keep) {
+    // ifKept：それより上のルールで1枚以上残せたときだけ使う（例：5コストか恋がある手札だけ、ほかのカードも残す）
+    if (rule.ifKept && kept.size === 0) continue;
     if (rule.group != null && groupLeft[rule.group] == null) groupLeft[rule.group] = rule.n ?? 1;
     let n = rule.group != null ? groupLeft[rule.group] : rule.n ?? 1;
     const hit = c => {
