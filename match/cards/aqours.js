@@ -21,6 +21,11 @@ export default {
     liveSuccess({ me, live }) {
       if ((me.perf && me.perf.excess >= 2) || me.cheer.every(c => hasBladeHeart(c.def))) live.bonus = 4 - live.card.def.score;
     },
+    // 見積もり：成功したときに余剰ハートが2つ以上になるか、エールが全部ブレードハート持ちならスコアが4に下がる
+    // （AIは、ほかのライブを一緒に置いて余剰ハートを使い切る組み合わせや、ハートを増やしすぎない盤面を選べる）
+    successAdjust({ card, excess, cheer }) {
+      return excess >= 2 || cheer.every(c => hasBladeHeart(c.def)) ? 4 - card.def.score : 0;
+    },
   },
   // コワレヤスキ（5点）
   'PL!S-bp6-024': {
