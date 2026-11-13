@@ -100,6 +100,44 @@ export class Game {
     return true;
   }
 
+  // カードの効果でエネルギーを置く。置いたら「エネルギーが置かれたとき」の自動能力（onEnergy）を起こす
+  // lock：次のターンのアクティブフェイズにアクティブにならない
+  addEnergyByEffect(P, { active = false, lock = false, label = '' } = {}) {
+    if (!this.addEnergy(P, { active })) return false;
+    if (lock) P.energy.locked = (P.energy.locked || 0) + 1;
+    this.log(P, 'eff', `${label}エネルギーを1枚${active ? 'アクティブ' : 'ウェイト'}状態で置いた（${P.energy.n}枚）`);
+    P.stage.forEach((s, area) => {
+      if (!s) return;
+      const ef = this.effect(s.card);
+      if (ef && ef.onEnergy) ef.onEnergy({ g: this, me: P, opp: this.opp(P), card: s.card, slot: s, area });
+    });
+    return true;
+  }
+
+  // [ターン1回] などの回数制限。使えたら true を返して回数を数える
+  useOnce(slot, key, limit = 1) {
+    slot.uses = slot.uses || {};
+    const u = slot.uses[key];
+    const n = u && u.turn === this.turn ? u.n : 0;
+    if (n >= limit) return false;
+    slot.uses[key] = { turn: this.turn, n: n + 1 };
+    return true;
+  }
+
+  // メンバーが持つ起動能力（下に置かれたカードから得たものも含む）
+  abilities(slot) {
+    const ef = this.effect(slot.card);
+    const list = ((ef && ef.activated) || []).map((ab, k) => ({ ab, key: `${slot.card.def.id}#${k}`, card: slot.card }));
+    if (ef && ef.inheritUnder) {
+      for (const u of slot.under) {
+        if (u.def.kind !== 'M' || !ef.inheritUnder(u.def)) continue;
+        const ue = this.effect(u);
+        ((ue && ue.activated) || []).forEach((ab, k) => list.push({ ab, key: `${u.def.id}#${k}`, card: u }));
+      }
+    }
+    return list;
+  }
+
   effect(card) {
     const def = card.def;
     if (!this.efCache.has(def.id)) this.efCache.set(def.id, this.resolve(def) || null);
@@ -127,7 +165,11 @@ export class Game {
   // 置けるエリアか（このターンにステージに来たメンバーのいるエリアは指定できない 9.6.2.1.2.1）
   canTarget(P, area) {
     const s = P.stage[area];
-    return !(s && s.enteredTurn === this.turn);
+    if (s && s.enteredTurn === this.turn) return false;
+    // バトンタッチで控え室に置けないメンバー
+    const ef = s && this.effect(s.card);
+    if (ef && ef.noBatonOut) return false;
+    return true;
   }
 
   // 実際に払うコスト（バトンタッチ時は置き換えるメンバーのコスト分減る）
@@ -142,6 +184,12 @@ export class Game {
     const ef = this.effect(card);
     let c = card.def.cost;
     if (ef && ef.handCost) c = ef.handCost({ g: this, me: P, card, base: c });
+    // ステージのメンバーの常時能力によるコストの増減（costMod）
+    for (const s of P.stage) {
+      if (!s) continue;
+      const se = this.effect(s.card);
+      if (se && se.costMod) c += se.costMod({ g: this, me: P, card, slot: s }) || 0;
+    }
     return Math.max(0, c);
   }
 
@@ -162,14 +210,17 @@ export class Game {
   // メンバーをエリアに置く（プレイでも効果による登場でも使う）
   putMember(P, card, area, { baton = false, from = 'hand' } = {}) {
     const prev = P.stage[area];
+    const slot = { card, active: true, under: [], enteredTurn: this.turn, mods: [] };
     if (prev) {
       // バトンタッチ、または重複メンバー処理（10.4）：前のメンバーは控え室へ
-      P.waiting.push(prev.card);
       for (const u of prev.under) {
         if (u.def.kind === 'E') { P.energyDeck++; } else P.waiting.push(u);
       }
+      const pe = this.effect(prev.card);
+      // 「バトンタッチで控え室に置かれたとき、そのメンバーの下に置く」カード
+      if (baton && pe && pe.underOnBaton) slot.under.push(prev.card);
+      else P.waiting.push(prev.card);
     }
-    const slot = { card, active: true, under: [], enteredTurn: this.turn, mods: [] };
     P.stage[area] = slot;
     this.log(P, 'play', `${AREAS[area]}に${card.def.name}（コスト${card.def.cost}）を${baton ? 'バトンタッチで' : ''}登場`);
     const ef = this.effect(card);
@@ -185,6 +236,11 @@ export class Game {
     const ef = this.effect(slot.card);
     if (ef && ef.blades) b += ef.blades({ g: this, me: P, slot, area }) || 0;
     for (const m of slot.mods) if (m.blades) b += m.blades;
+    // 下に置かれたカードが与えるブレード（underBlades）
+    for (const u of slot.under) {
+      const ue = u.def.kind === 'M' && this.effect(u);
+      if (ue && ue.underBlades) b += ue.underBlades({ g: this, me: P, slot, area, card: u }) || 0;
+    }
     return Math.max(0, b);
   }
 
@@ -240,7 +296,8 @@ export class Game {
   normalPhase(P) {
     // アクティブフェイズ
     for (const s of P.stage) if (s) { s.active = true; }
-    P.energy.active = P.energy.n;
+    P.energy.active = Math.max(0, P.energy.n - (P.energy.locked || 0));
+    P.energy.locked = 0;
     // エネルギーフェイズ
     if (this.addEnergy(P)) P.energy.active++;
     // ドローフェイズ
@@ -265,11 +322,12 @@ export class Game {
   activate(P, area, k = 0) {
     const s = P.stage[area];
     if (!s) return false;
-    const ef = this.effect(s.card);
-    const ab = ef && ef.activated && ef.activated[k];
-    if (!ab) return false;
+    const item = this.abilities(s)[k];
+    if (!item) return false;
+    const { ab, key } = item;
     const ctx = { g: this, me: P, opp: this.opp(P), card: s.card, slot: s, area };
     if (ab.can && !ab.can(ctx)) return false;
+    if (ab.once && !this.useOnce(s, key, ab.once)) return false;
     return ab.run(ctx) !== false;
   }
 
@@ -284,6 +342,8 @@ export class Game {
       this.draw(P, set.length);
       if (set.length) this.log(P, 'set', `ライブカード置き場に${set.length}枚セット`);
     }
+    // 盤面の記録（集計用）
+    for (const P of [A, B]) (P.stageLog = P.stageLog || []).push({ s: P.stage.map(x => (x ? x.card.def.cost : 0)).join('-'), E: P.energy.n, h: P.hand.length });
     // パフォーマンス（先攻 → 後攻）
     for (const P of [A, B]) this.perform(P);
     this.judge();
@@ -315,6 +375,8 @@ export class Game {
     }
     P.cheer = perf.cheer;
     if (draws) this.draw(P, draws);
+    // エールのあとのチェックタイミング（8.3.13）：「エールにより公開された〜とき」の自動能力
+    this.fire(P, 'cheer');
     // 所有ハート（8.3.14）：全メンバーのハート＋エールのブレードハート
     const pool = emptyPool();
     P.stage.forEach((s, area) => {
@@ -338,6 +400,13 @@ export class Game {
     let s = 0;
     for (const l of P.lives) s += l.card.def.score + l.bonus;
     s += (P.perf ? P.perf.scoreIcons : 0) + (P.perf ? (P.perf.totalBonus || 0) : 0);
+    // 「ライブの合計スコアを＋１する」常時能力（ステージのメンバー、ライブ終了時までの効果）
+    P.stage.forEach((sl, area) => {
+      if (!sl) return;
+      const ef = this.effect(sl.card);
+      if (ef && ef.scoreBonus) s += ef.scoreBonus({ g: this, me: P, slot: sl, area }) || 0;
+      for (const m of sl.mods) if (m.score) s += m.score;
+    });
     return s;
   }
 

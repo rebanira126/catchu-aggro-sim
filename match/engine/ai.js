@@ -76,13 +76,12 @@ function firstStep(g, me, plan) {
 // 起動能力：効果側の ai(ctx) が true を返したら使う（使うと盤面が変わるので1つずつ確認）
 export function useAbilities(api) {
   const { g, me } = api;
-  for (let guard = 0; guard < 6; guard++) {
+  for (let guard = 0; guard < 8; guard++) {
     let used = false;
     for (let area = 0; area < 3 && !used; area++) {
       const s = me.stage[area];
       if (!s) continue;
-      const ef = g.effect(s.card);
-      (ef && ef.activated || []).forEach((ab, k) => {
+      g.abilities(s).forEach(({ ab }, k) => {
         if (used || !ab.ai) return;
         const ctx = { g, me, opp: g.opp(me), card: s.card, slot: s, area };
         if (ab.ai(ctx) && api.activate(area, k)) used = true;
@@ -154,11 +153,41 @@ export function bestPlays(g, me, opt = {}) {
     const ev = useLive ? withStage(me, c.stage, g, () => bestLiveSet(g, me, lives, opt.samples ?? 16, opt.minP ?? 0, opt).ev) : 0;
     // 同じくらいの盤面なら、手札を使わない方（カードを温存）を選ぶ
     c.score = ev * w + c.v * (useLive ? 0.2 : 1) + c.u + c.left * 0.01 + bonusOf(c) - (opt.playPen ?? 0) * c.plan.length;
+    // 下にカードが置かれているメンバーを入れ替えると、下のカードは控え室に行く
+    c.score -= (opt.underPen ?? 1.5) * underLost(me, c);
+    // 次のターンに手札の大型をバトンタッチで出せる盤面か（opt.setupWeight）
+    if (opt.setupWeight) c.score += opt.setupWeight * setupValue(g, me, c, opt);
     c.ev = ev;
     if (!best || c.score > best.score) best = c;
   }
   if (opt.debug) opt.debug(top);
   return best.plan;
+}
+
+// 候補の盤面で、入れ替えられて失う「下に置かれたメンバー」の枚数
+function underLost(me, c) {
+  let n = 0;
+  me.stage.forEach((sl, a) => {
+    if (!sl || !sl.under.length) return;
+    const now = c.stage[a];
+    if (!now || now.slot !== sl) n += sl.under.filter(u => u.def.kind === 'M').length;
+  });
+  return n;
+}
+
+// 次のターンに、手札の一番強い大型メンバー（コスト opt.bigCost 以上）をバトンタッチで出せるなら 1
+function setupValue(g, me, c, opt) {
+  const used = new Set(c.plan.map(st => st.uid));
+  const bigs = me.hand.filter(x => x.def.kind === 'M' && x.def.cost >= (opt.bigCost ?? 9) && !used.has(x.uid));
+  if (!bigs.length) return 0;
+  const nextE = me.energy.n + 1 - (me.energy.locked || 0);
+  const costs = c.stage.map(x => (x ? x.def.cost : 0));
+  let best = 0;
+  for (const b of bigs) {
+    const bc = g.costOf(me, b);
+    if (costs.some(sc => bc - sc <= nextE)) best = Math.max(best, memberValue(b.def));
+  }
+  return best ? 1 + best / 10 : 0;
 }
 
 // 仮の盤面に入れ替えて fn を実行する（見積もり用）
@@ -231,7 +260,7 @@ export function defaultSetLives(v, opt = {}) {
   if (opt.fill && out.length < 3) {
     const keep = protectedCards(g, me, opt);
     const cand = me.hand.map((c, i) => ({ c, i }))
-      .filter(x => x.c.def.kind === 'M' && !keep.has(x.c.uid))
+      .filter(x => x.c.def.kind === 'M' && !keep.has(x.c.uid) && x.c.def.cost <= (opt.fillMaxCost ?? 99))
       .sort((a, b) => handVal(a.c, me) - handVal(b.c, me));
     for (const x of cand) { if (out.length >= 3) break; out.push(x.i); }
   }
@@ -277,7 +306,7 @@ export function protectedCards(g, me, opt = {}) {
 function previewScore(g, me, card) {
   const ef = g.effect(card);
   const live = { card, need: card.def.need.slice(), bonus: 0 };
-  if (ef && ef.preview) ef.preview({ g, me, card, live });
+  if (ef && ef.preview) ef.preview({ g, me, opp: g.opp(me), card, live });
   return card.def.score + live.bonus;
 }
 
@@ -299,7 +328,7 @@ export function successRate(g, me, cards, est, samples) {
   const needs = cards.map(card => {
     const ef = g.effect(card);
     const live = { card, need: card.def.need.slice(), bonus: 0 };
-    if (ef && ef.preview) ef.preview({ g, me, card, live });
+    if (ef && ef.preview) ef.preview({ g, me, opp: g.opp(me), card, live });
     return live.need;
   });
   const arr = est.unknown;

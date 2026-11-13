@@ -37,5 +37,14 @@ export default {
     refs: ["https://note.com/fine_eel3362/n/n5693665d2e4f", "https://note.com/poke_lovelive/n/nbfe1b972d27f"],
   },
   // プレイ方針の上書き（まだ標準の方針のまま）
-  strategy: {},
+  // プレイ方針
+  // ・マリガン：10コストまで、コスト2は1枚、1点ライブ（必要ハート5以下）を1枚だけ残す
+  // ・盤面：嵐 千砂都（bp7-003）の下に積んだカードを失う入れ替えは避ける。唐 可可は左サイドへ
+  // ・ライブ：成功2枚までは1点ライブで進め、千秋楽で大きく取りに行く
+  // ・空いた枠にはコスト4以下のメンバーを伏せて引き直す（大型は残す）
+  strategy: {
+    mulliganOpt: { keepCost: 10, maxLives: 1, maxNeed: 5, maxLow: 1 },
+    mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
+    liveOpt: { fill: true, fillMaxCost: 4, pace: [1, 1, 10], minP: 0.4, th1: 0.3, thLast: 0.3 },
+  },
 };

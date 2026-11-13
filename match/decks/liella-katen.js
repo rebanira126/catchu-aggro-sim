@@ -37,5 +37,14 @@ export default {
     refs: ["https://note.com/ryo_25_51/n/n6915083b37cc", "https://note.com/724chu/n/n445f9bffa257", "https://note.com/poke_lovelive/n/nbfe1b972d27f"],
   },
   // プレイ方針の上書き（まだ標準の方針のまま）
-  strategy: {},
+  // プレイ方針
+  // ・マリガン：4コストまで、コスト2は2枚、1点ライブ（必要ハート5以下）を2枚まで残す
+  // ・盤面：次のターンに手札の大型をバトンタッチで出せる形を少し優先
+  // ・ライブ：成功2枚までは1点ライブで進め（始まりは君の空・Shooting Voice!! は成功2枚から強い）、そのあとは大きく取りに行く
+  // ・空いた枠にはコスト4以下のメンバーを伏せて引き直す
+  strategy: {
+    mulliganOpt: { keepCost: 4, maxLives: 2, maxNeed: 5, maxLow: 2 },
+    mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
+    liveOpt: { fill: true, fillMaxCost: 4, pace: [1, 1, 10], minP: 0.4, th1: 0.3, thLast: 0.3 },
+  },
 };

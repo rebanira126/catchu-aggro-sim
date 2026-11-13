@@ -114,3 +114,23 @@ export function sacrificeSelf(g, me, slot, area) {
   me.waiting.push(slot.card);
   g.log(me, 'eff', `${slot.card.def.name}をステージから控え室に置いた`);
 }
+
+// ブレードハート（色ハート・ALL・ドロー・スコアのアイコン）を持つカードか
+export const hasBladeHeart = def => !!(def.bh || def.icon);
+
+// 相手のステージのメンバー1人をウェイトにする（条件に合うアクティブなメンバーのうち、ブレードが一番多い人）
+export function waitOpp(g, opp, pred = () => true, label = '') {
+  let best = null, ba = -1;
+  opp.stage.forEach((s, area) => {
+    if (!s || !s.active || !pred(s, area)) return;
+    const b = g.bladesOf(opp, s, area);
+    if (b > ba) { ba = b; best = s; }
+  });
+  if (!best) return null;
+  best.active = false;
+  g.log(opp, 'eff', `${label}${best.card.def.name}がウェイトになった`);
+  return best;
+}
+
+// ステージのメンバーが全員『グループ』か
+export const allInGroup = (me, grp) => me.stage.every(s => !s || inGroup(s.card.def, grp));
