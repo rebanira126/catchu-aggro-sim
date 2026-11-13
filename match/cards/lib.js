@@ -1,5 +1,5 @@
 // カード効果を書くときの共通の道具（判断のしかたも含む）
-import { memberValue, protectedCards, preferBonus } from '../engine/ai.js';
+import { memberValue, protectedCards, preferBonus, turnTarget } from '../engine/ai.js';
 
 export const inGroup = (def, g) => def.groups.includes(g);
 export const inUnit = (def, u) => def.unit === u;
@@ -45,7 +45,7 @@ export function cardWorth(g, me, card) {
   // バトンタッチで減る分も考えた、次のターンに出すのに必要なエネルギー
   const onStage = Math.max(0, ...me.stage.filter(Boolean).map(s => s.card.def.cost));
   const c = Math.max(0, card.def.cost - onStage);
-  const v = memberValue(card.def) + preferBonus(me, card.def);
+  const v = memberValue(card.def) + preferBonus(me, card.def) + planNeed(g, me, card) * 4;
   if (c <= e + 1) return 4 + v / 4;
   if (c <= e + 4) return 3 + v / 8;
   return 1;
@@ -182,3 +182,17 @@ export function waitOppN(g, opp, n, pred, label = '', lock = false) {
 
 // 相手がまだこのターンのライブをしていないか（ウェイトにして効果があるか）
 export const oppYetToPerform = (g, me) => g.order()[0] === me;
+
+// 次の2ターンの目標の盤面に入っていて、まだステージに無いメンバーなら 1（サーチや捨てる札の判断で高く見る）
+function planNeed(g, me, card) {
+  for (const t of [g.turn + 1, g.turn + 2]) {
+    const tgt = turnTarget(me, t);
+    if (!tgt || !tgt.board) continue;
+    for (const x of tgt.board[0]) {
+      const it = typeof x === 'number' ? { cost: x } : x;
+      const match = d => (it.id ? d.id === it.id : d.cost === it.cost);
+      if (match(card.def) && !me.stage.some(s => s && match(s.card.def))) return 1;
+    }
+  }
+  return 0;
+}

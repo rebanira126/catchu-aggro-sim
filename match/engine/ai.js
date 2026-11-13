@@ -60,6 +60,8 @@ export function defaultMain(api, opt = {}) {
     const ok = api.play(idx, step.area, true, step.area2 ?? null);
     me.reserved = null;
     if (!ok) break;
+    // 出したあとに使えるようになる起動能力（入れ替え先が控え室にある、など）
+    useAbilities(api);
   }
 }
 
@@ -170,7 +172,9 @@ export function bestPlays(g, me, opt = {}) {
   for (const c of top) {
     const ev = useLive ? withStage(me, c.stage, g, () => bestLiveSet(g, me, lives, opt.samples ?? 16, opt.minP ?? 0, opt).ev) : 0;
     // 同じくらいの盤面なら、手札を使わない方（カードを温存）を選ぶ
-    c.score = ev * w + c.v * (useLive ? 0.2 : 1) + c.u + c.left * 0.01 + bonusOf(c) - (opt.playPen ?? 0) * c.plan.length;
+    const tgt = turnTarget(me, g.turn);
+    const planBonus = tgt && tgt.board ? (opt.planWeight ?? 4) * boardMatch(c.stage, tgt.board) : 0;
+    c.score = ev * w + c.v * (useLive ? 0.2 : 1) + c.u + planBonus + c.left * 0.01 + bonusOf(c) - (opt.playPen ?? 0) * c.plan.length;
     // 下にカードが置かれているメンバーを入れ替えると、下のカードは控え室に行く
     c.score -= (opt.underPen ?? 1.5) * underLost(me, c);
     // 次のターンに手札の大型をバトンタッチで出せる盤面か（opt.setupWeight）
@@ -230,7 +234,8 @@ function bestLiveSet(g, me, lives, samples, minP, opt = {}) {
     const p = successRate(g, me, pick, est, samples, st);
     if (p < minP) continue;
     const sc = pick.reduce((s, c) => s + previewScore(g, me, c), 0) + (st.adj || 0);
-    const ev = p * (tg != null && sc >= tg ? sc + (opt.paceBonus ?? 4) : sc);
+    let ev = p * (tg != null && sc >= tg ? sc + (opt.paceBonus ?? 4) : sc);
+    if (planLives(g, me, pick.map(c => c.def.id))) ev *= opt.planLiveBonus ?? 1.6;
     if (ev > best.ev + 1e-9 || (Math.abs(ev - best.ev) < 1e-9 && pick.length < best.pick.length)) best = { ev, p, pick };
   }
   return best;
@@ -273,8 +278,10 @@ export function defaultSetLives(v, opt = {}) {
       if (!best || key > best.key || (key === best.key && p > best.p + 1e-9)) best = { key, p, score, pick };
       continue;
     }
-    const ev = p * score;
+    let ev = p * score;
     if (p < minP) continue;
+    // そのターンに置きたい組み合わせなら高く見る
+    if (planLives(g, me, pick.map(x => x.c.def.id))) ev *= opt.planLiveBonus ?? 1.6;
     if (!best || ev > best.ev + 1e-9 || (Math.abs(ev - best.ev) < 1e-9 && pick.length < best.pick.length)) best = { ev, p, score, pick };
   }
   const out = best ? best.pick.map(x => x.i) : [];
@@ -306,6 +313,19 @@ export function protectedCards(g, me, opt = {}) {
     const m5 = ms.filter(c => c.def.cost >= 3 && c.def.cost <= mid).sort((a, b) => handVal(b, me) - handVal(a, me));
     if (m5[0]) keep.add(m5[0].uid);
   }
+  // ターンごとの目標の盤面に必要なメンバー（次の2ターン分）を残す
+  for (const t of [g.turn + 1, g.turn + 2]) {
+    const tgt = turnTarget(me, t);
+    if (!tgt || !tgt.board) continue;
+    const want = tgt.board[0].map(x => (typeof x === 'number' ? { cost: x } : x));
+    const onStage = me.stage.filter(Boolean).map(x => x.card.def);
+    for (const it of want) {
+      const match = d => (it.id ? d.id === it.id : d.cost === it.cost);
+      if (onStage.some(match)) continue;
+      const c = ms.filter(x => match(x.def) && !keep.has(x.uid)).sort((a, b) => memberValue(b.def) - memberValue(a.def))[0];
+      if (c) keep.add(c.uid);
+    }
+  }
   // ステージの空き枠を次のターンに埋めるための低コストのメンバー
   const empty = me.stage.filter(x => !x).length;
   if (empty && opt.protFill !== false) {
@@ -325,9 +345,47 @@ export function protectedCards(g, me, opt = {}) {
   return keep;
 }
 
+// ---------------- ターンごとの目標（strategy.turnPlan） ----------------
+// turnPlan: { 4: { board: [[13, 13, 2]], lives: [['ライブ番号', 'ライブ番号']] }, ... }
+//  board：目標の盤面（候補を複数書ける）。要素はコストの数か {cost, id, area}（area 0=左 1=センター 2=右）
+//  lives：そのターンに置きたいライブの組み合わせ（候補を複数書ける）
+// ひとり回しでも対戦でも、自分のターン数（g.turn）で引く
+export function turnTarget(me, turn) {
+  const tp = me && me.turnPlan;
+  if (!tp) return null;
+  return tp[turn] || null;
+}
+
+// 盤面がどれだけ目標に近いか（0〜1）。候補のうち一番近いもので測る
+export function boardMatch(stage, board) {
+  if (!board || !board.length) return 0;
+  let best = 0;
+  for (const want of board) {
+    const items = want.map(x => (typeof x === 'number' ? { cost: x } : x));
+    const used = new Set();
+    let hit = 0;
+    // 位置の指定があるものから先に合わせる
+    const order = items.slice().sort((a, b) => (b.area != null) - (a.area != null));
+    for (const it of order) {
+      const ok = (x, a) => x && (it.id ? x.def.id === it.id : x.def.cost === it.cost) && (it.area == null || it.area === a);
+      const a = stage.findIndex((x, i) => !used.has(i) && ok(x, i));
+      if (a >= 0) { used.add(a); hit++; }
+    }
+    best = Math.max(best, hit / items.length);
+  }
+  return best;
+}
+
 // 決まった組み合わせでしか置かないライブ（opt.onlyCombos）
 // 例：{ 'MIRACLE WAVEの番号': [{ turn: 4, with: ['Guilty Nightの番号'] }, { turn: 5, with: ['恋アクの番号'] }] }
 // そのライブを含む組み合わせは、指定のターンに、指定のライブと「ちょうどその組み合わせ」のときだけ置く
+function planLives(g, me, ids) {
+  const t = turnTarget(me, g.turn);
+  if (!t || !t.lives) return false;
+  const key = ids.slice().sort().join('|');
+  return t.lives.some(l => l.slice().sort().join('|') === key);
+}
+
 function comboAllowed(g, ids, opt) {
   const rules = opt.onlyCombos;
   if (!rules) return true;
@@ -410,7 +468,7 @@ export function successRate(g, me, cards, est, samples, stats = null) {
 // 標準方針をまとめたもの。deck.strategy で一部を差し替えられる
 export function makePolicy(strategy = {}) {
   return {
-    mulligan: v => ((v.me.prefer = strategy.prefer || null), strategy.mulligan ? strategy.mulligan(v, defaultMulligan) : defaultMulligan(v, strategy.mulliganOpt)),
+    mulligan: v => ((v.me.prefer = strategy.prefer || null), (v.me.turnPlan = strategy.turnPlan || null), strategy.mulligan ? strategy.mulligan(v, defaultMulligan) : defaultMulligan(v, strategy.mulliganOpt)),
     // ライブの点数の進行（pace）は、盤面づくりでも同じ目標を使う
     main: api => (strategy.main ? strategy.main(api, defaultMain) : defaultMain(api, { pace: strategy.liveOpt && strategy.liveOpt.pace, onlyCombos: strategy.liveOpt && strategy.liveOpt.onlyCombos, ...strategy.mainOpt })),
     setLives: v => (strategy.setLives ? strategy.setLives(v, defaultSetLives) : defaultSetLives(v, strategy.liveOpt)),
