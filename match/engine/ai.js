@@ -1,6 +1,6 @@
 // 標準のプレイ方針（どのデッキでも使える簡単な判断）
 // デッキファイルの strategy で、マリガン・メインフェイズ・ライブの出し方を上書きできる。
-import { emptyPool, addHearts, addBladeHeart, meetAll, needTotal } from './hearts.js';
+import { emptyPool, addHearts, addBladeHeart, meetAll, needTotal, poolTotal } from './hearts.js';
 
 // メンバー1人の「強さ」の目安：ハートの数＋ブレードの数（ブレードはエールの枚数）
 // デッキごとの「優先したいメンバー」（strategy.prefer）：{ unit, ids, w }。手札の評価・マリガン・入れ替えで少し高く見る
@@ -57,7 +57,7 @@ export function defaultMain(api, opt = {}) {
     const idx = me.hand.findIndex(c => c.uid === step.uid);
     if (idx < 0) break;
     me.reserved = new Set(plan.filter(x => x !== step).map(x => x.uid));
-    const ok = api.play(idx, step.area, true);
+    const ok = api.play(idx, step.area, true, step.area2 ?? null);
     me.reserved = null;
     if (!ok) break;
   }
@@ -103,10 +103,28 @@ export function bestPlays(g, me, opt = {}) {
     for (let a = 0; a < 3; a++) {
       const s = stage[a];
       if (s && s.locked) continue;
+      if (s && s.slot && !g.canTarget(me, a)) continue;
       const tried = new Set();
       for (const c of handM) {
         if (used.has(c.uid) || tried.has(c.def.id)) continue;
         tried.add(c.def.id);
+        // 2人とバトンタッチできるカード：もう1つのエリアも空ける
+        const ce = g.effect(c);
+        if (ce && ce.doubleBaton && s) {
+          for (let a2 = 0; a2 < 3; a2++) {
+            const s2 = stage[a2];
+            if (a2 === a || !s2 || s2.locked || (s2.slot && !g.canTarget(me, a2))) continue;
+            const cost2 = Math.max(0, g.costOf(me, c) - s.def.cost - s2.def.cost);
+            if (cost2 > left) continue;
+            const ns2 = stage.slice(); ns2[a] = { def: c.def, locked: true, card: c }; ns2[a2] = null;
+            const key2 = ns2.map(x => (x ? x.def.id : '-')).join('|') + '#' + (left - cost2);
+            if (seen.has(key2)) continue;
+            const np2 = plan.concat([{ uid: c.uid, area: a, area2: a2 }]);
+            const cand2 = { stage: ns2, left: left - cost2, plan: np2 };
+            seen.set(key2, cand2); cands.push(cand2);
+            used.add(c.uid); dfs(ns2, left - cost2, used, np2); used.delete(c.uid);
+          }
+        }
         let cost = g.costOf(me, c);
         if (s && cost > 0) cost = Math.max(0, cost - s.def.cost);
         if (cost > left) continue;
@@ -207,9 +225,11 @@ function bestLiveSet(g, me, lives, samples, minP, opt = {}) {
   for (let mask = 1; mask < (1 << n); mask++) {
     const pick = lives.slice(0, n).filter((_, k) => mask & (1 << k));
     if (pick.length > 3) continue;
-    const p = successRate(g, me, pick, est, samples);
+    if (!comboAllowed(g, pick.map(c => c.def.id), opt)) continue;
+    const st = {};
+    const p = successRate(g, me, pick, est, samples, st);
     if (p < minP) continue;
-    const sc = pick.reduce((s, c) => s + previewScore(g, me, c), 0);
+    const sc = pick.reduce((s, c) => s + previewScore(g, me, c), 0) + (st.adj || 0);
     const ev = p * (tg != null && sc >= tg ? sc + (opt.paceBonus ?? 4) : sc);
     if (ev > best.ev + 1e-9 || (Math.abs(ev - best.ev) < 1e-9 && pick.length < best.pick.length)) best = { ev, p, pick };
   }
@@ -235,13 +255,15 @@ export function defaultSetLives(v, opt = {}) {
   for (let mask = 1; mask < (1 << n); mask++) {
     const pick = lives.slice(0, n).filter((_, k) => mask & (1 << k));
     if (pick.length > 3) continue;
+    if (!comboAllowed(g, pick.map(x => x.c.def.id), opt)) continue;
     combos.push(pick);
   }
   const est = combos.length ? estimateContext(g, me) : null;
   let best = null;
   for (const pick of combos) {
-    const p = successRate(g, me, pick.map(x => x.c), est, samples);
-    const score = pick.reduce((s, x) => s + previewScore(g, me, x.c), 0);
+    const st = {};
+    const p = successRate(g, me, pick.map(x => x.c), est, samples, st);
+    const score = pick.reduce((s, x) => s + previewScore(g, me, x.c), 0) + (st.adj || 0);
     if (opt.pace) {
       // 点数の進行（例：1→4→7）に合わせる：目標に届く中で一番小さい点数、届かなければ一番大きい点数
       const tg = opt.pace[Math.min(succ, opt.pace.length - 1)];
@@ -303,9 +325,24 @@ export function protectedCards(g, me, opt = {}) {
   return keep;
 }
 
+// 決まった組み合わせでしか置かないライブ（opt.onlyCombos）
+// 例：{ 'MIRACLE WAVEの番号': [{ turn: 4, with: ['Guilty Nightの番号'] }, { turn: 5, with: ['恋アクの番号'] }] }
+// そのライブを含む組み合わせは、指定のターンに、指定のライブと「ちょうどその組み合わせ」のときだけ置く
+function comboAllowed(g, ids, opt) {
+  const rules = opt.onlyCombos;
+  if (!rules) return true;
+  for (const id of ids) {
+    const list = rules[id];
+    if (!list) continue;
+    const others = ids.filter((x, i) => i !== ids.indexOf(id)).sort().join('|');
+    if (!list.some(r => r.turn === g.turn && r.with.slice().sort().join('|') === others)) return false;
+  }
+  return true;
+}
+
 function previewScore(g, me, card) {
   const ef = g.effect(card);
-  const live = { card, need: card.def.need.slice(), bonus: 0 };
+  const live = { card, need: g.liveNeed(me, card), bonus: 0 };
   if (ef && ef.preview) ef.preview({ g, me, opp: g.opp(me), card, live });
   return card.def.score + live.bonus;
 }
@@ -324,30 +361,49 @@ export function estimateContext(g, me) {
   return { pool, blades, unknown };
 }
 
-export function successRate(g, me, cards, est, samples) {
+// 成功率を見積もる。stats を渡すと、成功したときの点数の増減（効果の successAdjust）の平均を stats.adj に入れる
+export function successRate(g, me, cards, est, samples, stats = null) {
+  let extra = 0; // 効果で増えるエールの枚数（live.cheer）
+  const adjusters = [];
   const needs = cards.map(card => {
     const ef = g.effect(card);
-    const live = { card, need: card.def.need.slice(), bonus: 0 };
+    const live = { card, need: g.liveNeed(me, card), bonus: 0, cheer: 0 };
     if (ef && ef.preview) ef.preview({ g, me, opp: g.opp(me), card, live });
+    if (ef && ef.successAdjust) adjusters.push({ ef, card });
+    extra += live.cheer;
     return live.need;
   });
   const arr = est.unknown;
-  if (!arr.length || est.blades === 0) {
-    return meetAll(est.pool, needs).ok ? 1 : 0;
+  const blades = est.blades + extra;
+  if (stats) stats.adj = 0;
+  const judge = (pool, cheer) => {
+    const res = meetAll(pool, needs);
+    if (res.ok && stats && adjusters.length) {
+      const excess = poolTotal(res.rest);
+      for (const { ef, card } of adjusters) stats.adj += ef.successAdjust({ g, me, card, excess, cheer }) || 0;
+    }
+    return res.ok;
+  };
+  if (!arr.length || blades === 0) {
+    const ok = judge(est.pool, []) ? 1 : 0;
+    return ok;
   }
   let ok = 0;
   const idx = arr.map((_, i) => i);
   for (let s = 0; s < samples; s++) {
     const pool = { c: est.pool.c.slice(), all: est.pool.all, gen: est.pool.gen };
     // 部分シャッフルで blades 枚を選ぶ
-    const n = Math.min(est.blades, arr.length);
+    const n = Math.min(blades, arr.length);
+    const cheer = [];
     for (let k = 0; k < n; k++) {
       const j = k + Math.floor(g.rng() * (idx.length - k));
       [idx[k], idx[j]] = [idx[j], idx[k]];
       addBladeHeart(pool, arr[idx[k]].def.bh);
+      cheer.push(arr[idx[k]]);
     }
-    if (meetAll(pool, needs).ok) ok++;
+    if (judge(pool, cheer)) ok++;
   }
+  if (stats && ok) stats.adj /= ok;
   return ok / samples;
 }
 
@@ -356,7 +412,7 @@ export function makePolicy(strategy = {}) {
   return {
     mulligan: v => ((v.me.prefer = strategy.prefer || null), strategy.mulligan ? strategy.mulligan(v, defaultMulligan) : defaultMulligan(v, strategy.mulliganOpt)),
     // ライブの点数の進行（pace）は、盤面づくりでも同じ目標を使う
-    main: api => (strategy.main ? strategy.main(api, defaultMain) : defaultMain(api, { pace: strategy.liveOpt && strategy.liveOpt.pace, ...strategy.mainOpt })),
+    main: api => (strategy.main ? strategy.main(api, defaultMain) : defaultMain(api, { pace: strategy.liveOpt && strategy.liveOpt.pace, onlyCombos: strategy.liveOpt && strategy.liveOpt.onlyCombos, ...strategy.mainOpt })),
     setLives: v => (strategy.setLives ? strategy.setLives(v, defaultSetLives) : defaultSetLives(v, strategy.liveOpt)),
     chooseSuccess: (v, zone) => (strategy.chooseSuccess ? strategy.chooseSuccess(v, zone) : 0),
   };

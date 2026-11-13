@@ -198,10 +198,13 @@ export default {
     },
     aiBonus({ me }) { return me.hand.some(c => isMember(c) && c.def.cost >= 9) ? 0 : 1.5; },
   },
-  // 鬼塚夏美（4）：ウェイトの付け合い。自分のメンバーのブレードを失うため、AIは使わない
+  // 鬼塚夏美（4）pb2-009：自分のLiella!メンバーをウェイトにして、相手のメンバーをウェイトにする妨害
+  // 使うのは、相手のアクティブフェイズが済んでいて（自分が後攻）、自分のメンバーをウェイトにしても損が小さいとき
+  // （このターンにライブをしない／ウェイトにするメンバーのブレードより、止める相手のブレードの方が多い）
   'PL!SP-pb2-009': {
-    note: '登場／ライブ開始時：Liella!メンバー1人をウェイトにしてよい→相手のブレードが2つ以上少ないメンバー1人をウェイト（自分のブレードの方が多く減るので使わない）',
-    onEnter() {},
+    note: '登場／ライブ開始時：Liella!メンバー1人をウェイトにしてよい→相手の、元々のブレードが2つ以上少ないメンバー1人をウェイト（自分が余裕のあるときに使う）',
+    onEnter({ g, me, opp }) { if (g.order()[1] === me) natsumiWait(g, me, opp, !me.hand.some(isLive)); },
+    liveStart({ g, me, opp }) { if (g.order()[0] === me) natsumiWait(g, me, opp, false); },
   },
   // 葉月 恋（9）
   'PL!SP-bp7-005': {
@@ -376,6 +379,38 @@ export default {
     },
     inheritUnder: def => inGroup(def, 'Liella!'),
   },
+
+  // ================= Burn!!（混成）で使うLiella!のカード =================
+  // ウィーン・マルガレーテ（2）bp7-010
+  'PL!SP-bp7-010': {
+    note: '起動：自分を控え室に置く→エネルギー1枚をエネルギーデッキに戻し、控え室のカードを1枚手札に',
+    activated: [{
+      ai: ({ me }) => !me.hand.some(isLive) && me.waiting.some(isLive) && me.energy.n >= 4,
+      run({ g, me, slot, area }) {
+        me.stage[area] = null; me.waiting.push(slot.card);
+        if (me.energy.n > 0) {
+          if (me.energy.active >= me.energy.n) me.energy.active--;
+          me.energy.n--; me.energyDeck++;
+        }
+        recover(g, me, () => true, 'ウィーン・マルガレーテ：');
+      },
+    }],
+  },
+  // 嵐 千砂都（11）pb2-014：フォーメーションチェンジ（位置で変わる効果を持つメンバーがいないので何もしない）
+  'PL!SP-pb2-014': {
+    note: '登場：ステージが5yncri5e!だけならフォーメーションチェンジしてよい（位置の影響が出ないため何もしない）',
+    onEnter() {},
+  },
+  // 嵐 千砂都（15）sd1-003：手札2枚でブレード+5
+  'PL!SP-sd1-003': {
+    note: 'ライブ開始時：手札を2枚捨ててよい→ライブ終了時までブレード+5',
+    order: { liveStart: 6 },
+    liveStart({ g, me, slot }) {
+      if (me.hand.length < 3 || !willDiscard(g, me, 2)) return;
+      discardWorst(g, me, 2);
+      slot.mods.push({ blades: 5, untilLiveEnd: true });
+    },
+  },
 };
 
 function applyDistortion6(me, live) {
@@ -427,3 +462,22 @@ function canSum10(me) {
   for (const x of costs) { const next = new Set(sums); for (const v of sums) if (v + x <= 50) next.add(v + x); sums = next; }
   return [10, 20, 30, 40, 50].some(v => sums.has(v));
 }
+
+// 鬼塚夏美 pb2-009 の判断：自分のどのメンバーをウェイトにして、相手の誰を止めるか
+function natsumiWait(g, me, opp, noLive) {
+  let best = null;
+  me.stage.forEach((s, a) => {
+    if (!s || !s.active || !inGroup(s.card.def, 'Liella!')) return;
+    const myLoss = noLive ? 0 : g.bladesOf(me, s, a);
+    opp.stage.forEach((t, b) => {
+      if (!t || !t.active || t.card.def.blades > s.card.def.blades - 2) return;
+      const gain = g.bladesOf(opp, t, b) - myLoss;
+      if (gain > 0 && (!best || gain > best.gain)) best = { s, t, gain };
+    });
+  });
+  if (!best) return;
+  best.s.active = false;
+  best.t.active = false;
+  g.log(me, 'eff', `鬼塚夏美：${best.s.card.def.name}をウェイトにして、相手の${best.t.card.def.name}をウェイトにした`);
+}
+

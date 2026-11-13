@@ -39,5 +39,17 @@ export default {
     refs: ["https://note.com/blackriver_1111/n/n84f7e0a45946", "https://note.com/mute_tern875/n/n3ae00c719e10"],
   },
   // プレイ方針の上書き（まだ標準の方針のまま）
-  strategy: {},
+  // プレイ方針（仮。7デッキの効果がそろったので、あとでnoteの回し方に合わせて調整する）
+  // ・マリガン：コスト9まで、コスト2は2枚、必要ハート6以下のライブを1枚残す
+  // ・ライブ置き場の空き枠にコスト4以下のメンバーを伏せて引き直す
+  strategy: {
+    mulliganOpt: { keepCost: 9, maxLives: 1, maxNeed: 6, maxLow: 2 },
+    mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
+    // MIRACLE WAVE は、4ターン目に Guilty Night, Guilty Kiss! と、5ターン目に恋になりたいAQUARIUM と一緒に置くときだけ使う
+    // （盤面ハート＋ブレードハートが必要ハートとほぼ同じになり、余剰ハートが出にくい）
+    liveOpt: {
+      fill: true, fillMaxCost: 4, minP: 0.4, th1: 0.3,
+      onlyCombos: { 'PL!S-bp3-019': [{ turn: 4, with: ['PL!S-bp7-025'] }, { turn: 5, with: ['PL!S-bp7-022'] }] },
+    },
+  },
 };

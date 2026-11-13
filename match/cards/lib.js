@@ -134,3 +134,51 @@ export function waitOpp(g, opp, pred = () => true, label = '') {
 
 // ステージのメンバーが全員『グループ』か
 export const allInGroup = (me, grp) => me.stage.every(s => !s || inGroup(s.card.def, grp));
+
+// カード名に「名前」を含むか（空白の有無はそろえて比べる）
+export const hasName = (def, n) => (def.names || []).some(x => x.replace(/\s/g, '') === n.replace(/\s/g, ''));
+
+// 「このメンバーをウェイトにし、手札を1枚控え室に置いてもよい：デッキの上から5枚見て、コスト min 以上の『グループ』のメンバーを1枚手札に」
+export function searchBigOnEnter(group, min = 9, label = '') {
+  return {
+    note: `登場：自分をウェイトにし手札1枚を捨ててよい→デッキの上5枚からコスト${min}以上の${group}メンバーを1枚手札に`,
+    onEnter({ g, me, slot }) {
+      if (me.hand.some(c => isMember(c) && c.def.cost >= min)) return;
+      if (!willDiscard(g, me)) return;
+      slot.active = false;
+      discardWorst(g, me, 1);
+      lookTake(g, me, 5, c => isMember(c) && c.def.cost >= min && inGroup(c.def, group), label);
+    },
+    aiBonus({ me }) { return me.hand.some(c => isMember(c) && c.def.cost >= min) ? 0 : 1.5; },
+  };
+}
+
+// デッキの上から n 枚見て、好きな枚数を好きな順番で上に戻し、残りを控え室に置く（持っておきたいカードだけ戻す）
+export function scry(g, me, n, label = '') {
+  const top = takeTop(g, me, n);
+  const keep = top.filter(c => cardWorth(g, me, c) >= 5).sort((a, b) => cardWorth(g, me, b) - cardWorth(g, me, a));
+  const drop = top.filter(c => !keep.includes(c));
+  me.deck.unshift(...keep);
+  me.waiting.push(...drop);
+  g.log(me, 'eff', `${label}デッキの上${n}枚：${keep.length}枚を上に戻し、${drop.length}枚を控え室に置いた`);
+}
+
+// 好きな色のハートを1つ：手札のライブの必要ハートで、ステージに足りない色を選ぶ（なければ ALL 扱い）
+export function anyColorHeart(slot) {
+  slot.mods.push({ hearts: { all: 1 }, untilLiveEnd: true });
+}
+
+// 相手のステージのメンバー n 人までウェイト
+export function waitOppN(g, opp, n, pred, label = '', lock = false) {
+  const out = [];
+  for (let k = 0; k < n; k++) {
+    const s = waitOpp(g, opp, x => !out.includes(x) && pred(x), label);
+    if (!s) break;
+    if (lock) s.lockActive = true;
+    out.push(s);
+  }
+  return out;
+}
+
+// 相手がまだこのターンのライブをしていないか（ウェイトにして効果があるか）
+export const oppYetToPerform = (g, me) => g.order()[0] === me;
