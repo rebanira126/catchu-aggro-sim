@@ -45,6 +45,11 @@ export default {
   strategy: {
     mulliganOpt: { keepCost: 9, maxLives: 1, maxNeed: 6, maxLow: 2 },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
-    liveOpt: { fill: true, fillMaxCost: 4, minP: 0.4, th1: 0.3, pairOnly: ["PL!S-bp3-019"] },
+    // MIRACLE WAVE は、4ターン目に Guilty Night, Guilty Kiss! と、5ターン目に恋になりたいAQUARIUM と一緒に置くときだけ使う
+    // （盤面ハート＋ブレードハートが必要ハートとほぼ同じになり、余剰ハートが出にくい）
+    liveOpt: {
+      fill: true, fillMaxCost: 4, minP: 0.4, th1: 0.3,
+      onlyCombos: { 'PL!S-bp3-019': [{ turn: 4, with: ['PL!S-bp7-025'] }, { turn: 5, with: ['PL!S-bp7-022'] }] },
+    },
   },
 };

@@ -225,7 +225,7 @@ function bestLiveSet(g, me, lives, samples, minP, opt = {}) {
   for (let mask = 1; mask < (1 << n); mask++) {
     const pick = lives.slice(0, n).filter((_, k) => mask & (1 << k));
     if (pick.length > 3) continue;
-    if (pick.length === 1 && opt.pairOnly && opt.pairOnly.includes(pick[0].def.id)) continue;
+    if (!comboAllowed(g, pick.map(c => c.def.id), opt)) continue;
     const st = {};
     const p = successRate(g, me, pick, est, samples, st);
     if (p < minP) continue;
@@ -255,8 +255,7 @@ export function defaultSetLives(v, opt = {}) {
   for (let mask = 1; mask < (1 << n); mask++) {
     const pick = lives.slice(0, n).filter((_, k) => mask & (1 << k));
     if (pick.length > 3) continue;
-    // 単独では置かないライブ（opt.pairOnly：ほかのライブと組み合わせて使うもの）
-    if (pick.length === 1 && opt.pairOnly && opt.pairOnly.includes(pick[0].c.def.id)) continue;
+    if (!comboAllowed(g, pick.map(x => x.c.def.id), opt)) continue;
     combos.push(pick);
   }
   const est = combos.length ? estimateContext(g, me) : null;
@@ -324,6 +323,21 @@ export function protectedCards(g, me, opt = {}) {
     if (big[0]) keep.add(big[0].uid);
   }
   return keep;
+}
+
+// 決まった組み合わせでしか置かないライブ（opt.onlyCombos）
+// 例：{ 'MIRACLE WAVEの番号': [{ turn: 4, with: ['Guilty Nightの番号'] }, { turn: 5, with: ['恋アクの番号'] }] }
+// そのライブを含む組み合わせは、指定のターンに、指定のライブと「ちょうどその組み合わせ」のときだけ置く
+function comboAllowed(g, ids, opt) {
+  const rules = opt.onlyCombos;
+  if (!rules) return true;
+  for (const id of ids) {
+    const list = rules[id];
+    if (!list) continue;
+    const others = ids.filter((x, i) => i !== ids.indexOf(id)).sort().join('|');
+    if (!list.some(r => r.turn === g.turn && r.with.slice().sort().join('|') === others)) return false;
+  }
+  return true;
 }
 
 function previewScore(g, me, card) {
@@ -398,7 +412,7 @@ export function makePolicy(strategy = {}) {
   return {
     mulligan: v => ((v.me.prefer = strategy.prefer || null), strategy.mulligan ? strategy.mulligan(v, defaultMulligan) : defaultMulligan(v, strategy.mulliganOpt)),
     // ライブの点数の進行（pace）は、盤面づくりでも同じ目標を使う
-    main: api => (strategy.main ? strategy.main(api, defaultMain) : defaultMain(api, { pace: strategy.liveOpt && strategy.liveOpt.pace, pairOnly: strategy.liveOpt && strategy.liveOpt.pairOnly, ...strategy.mainOpt })),
+    main: api => (strategy.main ? strategy.main(api, defaultMain) : defaultMain(api, { pace: strategy.liveOpt && strategy.liveOpt.pace, onlyCombos: strategy.liveOpt && strategy.liveOpt.onlyCombos, ...strategy.mainOpt })),
     setLives: v => (strategy.setLives ? strategy.setLives(v, defaultSetLives) : defaultSetLives(v, strategy.liveOpt)),
     chooseSuccess: (v, zone) => (strategy.chooseSuccess ? strategy.chooseSuccess(v, zone) : 0),
   };
