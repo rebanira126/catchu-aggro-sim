@@ -299,14 +299,24 @@ export function defaultSetLives(v, opt = {}) {
       const tg = opt.pace[Math.min(succ, opt.pace.length - 1)];
       const th = g.turn <= 1 && opt.th1 != null ? opt.th1 : (succ === opt.pace.length - 1 && score >= tg && opt.thLast != null ? opt.thLast : minP);
       if (p < th || p <= 0) continue;
-      const key = score >= tg ? 1000 - score : score;
+      const pids = pick.map(x => x.c.def.id);
+      const planned = planLives(g, me, pids);
+      if (!planned && opt.reserveStrict && usesReserved(g, me, pids)) continue; // 後のターンのために取っておく
+      // そのターンに置きたい組み合わせを一番に。次に点数の進行
+      const key = (planned ? 2000 : 0) + (score >= tg ? 1000 - score : score);
       if (!best || key > best.key || (key === best.key && p > best.p + 1e-9)) best = { key, p, score, pick };
       continue;
     }
     let ev = p * score;
     if (p < minP) continue;
     // そのターンに置きたい組み合わせなら高く見る
-    if (planLives(g, me, pick.map(x => x.c.def.id))) ev *= opt.planLiveBonus ?? 1.6;
+    const ids = pick.map(x => x.c.def.id);
+    if (planLives(g, me, ids)) ev *= opt.planLiveBonus ?? 1.6;
+    // 次のターン以降の目標で使うライブを先に使ってしまう組み合わせは低く見る
+    else if (usesReserved(g, me, ids)) {
+      if (opt.reserveStrict) continue; // 後のターンのために取っておく（しゃがむ）
+      ev *= opt.reservePenalty ?? 0.4;
+    }
     if (!best || ev > best.ev + 1e-9 || (Math.abs(ev - best.ev) < 1e-9 && pick.length < best.pick.length)) best = { ev, p, score, pick };
   }
   const out = best ? best.pick.map(x => x.i) : [];
@@ -314,11 +324,17 @@ export function defaultSetLives(v, opt = {}) {
   if (opt.fill && out.length < 3) {
     const keep = protectedCards(g, me, opt);
     const cand = me.hand.map((c, i) => ({ c, i }))
-      .filter(x => x.c.def.kind === 'M' && !keep.has(x.c.uid) && x.c.def.cost <= (opt.fillMaxCost ?? 99))
-      .sort((a, b) => handVal(a.c, me) - handVal(b.c, me));
+      .filter(x => x.c.def.kind === 'M' && !keep.has(x.c.uid) && (x.c.def.cost <= (opt.fillMaxCost ?? 99) || isToWaiting(me, x.c)))
+      .sort((a, b) => (isToWaiting(me, b.c) - isToWaiting(me, a.c)) || (handVal(a.c, me) - handVal(b.c, me)));
     for (const x of cand) { if (out.length >= 3) break; out.push(x.i); }
   }
   return out;
+}
+
+// 控え室に置いておきたいカードか（控え室にまだ無いときだけ）
+function isToWaiting(me, c) {
+  const tw = me.prefer && me.prefer.toWaiting;
+  return !!(tw && tw.includes(c.def.id) && !me.waiting.some(x => tw.includes(x.def.id)));
 }
 
 // 手札の並べ替え用のおおまかな価値
@@ -347,7 +363,7 @@ export function protectedCards(g, me, opt = {}) {
     for (const it of want) {
       const match = d => (it.id ? d.id === it.id : d.cost === it.cost);
       if (onStage.some(match)) continue;
-      const c = ms.filter(x => match(x.def) && !keep.has(x.uid)).sort((a, b) => memberValue(b.def) - memberValue(a.def))[0];
+      const c = ms.filter(x => match(x.def) && !keep.has(x.uid) && !isToWaiting(me, x)).sort((a, b) => memberValue(b.def) - memberValue(a.def))[0];
       if (c) keep.add(c.uid);
     }
   }
@@ -409,6 +425,22 @@ function planLives(g, me, ids) {
   if (!t || !t.lives) return false;
   const key = ids.slice().sort().join('|');
   return t.lives.some(l => l.slice().sort().join('|') === key);
+}
+
+// 次の2ターンの目標のライブ（各ターンの最初の候補）に必要な枚数が手札に足りなくなるか
+function usesReserved(g, me, ids) {
+  for (const t of [g.turn + 1, g.turn + 2]) {
+    const tgt = turnTarget(me, t);
+    if (!tgt || !tgt.lives || !tgt.lives[0]) continue;
+    const need = tgt.lives[0];
+    for (const id of new Set(ids)) {
+      const want = need.filter(x => x === id).length;
+      if (!want) continue;
+      const have = me.hand.filter(c => c.def.id === id).length;
+      if (have - ids.filter(x => x === id).length < want) return true;
+    }
+  }
+  return false;
 }
 
 function comboAllowed(g, ids, opt) {

@@ -3,6 +3,7 @@
 const LBO = 'PL!SP-bp5-026';    // Let's be ONE
 const GO = 'PL!SP-bp2-023';     // Go!! リスタート
 const SV = 'PL!SP-bp5-023';     // Shooting Voice!!
+const HAJI = 'PL!SP-sd2-023';   // 始まりは君の空（序盤は1点ライブとして使う）
 const CHISATO10 = 'PL!SP-bp7-003'; // 嵐 千砂都（コスト10・下にメンバーを積む）
 const KEKE13 = 'PL!SP-bp5-002';    // 唐 可可（コスト13・左サイドで起動）
 

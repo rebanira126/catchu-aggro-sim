@@ -31,6 +31,11 @@ export function takeTop(g, me, n) {
 // カード1枚の「手札に持っておきたさ」。捨てるときは低いものから、拾うときは高いものから選ぶ
 export function cardWorth(g, me, card) {
   const inHand = me.hand.includes(card);
+  // 控え室に置いておきたいカード（strategy.prefer.toWaiting）：手札では一番いらない札として扱う
+  // ただし、控え室にもう同じカードがあるなら普通に扱う（1枚あれば十分）
+  const tw = me.prefer && me.prefer.toWaiting;
+  if (inHand && tw && tw.includes(card.def.id) && !me.waiting.some(c => tw.includes(c.def.id))) return 0.5;
+  if (isLive(card) && planLiveNeed(g, me, card)) return 8.8; // 次の2ターンの目標で使うライブ
   if (isLive(card)) {
     // 自分以外に手札にあるライブの枚数で決める（同じライブが2枚あっても両方を低く見ないように）
     const others = me.hand.filter(isLive).length - (inHand ? 1 : 0);
@@ -195,4 +200,17 @@ function planNeed(g, me, card) {
     }
   }
   return 0;
+}
+
+// 次の2ターンの目標のライブ（各ターンの最初の候補）に入っているライブで、手札にまだ足りていないもの
+function planLiveNeed(g, me, card) {
+  for (const t of [g.turn + 1, g.turn + 2]) {
+    const tgt = turnTarget(me, t);
+    if (!tgt || !tgt.lives || !tgt.lives[0]) continue;
+    const want = tgt.lives[0].filter(x => x === card.def.id).length;
+    if (!want) continue;
+    const have = me.hand.filter(c => c !== card && c.def.id === card.def.id).length;
+    if (have < want) return true;
+  }
+  return false;
 }

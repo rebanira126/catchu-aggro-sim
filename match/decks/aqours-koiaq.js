@@ -49,15 +49,19 @@ export default {
   // ・マリガン：コスト9まで、コスト2は2枚、必要ハート6以下のライブを1枚残す
   // ・ライブ置き場の空き枠にコスト4以下のメンバーを伏せて引き直す
   strategy: {
+    // 13（渡辺 曜・松浦果南）は控え室に置いておき、13津島善子の起動で 11→13 に入れ替えて登場させる（登場時の効果も使える）
+    prefer: { toWaiting: ['PL!S-bp2-005', 'PL!S-bp5-003'] },
     // マリガン：1Tの4コス（優木あんじゅを優先）、9コス（高海千歌・徒町小鈴）、Guilty Night, Guilty Kiss!
     mulliganOpt: { keep: [{ ids: ['PL!-bp5-222'], group: 'c4', n: 1 }, { cost: 4, group: 'c4' }, { ids: ['PL!S-bp7-001', 'PL!HS-pb1-013'], n: 1 }, { ids: [GN], n: 1 }] },
-    mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
+    mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1, planWeight: 6 },
     // ターンごとの目標（13善子進行のnoteより）
     turnPlan: {
-      1: { board: [[4]] },
-      2: { board: [[9]], lives: [[GN]] },
+      // 13善子はセンターで起動するので、1Tの4コス → 2Tの9 → 3Tの13善子 をセンターでつなぐ
+      1: { board: [[{ cost: 4, area: 1 }]] },
+      2: { board: [[{ cost: 9, area: 1 }]], lives: [[GN]] },
       3: { board: [[{ id: YOSHIKO13, area: 1 }, 4], [{ id: YOSHIKO13, area: 1 }, 2]], lives: [[GN]] },
-      4: { board: [[13, 13, 2]], lives: [[GN, MW]] },
+      // 4T：4→11国木田花丸、13善子の起動で 11→13（控え室の13）に入れ替えて 13-13-2
+      4: { board: [[{ id: YOSHIKO13, area: 1 }, 13, 2], [{ id: YOSHIKO13, area: 1 }, { id: 'PL!S-bp7-007' }, 2]], lives: [[GN, MW]] },
       5: { board: [[15, 15, 2], [15, 15, 4]], lives: [[KOIAQ, MW], [KOIAQ], [KOWARE]] },
       6: { board: [[15, 15, 9]], lives: [[KOIAQ, KOIAQ]] },
     },
