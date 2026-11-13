@@ -342,7 +342,7 @@ export function defaultSetLives(v, opt = {}) {
   }
   if (oppD) {
     // 置かない（しゃがむ）ときより得になるなら置く
-    const u0 = -oppD.pSucc;
+    const u0 = -oppD.pSucc * (g.opp(me).success.length >= 2 ? 3 : 1);
     best = bestU && bestU.u > u0 + (opt.oppMargin ?? 0.02) ? bestU : null;
   }
   const out = best ? best.pick.map(x => x.i) : [];
@@ -395,7 +395,11 @@ function liveUtility(g, me, D, p, s) {
     else oppWin += q * p;
     oppWin += q * (1 - p);
   }
-  return p * weWin - oppWin;
+  // 勝ち負けが決まるライブは重く見る：相手が成功ライブ2枚なら負けを、自分が2枚なら勝ちを3倍で数える
+  // （アグロ相手には「3ターン目までに負けない」ことを優先し、決めに行くターンは取り切りに行く）
+  const wMe = me.success.length >= 2 ? 3 : 1;
+  const wOpp = opp.success.length >= 2 ? 3 : 1;
+  return wMe * p * weWin - wOpp * oppWin;
 }
 
 // 控え室に置いておきたいカードか（控え室にまだ無いときだけ）

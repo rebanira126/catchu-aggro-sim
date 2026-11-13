@@ -47,6 +47,8 @@ export class Game {
       lives: [], // パフォーマンス中のライブ
       turnLog: [], // ターンごとの記録
       perf: null,
+      // 仮想の相手（カードを使わず、ターンごとに「何点で成功するか」の確率だけで動く）
+      virtual: pl.virtual || null,
     };
   }
 
@@ -366,8 +368,8 @@ export class Game {
     // ドローフェイズ
     this.draw(P, 1);
     this.log(P, 'turn', `${this.turn}ターン目（${P === this.p[this.first] ? '先攻' : '後攻'}）：エネルギー${P.energy.n}、手札${P.hand.length}枚`);
-    // メインフェイズ
-    P.policy.main(this.mainApi(P));
+    // メインフェイズ（仮想の相手は何もしない）
+    if (!P.virtual) P.policy.main(this.mainApi(P));
   }
 
   mainApi(P) {
@@ -398,6 +400,7 @@ export class Game {
     const [A, B] = this.order();
     // ライブカードセット（先攻 → 後攻）
     for (const P of [A, B]) {
+      if (P.virtual) { this.virtualSet(P); continue; }
       const pick = P.policy.setLives(this.view(P)) || [];
       const idxs = [...new Set(pick)].filter(i => i >= 0 && i < P.hand.length).slice(0, 3).sort((a, b) => b - a);
       const set = idxs.map(i => P.hand.splice(i, 1)[0]);
@@ -412,8 +415,28 @@ export class Game {
     this.judge();
   }
 
+  // 仮想の相手：このターンの結果をくじで決め、ライブするならダミーのライブを1枚伏せる
+  virtualSet(P) {
+    const table = P.virtual[Math.min(this.turn, P.virtual.length - 1)] || [];
+    let r = this.rng() * table.reduce((a, x) => a + x.w, 0);
+    let pick = table[table.length - 1] || { kind: 'none' };
+    for (const x of table) { r -= x.w; if (r <= 0) { pick = x; break; } }
+    P.vPick = pick;
+    if (pick.kind === 'none') return;
+    P.liveZone.push({ uid: uidSeq++, def: { kind: 'L', id: 'VIRTUAL', name: '（相手のライブ）', score: 0, need: [0, 0, 0, 0, 0, 0, 0], names: [], groups: [], text: '' } });
+    this.log(P, 'set', 'ライブカード置き場に1枚セット');
+  }
+
   perform(P) {
     P.perf = null;
+    if (P.virtual && P.liveZone.length) {
+      const pick = P.vPick || { kind: 'fail' };
+      const perf = { cheerN: 0, cheer: [], scoreIcons: 0, ok: pick.kind === 'ok', score: 0, setCount: 1, totalBonus: 0, excess: 0 };
+      P.perf = perf;
+      if (perf.ok) { P.lives = [{ card: P.liveZone[0], need: [0, 0, 0, 0, 0, 0, 0], bonus: pick.score }]; this.log(P, 'live', `ライブ：${pick.score}点で成功`); }
+      else { P.liveZone = []; P.lives = []; this.log(P, 'live', 'ライブ失敗'); }
+      return;
+    }
     const nonLive = P.liveZone.filter(c => c.def.kind !== 'L');
     P.liveZone = P.liveZone.filter(c => c.def.kind === 'L');
     P.waiting.push(...nonLive);
