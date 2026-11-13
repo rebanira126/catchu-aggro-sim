@@ -47,7 +47,8 @@ export default {
   // ・ライブ：成功2枚までは1点ライブで進め（始まりは君の空・Shooting Voice!! は成功2枚から強い）、そのあとは大きく取りに行く
   // ・空いた枠にはコスト4以下のメンバーを伏せて引き直す
   strategy: {
-    mulliganOpt: { keepCost: 4, maxLives: 2, maxNeed: 5, maxLow: 2 },
+    // マリガン：コスト2（葉月 恋・ウィーン・マルガレーテ）を2枚、4若菜四季、1点ライブ
+    mulliganOpt: { keep: [{ ids: ['PL!SP-pb2-016', 'PL!SP-pb1-021'], n: 2 }, { ids: ['PL!SP-bp5-008'], n: 1 }, { ids: [LBO, HAJI], n: 1 }] },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
     // ターンごとの目標（noteの回し方より）
     turnPlan: {

@@ -23,6 +23,7 @@ function stageValue(stage) {
 
 // ---------------- マリガン ----------------
 export function defaultMulligan(v, opt = {}) {
+  if (opt.keep) return keepListMulligan(v, opt.keep);
   const keepCost = opt.keepCost ?? 4;
   const maxLives = opt.maxLives ?? 1;
   const maxNeed = opt.maxNeed ?? 99; // 必要ハートがこれより多いライブは戻す
@@ -41,6 +42,30 @@ export function defaultMulligan(v, opt = {}) {
       .forEach((x, k) => { if (k >= opt.maxLow) back.push(x.i); });
   }
   return back;
+}
+
+// マリガンを「残すカードの優先リスト」で決める（noteのキープ基準をそのまま書く用）
+// keep: [{ ids: ['番号',...] | cost: 4 | costMin/costMax | live: true, n: 残す枚数 }, ...]  上から順に、合うカードを n 枚まで残す
+function keepListMulligan(v, keep) {
+  const hand = v.hand;
+  const kept = new Set();
+  const groupLeft = {}; // 同じ group のルールは残す枚数を共有する（「AかBのどちらか1枚」）
+  for (const rule of keep) {
+    if (rule.group != null && groupLeft[rule.group] == null) groupLeft[rule.group] = rule.n ?? 1;
+    let n = rule.group != null ? groupLeft[rule.group] : rule.n ?? 1;
+    const hit = c => {
+      const d = c.def;
+      if (rule.ids && !rule.ids.includes(d.id)) return false;
+      if (rule.live != null && (d.kind === 'L') !== rule.live) return false;
+      if (rule.cost != null && (d.kind !== 'M' || d.cost !== rule.cost)) return false;
+      if (rule.costMin != null && (d.kind !== 'M' || d.cost < rule.costMin)) return false;
+      if (rule.costMax != null && (d.kind !== 'M' || d.cost > rule.costMax)) return false;
+      return true;
+    };
+    hand.forEach((c, i) => { if (n > 0 && !kept.has(i) && hit(c)) { kept.add(i); n--; } });
+    if (rule.group != null) groupLeft[rule.group] = n;
+  }
+  return hand.map((_, i) => i).filter(i => !kept.has(i));
 }
 
 // ---------------- メインフェイズ ----------------

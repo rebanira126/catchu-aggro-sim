@@ -1,5 +1,11 @@
 // Burn!!（虹ヶ咲）：北陸エリア予選 入賞（人魚Burn!!）
 // レシピは出典の入賞レシピ（デッキコード）そのまま。回し方は plan に書いたnoteの内容を目安にしている。
+const CD = 'PL!SP-bp4-027';      // Chance Day, Chance Way!
+const DM = 'PL!N-bp4-030';      // Daydream Mermaid
+const BURN = 'PL!N-bp7-029';    // Burn!!
+const LOVEU = 'PL!N-bp3-030';   // Love U my friends
+const SETSUNA11 = 'PL!N-bp7-007'; // 優木せつ菜（コスト11）
+
 export default {
   id: "niji-burn",
   type: "Burn!!（虹ヶ咲）",
@@ -36,13 +42,18 @@ export default {
     key: "11優木せつ菜（下のエネルギーで赤ハート）、Burn!!（成功時にエネルギー回収）、メロモ三神（ライブを拾いつつ盤面成長）",
     refs: ["https://note.com/brave_fairy8464/n/n4ce2ef4e0c96", "https://note.com/leno1130/n/n35817796ccf7", "https://note.com/poke_lovelive/n/nbfe1b972d27f"],
   },
-  // プレイ方針の上書き（まだ標準の方針のまま）
-  // プレイ方針（仮。7デッキの効果がそろったので、あとでnoteの回し方に合わせて調整する）
-  // ・マリガン：コスト4まで、コスト2は2枚、必要ハート6以下のライブを1枚残す
-  // ・ライブ置き場の空き枠にコスト4以下のメンバーを伏せて引き直す
+  // プレイ方針（noteの回し方より）
+  // ・マリガン：コスト2を2枚、Chance Day, Chance Way!、Daydream Mermaid、11優木せつ菜
   strategy: {
-    mulliganOpt: { keepCost: 4, maxLives: 1, maxNeed: 6, maxLow: 2 },
+    mulliganOpt: { keep: [{ cost: 2, n: 2 }, { ids: [CD], n: 1 }, { ids: [DM], n: 1 }, { ids: [SETSUNA11], n: 1 }] },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
+    turnPlan: {
+      1: { board: [[2, 2], [4]], lives: [[CD]] },
+      2: { board: [[4, 2, 2]], lives: [[DM]] },
+      3: { board: [[11, 2, 2]], lives: [[BURN]] },
+      4: { board: [[15, 2, 2], [11, 11, 2]], lives: [[BURN, LOVEU], [BURN]] },
+      5: { board: [[15, 11, 2]], lives: [[BURN, LOVEU], [BURN, BURN]] },
+    },
     liveOpt: { fill: true, fillMaxCost: 4, minP: 0.4, th1: 0.3 },
   },
 };

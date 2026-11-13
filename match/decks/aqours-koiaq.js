@@ -49,7 +49,8 @@ export default {
   // ・マリガン：コスト9まで、コスト2は2枚、必要ハート6以下のライブを1枚残す
   // ・ライブ置き場の空き枠にコスト4以下のメンバーを伏せて引き直す
   strategy: {
-    mulliganOpt: { keepCost: 9, maxLives: 1, maxNeed: 6, maxLow: 2 },
+    // マリガン：1Tの4コス（優木あんじゅを優先）、9コス（高海千歌・徒町小鈴）、Guilty Night, Guilty Kiss!
+    mulliganOpt: { keep: [{ ids: ['PL!-bp5-222'], group: 'c4', n: 1 }, { cost: 4, group: 'c4' }, { ids: ['PL!S-bp7-001', 'PL!HS-pb1-013'], n: 1 }, { ids: [GN], n: 1 }] },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
     // ターンごとの目標（13善子進行のnoteより）
     turnPlan: {
