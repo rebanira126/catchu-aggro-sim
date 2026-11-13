@@ -12,19 +12,22 @@
 | フォルダ | 中身 |
 |---|---|
 | `engine/` | ルール本体（総合ルール ver.1.06）。`game.js` が1試合の進行、`ai.js` が標準のプレイ方針、`hearts.js` がハート判定 |
-| `cards/` | カード効果。グループごとのファイルに書き、全デッキで共有する。登録のないカードは数値だけで動く |
+| `cards/` | カード効果。全デッキで共有する。`common.js` は効果の文章で登録（同じ文章のカードは全部これで動く）、グループごとのファイル（`liella.js` など）はカード番号で登録。どちらにも無いカードは数値だけで動く |
 | `decks/` | 組み込みの環境デッキ。1デッキ1ファイルで、レシピ・回し方の目安（plan）・プレイ方針の上書き（strategy）を持つ |
 | `store/` | 保存デッキの窓口。今は LocalStorage。DBに移すときは同じ形のクラスを作って差し替える |
-| `data/` | カードデータ（`cards.json`）とポイント制限 |
-| `tools/` | `rabuka_cards.json` から `data/cards.json` を作るスクリプト |
+| `data/` | カードデータ（`rabuka_cards.json` をそのまま使う）、前回取り込んだカード番号（`known-ids.json`）、ポイント制限 |
+| `tools/` | 新弾レポート（`report.mjs`） |
 | `test/` | 動作確認（`node match/test/smoke.mjs`） |
 
-## カードデータの更新
-新弾のカードを `rabuka_cards.json` に足したら、次のコマンドで作り直します。
+## カードデータの更新（新弾のとき）
+1. 新しい `rabuka_cards.json` で `data/rabuka_cards.json` を置き換える（変換は不要）
+2. `node match/tools/report.mjs` で、新カードと効果の対応状況を確認する
+   - 既存カードと同じ文章の効果は自動で動く（「対応済み（文章）」）
+   - 「未実装」の効果を `cards/` に書く。よく出る文章は `common.js` に文章で、そのカードだけの効果はグループのファイルに番号で
+3. 確認が済んだら `node match/tools/report.mjs --update` で `known-ids.json` を更新する
+4. `node match/test/smoke.mjs` で動作確認
 
-```
-node match/tools/build-cards.mjs <rabuka_cards.json のパス>
-```
+画面の「デッキとカード」の下にも、同じ状況（新カード・対応状況）が出ます。
 
 ## デッキを足すとき
 1. `decks/` にファイルを1つ作る（既存のファイルをまねる）

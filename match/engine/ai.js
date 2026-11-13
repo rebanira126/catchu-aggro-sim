@@ -15,10 +15,12 @@ function stageValue(stage) {
 export function defaultMulligan(v, opt = {}) {
   const keepCost = opt.keepCost ?? 4;
   const maxLives = opt.maxLives ?? 1;
+  const maxNeed = opt.maxNeed ?? 99; // 必要ハートがこれより多いライブは戻す
   const hand = v.hand;
   const back = [];
+  hand.forEach((c, i) => { if (c.def.kind === 'L' && needTotal(c.def.need) > maxNeed) back.push(i); });
   // 必要ハートの少ないライブから maxLives 枚だけ残す
-  const lives = hand.map((c, i) => ({ c, i })).filter(x => x.c.def.kind === 'L')
+  const lives = hand.map((c, i) => ({ c, i })).filter(x => x.c.def.kind === 'L' && needTotal(x.c.def.need) <= maxNeed)
     .sort((a, b) => needTotal(a.c.def.need) - needTotal(b.c.def.need));
   lives.forEach((x, k) => { if (k >= maxLives) back.push(x.i); });
   hand.forEach((c, i) => { if (c.def.kind === 'M' && c.def.cost > keepCost) back.push(i); });
@@ -30,6 +32,7 @@ export function defaultMulligan(v, opt = {}) {
 // 同じ強さならエネルギーが多く残る方。
 export function defaultMain(api, opt = {}) {
   const { g, me } = api;
+  useAbilities(api);
   const plan = bestPlays(g, me, opt);
   for (const step of plan) {
     const idx = me.hand.findIndex(c => c.uid === step.uid);
@@ -38,12 +41,31 @@ export function defaultMain(api, opt = {}) {
   }
 }
 
+// 起動能力：効果側の ai(ctx) が true を返したら使う（使うと盤面が変わるので1つずつ確認）
+export function useAbilities(api) {
+  const { g, me } = api;
+  for (let guard = 0; guard < 6; guard++) {
+    let used = false;
+    for (let area = 0; area < 3 && !used; area++) {
+      const s = me.stage[area];
+      if (!s) continue;
+      const ef = g.effect(s.card);
+      (ef && ef.activated || []).forEach((ab, k) => {
+        if (used || !ab.ai) return;
+        const ctx = { g, me, opp: g.opp(me), card: s.card, slot: s, area };
+        if (ab.ai(ctx) && api.activate(area, k)) used = true;
+      });
+    }
+    if (!used) break;
+  }
+}
+
 export function bestPlays(g, me, opt = {}) {
   const value = opt.value || memberValue;
   const energy = me.energy.active;
-  const stage0 = me.stage.map(s => (s ? { def: s.card.def, locked: s.enteredTurn === g.turn } : null));
+  const stage0 = me.stage.map(s => (s ? { def: s.card.def, locked: s.enteredTurn === g.turn, slot: s } : null));
   const handM = me.hand.filter(c => c.def.kind === 'M');
-  let best = { score: stageValue2(stage0, value), left: energy, plan: [] };
+  const cands = [{ stage: stage0, left: energy, plan: [] }];
   const seen = new Set();
   const dfs = (stage, left, used, plan) => {
     if (plan.length >= 3) return;
@@ -57,13 +79,12 @@ export function bestPlays(g, me, opt = {}) {
         let cost = g.costOf(me, c);
         if (s && cost > 0) cost = Math.max(0, cost - s.def.cost);
         if (cost > left) continue;
-        const ns = stage.slice(); ns[a] = { def: c.def, locked: true };
+        const ns = stage.slice(); ns[a] = { def: c.def, locked: true, card: c };
         const key = ns.map(x => (x ? x.def.id : '-')).join('|') + '#' + (left - cost);
         if (seen.has(key)) continue;
         seen.add(key);
         const np = plan.concat([{ uid: c.uid, area: a }]);
-        const sc = stageValue2(ns, value);
-        if (sc > best.score || (sc === best.score && left - cost > best.left)) best = { score: sc, left: left - cost, plan: np };
+        cands.push({ stage: ns, left: left - cost, plan: np });
         used.add(c.uid);
         dfs(ns, left - cost, used, np);
         used.delete(c.uid);
@@ -71,7 +92,45 @@ export function bestPlays(g, me, opt = {}) {
     }
   };
   dfs(stage0, energy, new Set(), []);
+  for (const c of cands) c.v = stageValue2(c.stage, value);
+  // 盤面の強さだけで選ぶ（ライブを見ない）
+  const byValue = (a, b) => b.v - a.v || b.left - a.left;
+  cands.sort(byValue);
+  const lives = me.hand.filter(c => c.def.kind === 'L');
+  if (opt.liveAware === false || !lives.length || cands.length === 1) return cands[0].plan;
+  // 手札のライブを成功させやすい盤面を選ぶ：上位の候補ごとに「出せるライブの期待点」を見積もる
+  const top = cands.slice(0, opt.topK ?? 30);
+  const w = opt.liveWeight ?? 3;
+  let best = null;
+  for (const c of top) {
+    const ev = withStage(me, c.stage, g, () => bestLiveSet(g, me, lives, opt.samples ?? 16, opt.minP ?? 0).ev);
+    c.score = ev * w + c.v * 0.2 + c.left * 0.01;
+    if (!best || c.score > best.score) best = c;
+  }
   return best.plan;
+}
+
+// 仮の盤面に入れ替えて fn を実行する（見積もり用）
+function withStage(me, stage, g, fn) {
+  const real = me.stage;
+  me.stage = stage.map(x => (x ? (x.slot || { card: x.card, active: true, under: [], enteredTurn: g.turn, mods: [] }) : null));
+  try { return fn(); } finally { me.stage = real; }
+}
+
+// ライブの組み合わせから「成功率 × 点数」が一番高いものを選ぶ
+function bestLiveSet(g, me, lives, samples, minP) {
+  const n = Math.min(lives.length, 8);
+  const est = estimateContext(g, me);
+  let best = { ev: 0, p: 0, pick: [] };
+  for (let mask = 1; mask < (1 << n); mask++) {
+    const pick = lives.slice(0, n).filter((_, k) => mask & (1 << k));
+    if (pick.length > 3) continue;
+    const p = successRate(g, me, pick, est, samples);
+    if (p < minP) continue;
+    const ev = p * pick.reduce((s, c) => s + previewScore(g, me, c), 0);
+    if (ev > best.ev + 1e-9 || (Math.abs(ev - best.ev) < 1e-9 && pick.length < best.pick.length)) best = { ev, p, pick };
+  }
+  return best;
 }
 
 function stageValue2(stage, value) {
@@ -113,7 +172,7 @@ function previewScore(g, me, card) {
   return card.def.score + live.bonus;
 }
 
-function estimateContext(g, me) {
+export function estimateContext(g, me) {
   const pool = emptyPool();
   let blades = 0;
   me.stage.forEach((s, area) => {
@@ -127,7 +186,7 @@ function estimateContext(g, me) {
   return { pool, blades, unknown };
 }
 
-function successRate(g, me, cards, est, samples) {
+export function successRate(g, me, cards, est, samples) {
   const needs = cards.map(card => {
     const ef = g.effect(card);
     const live = { card, need: card.def.need.slice(), bonus: 0 };

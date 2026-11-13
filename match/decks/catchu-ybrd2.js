@@ -33,6 +33,8 @@ export default {
     key: "11澁谷かのん、11米女メイ、13平安名すみれ（CatChu!名称の人数でディストーションが強化）",
     refs: ["https://note.com/happy_sloth5502/n/n9041888e2147", "https://note.com/brave_fairy8464/n/n4ce2ef4e0c96", "https://note.com/poke_lovelive/n/nbfe1b972d27f"],
   },
-  // プレイ方針の上書き（まだ標準の方針のまま）
-  strategy: {},
+  // プレイ方針：マリガンで5コストまで残し、ライブは2枚まで（必要ハート9以上の6点ディストーションは3ターン目用なので戻す）
+  strategy: {
+    mulliganOpt: { keepCost: 5, maxLives: 2, maxNeed: 8 },
+  },
 };
