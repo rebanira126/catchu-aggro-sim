@@ -161,7 +161,9 @@ export function searchBigOnEnter(group, min = 9, label = '') {
 // デッキの上から n 枚見て、好きな枚数を好きな順番で上に戻し、残りを控え室に置く（持っておきたいカードだけ戻す）
 export function scry(g, me, n, label = '') {
   const top = takeTop(g, me, n);
-  const keep = top.filter(c => cardWorth(g, me, c) >= 5).sort((a, b) => cardWorth(g, me, b) - cardWorth(g, me, a));
+  // 山札を削りたいデッキ（strategy.prefer.mill）は、ライブ以外を残さない
+  const bar = me.prefer && me.prefer.mill ? 8 : 5;
+  const keep = top.filter(c => cardWorth(g, me, c) >= bar).sort((a, b) => cardWorth(g, me, b) - cardWorth(g, me, a));
   const drop = top.filter(c => !keep.includes(c));
   me.deck.unshift(...keep);
   me.waiting.push(...drop);

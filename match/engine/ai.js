@@ -49,6 +49,9 @@ export function defaultMulligan(v, opt = {}) {
 function keepListMulligan(v, keep) {
   const hand = v.hand;
   const kept = new Set();
+  // 控え室に送りたいカードは1枚残す（1ターン目からライブ置き場に伏せて控え室へ送る）
+  const tw = v.me.prefer && v.me.prefer.toWaiting;
+  if (tw) { const i = hand.findIndex(c => tw.includes(c.def.id)); if (i >= 0) kept.add(i); }
   const groupLeft = {}; // 同じ group のルールは残す枚数を共有する（「AかBのどちらか1枚」）
   for (const rule of keep) {
     if (rule.group != null && groupLeft[rule.group] == null) groupLeft[rule.group] = rule.n ?? 1;
@@ -321,7 +324,8 @@ export function defaultSetLives(v, opt = {}) {
   }
   const out = best ? best.pick.map(x => x.i) : [];
   // 空いた枠に不要なメンバーを伏せて、同じ枚数を引き直す（ライブでないカードは控え室へ行く）
-  if (opt.fill && out.length < 3) {
+  // 山札を削りたいデッキ（prefer.mill）は、空いた枠をいつも埋めて引き直す
+  if ((opt.fill || (me.prefer && me.prefer.mill)) && out.length < 3) {
     const keep = protectedCards(g, me, opt);
     const cand = me.hand.map((c, i) => ({ c, i }))
       .filter(x => x.c.def.kind === 'M' && !keep.has(x.c.uid) && (x.c.def.cost <= (opt.fillMaxCost ?? 99) || isToWaiting(me, x.c)))
@@ -347,6 +351,13 @@ function handVal(c, me) {
 
 // 入れ替えに使わずに残すカード：次に出す中コストの一番いい1枚と、序盤は大型の一番いい1枚
 export function protectedCards(g, me, opt = {}) {
+  const keep = protectedCards0(g, me, opt);
+  // 控え室に送りたいカードは守らない
+  for (const c of me.hand) if (keep.has(c.uid) && isToWaiting(me, c)) keep.delete(c.uid);
+  return keep;
+}
+
+function protectedCards0(g, me, opt = {}) {
   const keep = new Set();
   const mid = opt.midCost ?? 5;
   const ms = me.hand.filter(c => c.def.kind === 'M');

@@ -86,7 +86,8 @@ export default {
   'PL!HS-cl1-004': {
     note: '登場：デッキの上3枚を控え室に置くか、相手のコスト2以下のメンバー1人をウェイト',
     onEnter({ g, me, opp }) {
-      if (oppActiveDone(g, me) && opp.stage.some(s => s && s.active && s.card.def.cost <= 2)) { waitOpp(g, opp, s => s.card.def.cost <= 2, '百生吟子：'); return; }
+      const mill = me.prefer && me.prefer.mill;
+      if (!mill && oppActiveDone(g, me) && opp.stage.some(s => s && s.active && s.card.def.cost <= 2)) { waitOpp(g, opp, s => s.card.def.cost <= 2, '百生吟子：'); return; }
       for (let k = 0; k < 3; k++) { const c = g.topCard(me); if (c) me.waiting.push(c); }
       g.log(me, 'eff', '百生吟子：デッキの上3枚を控え室に置いた');
     },

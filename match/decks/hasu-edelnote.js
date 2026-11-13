@@ -53,12 +53,12 @@ export default {
     prefer: { toWaiting: ['PL!HS-bp6-007', 'PL!HS-PR-032'] },
     mulliganOpt: { keep: [{ ids: [IZUMI2], n: 2 }, { ids: [CERES4], n: 1 }, { ids: [SAYAKA11], n: 1 }, { ids: [KAHO9], n: 1 }, { ids: [RETRO, EDELIED], n: 1 }, { ids: [LANDING, KAGUYA], n: 1 }] },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
+    // 1T 4 → 2T 9日野下花帆 → 3T 11村野さやか（花帆からのバトンタッチでエネルギー2枚アクティブ → さやかの起動で控え室の15セラスを登場）
     turnPlan: {
-      1: { board: [[2, 2]], lives: [[LANDING], [KAGUYA]] },
-      // 2T：9日野下花帆を出しておくと、3Tに11村野さやかでバトンタッチしたときエネルギーが2枚アクティブになり、さやかの起動に回せる
-      2: { board: [[2, { id: 'PL!HS-sd1-001' }], [2, 4]], lives: [[LANDING], [KAGUYA]] },
-      3: { board: [[15, 2], [11, 2], [13, 2]], lives: [[RETRO]] },
-      4: { board: [[15, 2]], lives: [[EDELIED]] },
+      1: { board: [[4], [2, 2]], lives: [[LANDING], [KAGUYA]] },
+      2: { board: [[{ id: KAHO9 }], [2, 4]], lives: [[LANDING], [KAGUYA]] },
+      3: { board: [[15, 2], [{ id: SAYAKA11 }, 2]], lives: [[RETRO]] },
+      4: { board: [[15, 2], [15, 4]], lives: [[EDELIED]] },
       5: { board: [[15, 15, 2]], lives: [[EDELIED], [EDELIED, RETRO]] },
     },
     liveOpt: { fill: true, fillMaxCost: 4, minP: 0.4, th1: 0.3 },
