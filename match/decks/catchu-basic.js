@@ -35,6 +35,8 @@ export default {
     key: "自作の基本形（このプロジェクトで作成）",
     refs: [],
   },
-  // プレイ方針の上書き（まだ標準の方針のまま）
-  strategy: {},
+  // プレイ方針：マリガンで5コストまで残し、ライブは2枚まで（必要ハート9以上の6点ディストーションは3ターン目用なので戻す）
+  strategy: {
+    mulliganOpt: { keepCost: 5, maxLives: 2, maxNeed: 8 },
+  },
 };

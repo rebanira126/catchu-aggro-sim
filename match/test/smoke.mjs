@@ -1,11 +1,12 @@
 // 動作確認：node match/test/smoke.mjs
 import fs from 'node:fs';
 import { EFFECTS } from '../cards/index.js';
+import { loadDbNode } from '../engine/load-node.js';
 import { BUILTIN_DECKS } from '../decks/index.js';
 import { playOne, makeMatchRunner, makeSoloRunner } from '../engine/index.js';
 import { meet } from '../engine/hearts.js';
 
-const db = JSON.parse(fs.readFileSync(new URL('../data/cards.json', import.meta.url)));
+const db = loadDbNode();
 let fail = 0;
 const ok = (c, m) => { if (!c) { fail++; console.log('NG:', m); } };
 

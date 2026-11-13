@@ -1,5 +1,6 @@
 // 画面の動き（対戦・ひとり回し・デッキとカード）
 import { EFFECTS, effectStatus } from './cards/index.js';
+import { buildDb } from './engine/carddb.js';
 import { BUILTIN_DECKS } from './decks/index.js';
 import { playOne, playSolo, makeMatchRunner, makeSoloRunner } from './engine/index.js';
 import { parseRecipe, recipeText, checkDeck } from './engine/recipe.js';
@@ -12,6 +13,7 @@ const pct = (a, b) => (b ? (a / b * 100).toFixed(1) : '0.0');
 const sleep = () => new Promise(r => setTimeout(r, 0));
 
 let DB = null;
+let KNOWN = null; // data/known-ids.json（前回取り込んだカード番号）
 const { store, label: storeLabel } = createDeckStore();
 let saved = [];
 
@@ -274,9 +276,21 @@ function renderDeckList() {
   if (!editing) openDeck(entries()[0]);
 }
 
+const ST_LABEL = { none: '効果なし', id: '対応済み（番号）', text: '対応済み（文章）', todo: '未実装' };
+function renderReport() {
+  const all = Object.values(DB);
+  const cnt = { none: 0, id: 0, text: 0, todo: 0 };
+  for (const d of all) cnt[effectStatus(d)]++;
+  const known = new Set(KNOWN ? KNOWN.ids : []);
+  const fresh = KNOWN ? all.filter(d => !known.has(d.id)) : [];
+  $('reportBody').innerHTML = `<p>カード ${all.length}種類：${Object.keys(cnt).map(k => `${ST_LABEL[k]} ${cnt[k]}`).join('／')}</p>`
+    + (KNOWN ? `<p>前回の取り込み（${esc(KNOWN.updated || '')}）からの新カード：${fresh.length ? fresh.length + '種類' : 'なし'}</p>` : '<p class="hint">取り込み記録（known-ids.json）がありません。</p>')
+    + (fresh.length ? `<ul>${fresh.slice(0, 100).map(d => `<li>${esc(d.name)} <span class="mono">${esc(d.id)}</span>：${ST_LABEL[effectStatus(d)]}</li>`).join('')}</ul>` : '');
+}
+
 function coverage(list) {
   let done = 0, total = 0;
-  for (const [id] of list) { const c = DB[id]; if (!c || !c.text) continue; total++; if (effectStatus(c) === 'done') done++; }
+  for (const [id] of list) { const c = DB[id]; if (!c || !c.text) continue; total++; if (['id', 'text'].includes(effectStatus(c))) done++; }
   return { done, total };
 }
 
@@ -313,7 +327,7 @@ function renderDeckDetail() {
     const c = DB[id];
     const kinds = [...new Set((c.text.match(/【(登場|起動|常時|自動|ライブ開始時|ライブ成功時)】/g) || []).map(s => s.slice(1, -1)))].join('・') || 'なし';
     const st = effectStatus(c);
-    const chip = st === 'none' ? '<span class="chip done">効果なし</span>' : st === 'done' ? '<span class="chip done">対応済み</span>' : '<span class="chip todo">未実装</span>';
+    const chip = st === 'none' ? '<span class="chip done">効果なし</span>' : st === 'id' ? '<span class="chip done">対応済み</span>' : st === 'text' ? '<span class="chip done" title="同じ文章の効果として動きます">対応済み（文章）</span>' : '<span class="chip todo">未実装</span>';
     return `<tr><td class="n">×${n}</td><td>${esc(c.name)}<span class="mono">${esc(id)}</span></td><td>${c.kind === 'L' ? 'ライブ（' + c.score + '点）' : c.cost}</td><td title="${esc(c.text)}">${esc(kinds)}</td><td>${chip}</td></tr>`;
   }).join('')}</tbody></table>`;
 }
@@ -365,7 +379,9 @@ $('xferDo').addEventListener('click', async () => {
 // ---------------- 起動 ----------------
 (async function init() {
   try {
-    DB = await fetch('./data/cards.json').then(r => r.json());
+    DB = buildDb(await fetch('./data/rabuka_cards.json').then(r => r.json()));
+    KNOWN = await fetch('./data/known-ids.json').then(r => (r.ok ? r.json() : null)).catch(() => null);
+    renderReport();
   } catch (e) {
     $('loading').textContent = 'カードデータを読み込めませんでした。'; return;
   }

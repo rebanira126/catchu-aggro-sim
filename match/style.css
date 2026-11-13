@@ -108,3 +108,7 @@ dialog { border: 0; border-radius: 16px; padding: 0; width: min(640px, 92vw); }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .mono { display: block; }
 .store-row button, .btns button, .head-row button { white-space: nowrap; }
+
+.report { margin-top: 12px; }
+.report summary { cursor: pointer; font-weight: 700; font-size: 14px; }
+.report ul { margin: 6px 0 0; padding-left: 1.2em; }

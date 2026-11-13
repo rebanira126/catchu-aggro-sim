@@ -19,7 +19,10 @@ export class Game {
    */
   constructor(opt) {
     this.db = opt.db;
-    this.effects = opt.effects || {};
+    // 効果の引き方：関数（定義 → 効果）か、カード番号 → 効果 の表
+    const ef = opt.effects || {};
+    this.resolve = typeof ef === 'function' ? ef : (def => ef[def.id] || null);
+    this.efCache = new Map();
     this.rng = makeRng(opt.seed || 1);
     this.trace = !!opt.trace;
     this.logs = [];
@@ -97,7 +100,28 @@ export class Game {
     return true;
   }
 
-  effect(card) { return this.effects[card.def.id] || null; }
+  effect(card) {
+    const def = card.def;
+    if (!this.efCache.has(def.id)) this.efCache.set(def.id, this.resolve(def) || null);
+    return this.efCache.get(def.id);
+  }
+
+  // 同時に起きる自動能力（ライブ開始時・ライブ成功時）を、効果ごとの順番（order が小さい順）で解決する
+  fire(P, hook, extra = {}) {
+    const opp = this.opp(P);
+    const list = [];
+    P.stage.forEach((s, area) => {
+      if (!s) return;
+      const ef = this.effect(s.card);
+      if (ef && ef[hook]) list.push({ ef, ctx: { g: this, me: P, opp, card: s.card, slot: s, area, lives: P.lives, ...extra } });
+    });
+    for (const live of P.lives.slice()) {
+      const ef = this.effect(live.card);
+      if (ef && ef[hook]) list.push({ ef, ctx: { g: this, me: P, opp, card: live.card, live, lives: P.lives, ...extra } });
+    }
+    list.sort((a, b) => ((a.ef.order && a.ef.order[hook]) ?? 5) - ((b.ef.order && b.ef.order[hook]) ?? 5));
+    for (const { ef, ctx } of list) ef[hook](ctx);
+  }
 
   // ---------------- メンバー ----------------
   // 置けるエリアか（このターンにステージに来たメンバーのいるエリアは指定できない 9.6.2.1.2.1）
@@ -272,20 +296,11 @@ export class Game {
     P.waiting.push(...nonLive);
     if (!P.liveZone.length) { this.log(P, 'live', 'ライブなし'); return; }
     P.lives = P.liveZone.map(card => ({ card, need: card.def.need.slice(), bonus: 0 }));
-    const perf = { cheerN: 0, cheer: [], scoreIcons: 0, ok: false, score: 0, setCount: P.liveZone.length };
+    const perf = { cheerN: 0, cheer: [], scoreIcons: 0, ok: false, score: 0, setCount: P.liveZone.length, totalBonus: 0 };
     P.perf = perf;
     this.log(P, 'live', `ライブ：${P.lives.map(l => l.card.def.name).join('＋')}`);
-    // ライブ開始時（11.5）：ステージのメンバー → ライブカードの順
-    const opp = this.opp(P);
-    P.stage.forEach((s, area) => {
-      if (!s) return;
-      const ef = this.effect(s.card);
-      if (ef && ef.liveStart) ef.liveStart({ g: this, me: P, opp, card: s.card, slot: s, area, lives: P.lives });
-    });
-    for (const live of P.lives.slice()) {
-      const ef = this.effect(live.card);
-      if (ef && ef.liveStart) ef.liveStart({ g: this, me: P, opp, card: live.card, live, lives: P.lives });
-    }
+    // ライブ開始時（11.5）
+    this.fire(P, 'liveStart');
     // エール（8.3.10〜8.3.12）
     let blades = 0;
     P.stage.forEach((s, area) => { if (s && s.active) blades += this.bladesOf(P, s, area); });
@@ -329,19 +344,7 @@ export class Game {
   judge() {
     const [A, B] = this.order();
     // ライブ成功時（8.4.4）
-    for (const P of [A, B]) {
-      if (!P.liveZone.length) continue;
-      const opp = this.opp(P);
-      P.stage.forEach((s, area) => {
-        if (!s) return;
-        const ef = this.effect(s.card);
-        if (ef && ef.liveSuccess) ef.liveSuccess({ g: this, me: P, opp, card: s.card, slot: s, area, lives: P.lives });
-      });
-      for (const live of P.lives.slice()) {
-        const ef = this.effect(live.card);
-        if (ef && ef.liveSuccess) ef.liveSuccess({ g: this, me: P, opp, card: live.card, live, lives: P.lives });
-      }
-    }
+    for (const P of [A, B]) if (P.liveZone.length) this.fire(P, 'liveSuccess');
     const sa = this.liveScore(A), sb = this.liveScore(B);
     A.lastScore = sa; B.lastScore = sb;
     let winners = [];
