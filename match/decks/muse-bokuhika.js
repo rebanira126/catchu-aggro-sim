@@ -1,5 +1,11 @@
 // 僕光μ's：ファンミ第三幕 Day1 Bブロック Top4
 // レシピは出典の入賞レシピ（デッキコード）そのまま。回し方は plan に書いたnoteの内容を目安にしている。
+const MS = 'PL!-bp6-019';        // Music S.T.A.R.T!!
+const ARASHI = 'PL!-pb2-038';    // 嵐のなかの恋だから
+const BOKUHIKA = 'PL!-pb2-039';  // 僕たちはひとつの光
+const NIKO9 = 'PL!-pb2-009';     // 矢澤にこ（コスト9）
+const ERI4 = 'PL!-bp5-002';      // 絢瀬絵里（コスト4）
+
 export default {
   id: "muse-bokuhika",
   type: "僕光μ's",
@@ -37,13 +43,19 @@ export default {
     key: "17西木野真姫（起動で手札を整える・メインアタッカー）、9矢澤にこ、15南ことり、22高坂穂乃果（長期戦）",
     refs: ["https://note.com/izm_i7ll/n/nb94386d5cbad", "https://note.com/emituntan/n/n6133008f3186", "https://note.com/poke_lovelive/n/nbfe1b972d27f"],
   },
-  // プレイ方針の上書き（まだ標準の方針のまま）
-  // プレイ方針（仮。7デッキの効果がそろったので、あとでnoteの回し方に合わせて調整する）
-  // ・マリガン：コスト9まで、コスト2は2枚、必要ハート6以下のライブを1枚残す
-  // ・ライブ置き場の空き枠にコスト4以下のメンバーを伏せて引き直す
+  // プレイ方針（noteの回し方より）
+  // ・マリガン：Music S.T.A.R.T!!、9矢澤にこ、4コス（絢瀬絵里を優先して1枚）
+  // ・空いた枠にはコスト4以下のメンバーを伏せて引き直す
   strategy: {
-    mulliganOpt: { keepCost: 9, maxLives: 1, maxNeed: 6, maxLow: 2 },
+    mulliganOpt: { keep: [{ ids: [MS], n: 1 }, { ids: [NIKO9], n: 1 }, { ids: [ERI4], group: 'c4', n: 1 }, { cost: 4, group: 'c4' }] },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
+    turnPlan: {
+      1: { board: [[4]] },
+      2: { board: [[9]], lives: [[MS]] },
+      3: { board: [[17, 2]], lives: [[ARASHI]] },
+      4: { board: [[17, 9]], lives: [[ARASHI, MS]] },
+      5: { board: [[17, 17, 2]], lives: [[BOKUHIKA]] },
+    },
     liveOpt: { fill: true, fillMaxCost: 4, minP: 0.4, th1: 0.3 },
   },
 };

@@ -1,5 +1,14 @@
 // Edel Note：ファンミ第三幕 Day2 Bブロック Top4
 // レシピは出典の入賞レシピ（デッキコード）そのまま。回し方は plan に書いたnoteの内容を目安にしている。
+const LANDING = 'PL!S-bp5-020'; // Landing action Yeah!!
+const KAGUYA = 'PL!-pb1-031';   // 輝夜の城で踊りたい
+const RETRO = 'PL!HS-bp5-022';  // Retrofuture
+const EDELIED = 'PL!HS-pb1-030'; // Edelied
+const IZUMI2 = 'PL!HS-pb1-016';  // 桂城 泉（コスト2）
+const CERES4 = 'PL!HS-sd1-007';  // セラス 柳田 リリエンフェルト（コスト4）
+const SAYAKA11 = 'PL!HS-bp1-002'; // 村野さやか（コスト11）
+const KAHO9 = 'PL!HS-sd1-001';    // 日野下花帆（コスト9）
+
 export default {
   id: "hasu-edelnote",
   type: "Edel Note",
@@ -37,13 +46,21 @@ export default {
     key: "15セラス（相手メンバーをウェイト＝妨害）、11村野さやか（3Tに15コスを踏み倒し）、13桂城泉",
     refs: ["https://note.com/taki087/n/n76c6a1479109", "https://note.com/umi_kuku/n/ndbfeb1cadc39", "https://note.com/poke_lovelive/n/nbfe1b972d27f"],
   },
-  // プレイ方針の上書き（まだ標準の方針のまま）
-  // プレイ方針（仮。7デッキの効果がそろったので、あとでnoteの回し方に合わせて調整する）
-  // ・マリガン：コスト4まで、コスト2は2枚、必要ハート6以下のライブを1枚残す
-  // ・ライブ置き場の空き枠にコスト4以下のメンバーを伏せて引き直す
+  // プレイ方針（noteの回し方より）
+  // ・マリガン：2桂城泉、セラス（4）、11村野さやか、Retrofuture か Edelied
   strategy: {
-    mulliganOpt: { keepCost: 4, maxLives: 1, maxNeed: 6, maxLow: 2 },
+    // 15セラスは控え室に置いておき、11村野さやかの起動で踏み倒す（PR-032は登場時にスコア6以上のライブを回収）
+    prefer: { toWaiting: ['PL!HS-bp6-007', 'PL!HS-PR-032'] },
+    mulliganOpt: { keep: [{ ids: [IZUMI2], n: 2 }, { ids: [CERES4], n: 1 }, { ids: [SAYAKA11], n: 1 }, { ids: [KAHO9], n: 1 }, { ids: [RETRO, EDELIED], n: 1 }, { ids: [LANDING, KAGUYA], n: 1 }] },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
+    // 1T 4 → 2T 9日野下花帆 → 3T 11村野さやか（花帆からのバトンタッチでエネルギー2枚アクティブ → さやかの起動で控え室の15セラスを登場）
+    turnPlan: {
+      1: { board: [[4], [2, 2]], lives: [[LANDING], [KAGUYA]] },
+      2: { board: [[{ id: KAHO9 }], [2, 4]], lives: [[LANDING], [KAGUYA]] },
+      3: { board: [[15, 2], [{ id: SAYAKA11 }, 2]], lives: [[RETRO]] },
+      4: { board: [[15, 2], [15, 4]], lives: [[EDELIED]] },
+      5: { board: [[15, 15, 2]], lives: [[EDELIED], [EDELIED, RETRO]] },
+    },
     liveOpt: { fill: true, fillMaxCost: 4, minP: 0.4, th1: 0.3 },
   },
 };

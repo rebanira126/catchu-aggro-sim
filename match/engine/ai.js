@@ -23,6 +23,7 @@ function stageValue(stage) {
 
 // ---------------- マリガン ----------------
 export function defaultMulligan(v, opt = {}) {
+  if (opt.keep) return keepListMulligan(v, opt.keep);
   const keepCost = opt.keepCost ?? 4;
   const maxLives = opt.maxLives ?? 1;
   const maxNeed = opt.maxNeed ?? 99; // 必要ハートがこれより多いライブは戻す
@@ -43,12 +44,42 @@ export function defaultMulligan(v, opt = {}) {
   return back;
 }
 
+// マリガンを「残すカードの優先リスト」で決める（noteのキープ基準をそのまま書く用）
+// keep: [{ ids: ['番号',...] | cost: 4 | costMin/costMax | live: true, n: 残す枚数 }, ...]  上から順に、合うカードを n 枚まで残す
+function keepListMulligan(v, keep) {
+  const hand = v.hand;
+  const kept = new Set();
+  // 控え室に送りたいカードは1枚残す（1ターン目からライブ置き場に伏せて控え室へ送る）
+  const tw = v.me.prefer && v.me.prefer.toWaiting;
+  if (tw) { const i = hand.findIndex(c => tw.includes(c.def.id)); if (i >= 0) kept.add(i); }
+  const groupLeft = {}; // 同じ group のルールは残す枚数を共有する（「AかBのどちらか1枚」）
+  for (const rule of keep) {
+    // ifKept：それより上のルールで1枚以上残せたときだけ使う（例：5コストか恋がある手札だけ、ほかのカードも残す）
+    if (rule.ifKept && kept.size === 0) continue;
+    if (rule.group != null && groupLeft[rule.group] == null) groupLeft[rule.group] = rule.n ?? 1;
+    let n = rule.group != null ? groupLeft[rule.group] : rule.n ?? 1;
+    const hit = c => {
+      const d = c.def;
+      if (rule.ids && !rule.ids.includes(d.id)) return false;
+      if (rule.live != null && (d.kind === 'L') !== rule.live) return false;
+      if (rule.cost != null && (d.kind !== 'M' || d.cost !== rule.cost)) return false;
+      if (rule.costMin != null && (d.kind !== 'M' || d.cost < rule.costMin)) return false;
+      if (rule.costMax != null && (d.kind !== 'M' || d.cost > rule.costMax)) return false;
+      return true;
+    };
+    hand.forEach((c, i) => { if (n > 0 && !kept.has(i) && hit(c)) { kept.add(i); n--; } });
+    if (rule.group != null) groupLeft[rule.group] = n;
+  }
+  return hand.map((_, i) => i).filter(i => !kept.has(i));
+}
+
 // ---------------- メインフェイズ ----------------
 // 手札のメンバーを最大3回まで出す組み合わせを全部試し、ステージの合計の強さが一番高くなるものを選ぶ。
 // 同じ強さならエネルギーが多く残る方。
 export function defaultMain(api, opt = {}) {
   const { g, me } = api;
   useAbilities(api);
+  runScript(api);
   // 1枚出すごとに組み直す（登場時の効果で手札が変わるため）。出す予定の残りのカードは捨てないよう me.reserved に入れておく
   for (let k = 0; k < 4; k++) {
     const plan = bestPlays(g, me, opt);
@@ -106,6 +137,7 @@ export function bestPlays(g, me, opt = {}) {
       const s = stage[a];
       if (s && s.locked) continue;
       if (s && s.slot && !g.canTarget(me, a)) continue;
+      if (s && s.slot && isLocked(g, me, s.slot, a)) continue; // 固定するメンバー（strategy.lock）
       const tried = new Set();
       for (const c of handM) {
         if (used.has(c.uid) || tried.has(c.def.id)) continue;
@@ -115,7 +147,7 @@ export function bestPlays(g, me, opt = {}) {
         if (ce && ce.doubleBaton && s) {
           for (let a2 = 0; a2 < 3; a2++) {
             const s2 = stage[a2];
-            if (a2 === a || !s2 || s2.locked || (s2.slot && !g.canTarget(me, a2))) continue;
+            if (a2 === a || !s2 || s2.locked || (s2.slot && (!g.canTarget(me, a2) || isLocked(g, me, s2.slot, a2)))) continue;
             const cost2 = Math.max(0, g.costOf(me, c) - s.def.cost - s2.def.cost);
             if (cost2 > left) continue;
             const ns2 = stage.slice(); ns2[a] = { def: c.def, locked: true, card: c }; ns2[a2] = null;
@@ -265,35 +297,117 @@ export function defaultSetLives(v, opt = {}) {
   }
   const est = combos.length ? estimateContext(g, me) : null;
   let best = null;
+  // 相手の点数の見込みがあるとき（対戦）は、相手と比べた勝ち負けで選ぶ
+  const oppD = opt.oppAware === false ? null : oppDistribution(g, me);
+  let bestU = null;
   for (const pick of combos) {
     const st = {};
     const p = successRate(g, me, pick.map(x => x.c), est, samples, st);
     const score = pick.reduce((s, x) => s + previewScore(g, me, x.c), 0) + (st.adj || 0);
+    if (oppD) {
+      const ids = pick.map(x => x.c.def.id);
+      let u = liveUtility(g, me, oppD, p, score);
+      if (planLives(g, me, ids)) u += opt.planUtil ?? 0.08;               // そのターンに置きたい組み合わせ
+      else if (usesReserved(g, me, ids)) u -= opt.reserveUtil ?? 0.08;    // 後のターン用のライブを使う
+      if (opt.pace) {                                                       // 点数の進行（目標点）に届くなら少し高く
+        const tg = opt.pace[Math.min(succ, opt.pace.length - 1)];
+        if (score >= tg) u += 0.03;
+      }
+      u -= 0.02 * pick.length;                                              // 使うライブは少ない方がよい
+      if (!bestU || u > bestU.u + 1e-9) bestU = { u, p, score, pick };
+      continue;
+    }
     if (opt.pace) {
       // 点数の進行（例：1→4→7）に合わせる：目標に届く中で一番小さい点数、届かなければ一番大きい点数
       const tg = opt.pace[Math.min(succ, opt.pace.length - 1)];
       const th = g.turn <= 1 && opt.th1 != null ? opt.th1 : (succ === opt.pace.length - 1 && score >= tg && opt.thLast != null ? opt.thLast : minP);
       if (p < th || p <= 0) continue;
-      const key = score >= tg ? 1000 - score : score;
+      const pids = pick.map(x => x.c.def.id);
+      const planned = planLives(g, me, pids);
+      if (!planned && opt.reserveStrict && usesReserved(g, me, pids)) continue; // 後のターンのために取っておく
+      // そのターンに置きたい組み合わせを一番に。次に点数の進行
+      const key = (planned ? 2000 : 0) + (score >= tg ? 1000 - score : score);
       if (!best || key > best.key || (key === best.key && p > best.p + 1e-9)) best = { key, p, score, pick };
       continue;
     }
     let ev = p * score;
     if (p < minP) continue;
     // そのターンに置きたい組み合わせなら高く見る
-    if (planLives(g, me, pick.map(x => x.c.def.id))) ev *= opt.planLiveBonus ?? 1.6;
+    const ids = pick.map(x => x.c.def.id);
+    if (planLives(g, me, ids)) ev *= opt.planLiveBonus ?? 1.6;
+    // 次のターン以降の目標で使うライブを先に使ってしまう組み合わせは低く見る
+    else if (usesReserved(g, me, ids)) {
+      if (opt.reserveStrict) continue; // 後のターンのために取っておく（しゃがむ）
+      ev *= opt.reservePenalty ?? 0.4;
+    }
     if (!best || ev > best.ev + 1e-9 || (Math.abs(ev - best.ev) < 1e-9 && pick.length < best.pick.length)) best = { ev, p, score, pick };
+  }
+  if (oppD) {
+    // 置かない（しゃがむ）ときより得になるなら置く
+    const u0 = -oppD.pSucc * (g.opp(me).success.length >= 2 ? 3 : 1);
+    best = bestU && bestU.u > u0 + (opt.oppMargin ?? 0.02) ? bestU : null;
   }
   const out = best ? best.pick.map(x => x.i) : [];
   // 空いた枠に不要なメンバーを伏せて、同じ枚数を引き直す（ライブでないカードは控え室へ行く）
-  if (opt.fill && out.length < 3) {
+  // 山札を削りたいデッキ（prefer.mill）は、空いた枠をいつも埋めて引き直す
+  if ((opt.fill || (me.prefer && me.prefer.mill)) && out.length < 3) {
     const keep = protectedCards(g, me, opt);
     const cand = me.hand.map((c, i) => ({ c, i }))
-      .filter(x => x.c.def.kind === 'M' && !keep.has(x.c.uid) && x.c.def.cost <= (opt.fillMaxCost ?? 99))
-      .sort((a, b) => handVal(a.c, me) - handVal(b.c, me));
+      .filter(x => x.c.def.kind === 'M' && !keep.has(x.c.uid) && (x.c.def.cost <= (opt.fillMaxCost ?? 99) || isToWaiting(me, x.c)))
+      .sort((a, b) => (isToWaiting(me, b.c) - isToWaiting(me, a.c)) || (handVal(a.c, me) - handVal(b.c, me)));
     for (const x of cand) { if (out.length >= 3) break; out.push(x.i); }
   }
   return out;
+}
+
+// ---------------- 相手の点数を意識したライブの判断 ----------------
+// 相手のこのターンの点数の見込み：{ none: 成功しない確率, pSucc, dist: [[点数, 確率], ...] }
+// ・相手のデッキのひとり回しの結果（me.oppModel）から引く
+// ・自分が後攻なら、先攻が伏せた枚数が見える。0枚ならライブなし
+export function oppDistribution(g, me) {
+  const model = me.oppModel;
+  if (!model) return null;
+  const opp = g.opp(me);
+  const second = g.order()[1] === me;
+  if (second && opp.liveZone.length === 0) return { none: 1, pSucc: 0, dist: [] };
+  const prof = model[Math.min(g.turn, model.length - 1)];
+  if (!prof || !prof.n) return null;
+  let none = prof.none / prof.n;
+  let dist = Object.entries(prof.scores).map(([sc, c]) => [+sc, c / prof.n]);
+  // 後攻で、先攻がカードを伏せているのが見えるなら「ライブなし」の分を減らす（伏せたのが全部メンバーのこともあるので半分）
+  if (second && opp.liveZone.length > 0 && none < 1) {
+    const k = 0.5;
+    const succ = 1 - none;
+    const scale = (succ + none * k) / succ;
+    dist = dist.map(([sc, q]) => [sc, q * scale]);
+    none = none * (1 - k);
+  }
+  return { none, pSucc: 1 - none, dist };
+}
+
+// 置き方の良さ：（自分がライブに勝つ確率）−（相手がライブに勝つ確率）
+// 同点は両方勝ち。ただし両方が成功ライブ2枚の千秋楽で同点なら、どちらも移動しない
+function liveUtility(g, me, D, p, s) {
+  const opp = g.opp(me);
+  const finalTie = me.success.length === 2 && opp.success.length === 2;
+  let weWin = D.none, oppWin = 0;
+  for (const [os, q] of D.dist) {
+    if (os < s) weWin += q;
+    else if (os === s) { if (!finalTie) { weWin += q; oppWin += q * p; } }
+    else oppWin += q * p;
+    oppWin += q * (1 - p);
+  }
+  // 勝ち負けが決まるライブは重く見る：相手が成功ライブ2枚なら負けを、自分が2枚なら勝ちを3倍で数える
+  // （アグロ相手には「3ターン目までに負けない」ことを優先し、決めに行くターンは取り切りに行く）
+  const wMe = me.success.length >= 2 ? 3 : 1;
+  const wOpp = opp.success.length >= 2 ? 3 : 1;
+  return wMe * p * weWin - wOpp * oppWin;
+}
+
+// 控え室に置いておきたいカードか（控え室にまだ無いときだけ）
+function isToWaiting(me, c) {
+  const tw = me.prefer && me.prefer.toWaiting;
+  return !!(tw && tw.includes(c.def.id) && !me.waiting.some(x => tw.includes(x.def.id)));
 }
 
 // 手札の並べ替え用のおおまかな価値
@@ -306,6 +420,13 @@ function handVal(c, me) {
 
 // 入れ替えに使わずに残すカード：次に出す中コストの一番いい1枚と、序盤は大型の一番いい1枚
 export function protectedCards(g, me, opt = {}) {
+  const keep = protectedCards0(g, me, opt);
+  // 控え室に送りたいカードは守らない
+  for (const c of me.hand) if (keep.has(c.uid) && isToWaiting(me, c)) keep.delete(c.uid);
+  return keep;
+}
+
+function protectedCards0(g, me, opt = {}) {
   const keep = new Set();
   const mid = opt.midCost ?? 5;
   const ms = me.hand.filter(c => c.def.kind === 'M');
@@ -322,7 +443,7 @@ export function protectedCards(g, me, opt = {}) {
     for (const it of want) {
       const match = d => (it.id ? d.id === it.id : d.cost === it.cost);
       if (onStage.some(match)) continue;
-      const c = ms.filter(x => match(x.def) && !keep.has(x.uid)).sort((a, b) => memberValue(b.def) - memberValue(a.def))[0];
+      const c = ms.filter(x => match(x.def) && !keep.has(x.uid) && !isToWaiting(me, x)).sort((a, b) => memberValue(b.def) - memberValue(a.def))[0];
       if (c) keep.add(c.uid);
     }
   }
@@ -343,6 +464,38 @@ export function protectedCards(g, me, opt = {}) {
     if (big[0]) keep.add(big[0].uid);
   }
   return keep;
+}
+
+// ---------------- 手順（strategy.script）と固定するメンバー（strategy.lock） ----------------
+// script: { 4: [{ play: { id | cost }, area, onto: { id | cost } }, ...] }
+//  そのターンのメインフェイズの最初に、書いた順に出す。手札に無い・エネルギーが足りないなどで出せない手順は飛ばす（いつものAIの判断に戻る）
+//  area を書かないときは onto（バトンタッチ元）に合うエリア、それも無ければ空いているエリア
+// lock: [{ id, area, fromTurn, toTurn }]  そのターンの間、そのエリアのそのメンバーにはバトンタッチしない
+export function isLocked(g, me, slot, area) {
+  const lk = me.lock;
+  if (!lk) return false;
+  return lk.some(l => g.turn >= (l.fromTurn ?? 1) && g.turn <= (l.toTurn ?? 99) && slot.card.def.id === l.id && (l.area == null || l.area === area));
+}
+
+const matchSpec = (spec, def) => !!spec && (spec.id ? def.id === spec.id : def.cost === spec.cost);
+
+function runScript(api) {
+  const { g, me } = api;
+  const steps = (me.script && me.script[g.turn]) || [];
+  for (const st of steps) {
+    if (st.play) {
+      const idx = me.hand.findIndex(c => c.def.kind === 'M' && matchSpec(st.play, c.def));
+      if (idx < 0) continue;
+      let area = st.area;
+      if (area == null && st.onto) area = me.stage.findIndex(x => x && matchSpec(st.onto, x.card.def));
+      if (area == null || area < 0) area = me.stage.findIndex(x => !x);
+      if (area < 0) continue;
+      if (st.onto && !(me.stage[area] && matchSpec(st.onto, me.stage[area].card.def))) continue;
+      const slot = me.stage[area];
+      if (slot && (isLocked(g, me, slot, area) || !g.canTarget(me, area))) continue;
+      if (api.play(idx, area, true)) { g.log(me, 'plan', `手順：${me.stage[area].card.def.name}を出した`); useAbilities(api); }
+    }
+  }
 }
 
 // ---------------- ターンごとの目標（strategy.turnPlan） ----------------
@@ -384,6 +537,22 @@ function planLives(g, me, ids) {
   if (!t || !t.lives) return false;
   const key = ids.slice().sort().join('|');
   return t.lives.some(l => l.slice().sort().join('|') === key);
+}
+
+// 次の2ターンの目標のライブ（各ターンの最初の候補）に必要な枚数が手札に足りなくなるか
+function usesReserved(g, me, ids) {
+  for (const t of [g.turn + 1, g.turn + 2]) {
+    const tgt = turnTarget(me, t);
+    if (!tgt || !tgt.lives || !tgt.lives[0]) continue;
+    const need = tgt.lives[0];
+    for (const id of new Set(ids)) {
+      const want = need.filter(x => x === id).length;
+      if (!want) continue;
+      const have = me.hand.filter(c => c.def.id === id).length;
+      if (have - ids.filter(x => x === id).length < want) return true;
+    }
+  }
+  return false;
 }
 
 function comboAllowed(g, ids, opt) {
@@ -468,7 +637,7 @@ export function successRate(g, me, cards, est, samples, stats = null) {
 // 標準方針をまとめたもの。deck.strategy で一部を差し替えられる
 export function makePolicy(strategy = {}) {
   return {
-    mulligan: v => ((v.me.prefer = strategy.prefer || null), (v.me.turnPlan = strategy.turnPlan || null), strategy.mulligan ? strategy.mulligan(v, defaultMulligan) : defaultMulligan(v, strategy.mulliganOpt)),
+    mulligan: v => ((v.me.prefer = strategy.prefer || null), (v.me.turnPlan = strategy.turnPlan || null), (v.me.script = strategy.script || null), (v.me.lock = strategy.lock || null), strategy.mulligan ? strategy.mulligan(v, defaultMulligan) : defaultMulligan(v, strategy.mulliganOpt)),
     // ライブの点数の進行（pace）は、盤面づくりでも同じ目標を使う
     main: api => (strategy.main ? strategy.main(api, defaultMain) : defaultMain(api, { pace: strategy.liveOpt && strategy.liveOpt.pace, onlyCombos: strategy.liveOpt && strategy.liveOpt.onlyCombos, ...strategy.mainOpt })),
     setLives: v => (strategy.setLives ? strategy.setLives(v, defaultSetLives) : defaultSetLives(v, strategy.liveOpt)),

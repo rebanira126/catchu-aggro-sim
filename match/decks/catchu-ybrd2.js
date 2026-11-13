@@ -28,19 +28,32 @@ export default {
   plan: {
     board: "2-2 → 5-2-2 → 11-2-2（バトンタッチ）→ 11-5-2 / 13",
     score: "1 → 4 → 7 → 8（1-4-7が理想）",
-    mulligan: "2コス2枚、5コスすみれ／メイ、START!! True dreams、ディストーション",
+    mulligan: "5コス（すみれ／メイ）を最優先、次に2コス恋。どちらかがあればSTART!! True dreams・3点ディストーション・2コスメイも残す（どちらも無ければほかは残さない）",
     lives: "1T：START!! True dreams（1点）／2T：ディストーション（3点＋1）／3T：ディストーション（6点＋1）／4T以降は打点が伸びにくい",
     key: "11澁谷かのん、11米女メイ、13平安名すみれ（CatChu!名称の人数でディストーションが強化）",
     refs: ["https://note.com/happy_sloth5502/n/n9041888e2147", "https://note.com/brave_fairy8464/n/n4ce2ef4e0c96", "https://note.com/poke_lovelive/n/nbfe1b972d27f"],
   },
   // プレイ方針（旧CatChu!シミュレーターと結果がほぼ同じになるよう調整）
-  // ・マリガン：コスト2は1枚、5コストまで、ライブは必要ハート7以下を1枚だけ残す
+  // ・マリガン：下の mulliganOpt.keep（5コスト → 2コスト恋 → それらがあればSTART!!・3点ディストーション・2コストメイ）
   // ・盤面：CatChu!の名前の種類を揃える（ディストーションが強くなる）。同じ盤面ならカードを使わない方
   // ・ライブ：1→4→7点の進行をねらう。空いた枠には不要なメンバーを伏せて引き直す
   // ・6点のディストーションは2ターン目から1枚残す
   strategy: {
     prefer: { unit: 'CatChu!', w: 1, bigLive: 6 },
-    mulliganOpt: { keepCost: 5, maxLives: 1, maxNeed: 7, maxLow: 1 },
+    // マリガン（CatChu!を使っている人の基準）
+    //  1. 5コスト（米女メイ・平安名すみれ）を最優先。これが無いと2ターン目以降に何もできない
+    //  2. 次に2コストの葉月 恋（START!!の成功や、5コストを引けないときに役立つ）
+    //  3. 上の2つが1枚も無ければ、ほかのカードは残さない
+    //     上の2つがあれば、START!! True dreams・3点のディストーション・2コストの米女メイを残してよい
+    mulliganOpt: {
+      keep: [
+        { ids: ['PL!SP-bp2-007', 'PL!SP-pb2-037'], n: 1 },
+        { ids: ['PL!SP-bp1-005'], n: 1 },
+        { ids: ['PL!SP-bp7-023'], n: 1, ifKept: true },
+        { ids: ['PL!SP-pb1-023'], n: 1, ifKept: true },
+        { ids: ['PL!SP-pb1-018', 'PL!SP-pb2-018'], n: 1, ifKept: true },
+      ],
+    },
     mainOpt: { playPen: 0.3, unitBonus: { unit: 'CatChu!', w: 0.8 }, topK: 60 },
     liveOpt: { fill: true, pace: [1, 4, 7], minP: 0.5, th1: 0.3, thLast: 0.15 },
   },

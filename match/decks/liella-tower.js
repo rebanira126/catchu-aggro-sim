@@ -3,6 +3,7 @@
 const LBO = 'PL!SP-bp5-026';    // Let's be ONE
 const GO = 'PL!SP-bp2-023';     // Go!! リスタート
 const SV = 'PL!SP-bp5-023';     // Shooting Voice!!
+const HAJI = 'PL!SP-sd2-023';   // 始まりは君の空（序盤は1点ライブとして使う）
 const CHISATO10 = 'PL!SP-bp7-003'; // 嵐 千砂都（コスト10・下にメンバーを積む）
 const KEKE13 = 'PL!SP-bp5-002';    // 唐 可可（コスト13・左サイドで起動）
 
@@ -49,12 +50,24 @@ export default {
   // ・ライブ：成功2枚までは1点ライブで進め、千秋楽で大きく取りに行く
   // ・空いた枠にはコスト4以下のメンバーを伏せて引き直す（大型は残す）
   strategy: {
-    mulliganOpt: { keepCost: 10, maxLives: 1, maxNeed: 5, maxLow: 1 },
+    // マリガン：10嵐千砂都 ＞ 4ランプ ＞ 10澁谷かのん（千砂都が無いとき）＞ 1点ライブ
+    mulliganOpt: { keep: [{ ids: [CHISATO10], group: 'ten', n: 1 }, { ids: ['PL!SP-bp7-001'], group: 'ten' }, { ids: ['PL!SP-PR-006', 'PL!SP-PR-013', 'PL!SP-sd1-014', 'PL!SP-bp4-001'], n: 1 }, { ids: [LBO, GO], n: 1 }] },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
+    // 手順（noteの回し方より）。出せないときはいつものAIの判断に戻る
+    script: {
+      1: [{ play: { cost: 4 }, area: 2 }],
+      2: [{ play: { id: CHISATO10 }, area: 2 }],
+      3: [{ play: { cost: 4 }, area: 0 }, { play: { cost: 2 }, area: 1 }],
+      4: [{ play: { id: KEKE13 }, area: 0 }],
+      5: [{ play: { cost: 17 }, area: 0 }],
+      6: [{ play: { cost: 20 }, area: 1 }],
+    },
+    // 10千砂都（下にメンバーを積む）は右サイドから動かさない
+    lock: [{ id: CHISATO10, area: 2, fromTurn: 2 }],
     // ターンごとの目標（noteの回し方より。10千砂都は右サイドに置いて下にメンバーを積む、13可可は左サイド）
     turnPlan: {
-      1: { board: [[4]] },
-      2: { board: [[{ id: CHISATO10, area: 2 }]], lives: [[LBO], [GO]] },
+      1: { board: [[{ cost: 4, area: 2 }]] },
+      2: { board: [[{ id: CHISATO10, area: 2 }], [{ cost: 10, area: 2 }]], lives: [[LBO], [GO]] },
       3: { board: [[4, 2, { id: CHISATO10, area: 2 }]], lives: [[LBO], [GO]] },
       4: { board: [[{ id: KEKE13, area: 0 }, 2, { id: CHISATO10, area: 2 }]], lives: [[SV, LBO]] },
       5: { board: [[17, 2, { id: CHISATO10, area: 2 }]], lives: [[SV, LBO, LBO]] },

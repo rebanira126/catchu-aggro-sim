@@ -216,7 +216,7 @@ function swapTarget(g, me, self) {
   me.stage.forEach((s, a) => {
     if (!s || s === self || !isAq(s.card)) return;
     const up = me.waiting.filter(c => isMember(c) && isAq(c) && c.def.cost === s.card.def.cost + 2).sort((x, y) => memberValue(y.def) - memberValue(x.def))[0];
-    if (up && memberValue(up.def) > memberValue(s.card.def) + 1 && (!best || memberValue(up.def) > memberValue(best.up.def))) best = { area: a, up };
+    if (up && memberValue(up.def) > memberValue(s.card.def) && (!best || memberValue(up.def) > memberValue(best.up.def))) best = { area: a, up };
   });
   return best;
 }

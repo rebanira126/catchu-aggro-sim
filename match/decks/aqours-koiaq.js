@@ -49,14 +49,33 @@ export default {
   // ・マリガン：コスト9まで、コスト2は2枚、必要ハート6以下のライブを1枚残す
   // ・ライブ置き場の空き枠にコスト4以下のメンバーを伏せて引き直す
   strategy: {
-    mulliganOpt: { keepCost: 9, maxLives: 1, maxNeed: 6, maxLow: 2 },
-    mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
+    // 13（渡辺 曜・松浦果南）は控え室に置いておき、13津島善子の起動で 11→13 に入れ替えて登場させる（登場時の効果も使える）
+    prefer: { toWaiting: ['PL!S-bp2-005', 'PL!S-bp5-003'] },
+    // マリガン：1Tの4コス（優木あんじゅを優先）、9コス（高海千歌・徒町小鈴）、Guilty Night, Guilty Kiss!
+    mulliganOpt: { keep: [{ ids: ['PL!-bp5-222'], group: 'c4', n: 1 }, { cost: 4, group: 'c4' }, { ids: ['PL!S-bp7-001', 'PL!HS-pb1-013'], n: 1 }, { ids: [GN], n: 1 }] },
+    mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1, planWeight: 6 },
+    // 手順（13善子進行のnoteより）。出せないときはいつものAIの判断に戻る
+    //  3T：センターに13善子、サイドに2。善子の起動で 2→4（控え室の4）
+    //  4T：4→11国木田花丸、善子の起動で 11→13（控え室の13）→ 13-13-2
+    //  5T：13→15 を2回で 15-15-2 ／ 6T：2→9 で 15-15-9
+    script: {
+      1: [{ play: { cost: 4 }, area: 1 }],
+      2: [{ play: { cost: 9 }, area: 1 }],
+      3: [{ play: { id: YOSHIKO13 }, area: 1 }, { play: { cost: 2 }, area: 0 }, { play: { cost: 2 }, area: 2 }],
+      4: [{ play: { id: 'PL!S-bp7-007' }, onto: { cost: 4 } }, { play: { cost: 2 } }],
+      5: [{ play: { cost: 15 }, onto: { cost: 13 } }, { play: { cost: 15 }, onto: { cost: 13 } }],
+      6: [{ play: { cost: 9 }, onto: { cost: 2 } }],
+    },
+    // 13善子は 3T・4T はセンターから動かさない（起動能力を使うため）
+    lock: [{ id: YOSHIKO13, area: 1, fromTurn: 3, toTurn: 4 }],
     // ターンごとの目標（13善子進行のnoteより）
     turnPlan: {
-      1: { board: [[4]] },
-      2: { board: [[9]], lives: [[GN]] },
+      // 13善子はセンターで起動するので、1Tの4コス → 2Tの9 → 3Tの13善子 をセンターでつなぐ
+      1: { board: [[{ cost: 4, area: 1 }]] },
+      2: { board: [[{ cost: 9, area: 1 }]], lives: [[GN]] },
       3: { board: [[{ id: YOSHIKO13, area: 1 }, 4], [{ id: YOSHIKO13, area: 1 }, 2]], lives: [[GN]] },
-      4: { board: [[13, 13, 2]], lives: [[GN, MW]] },
+      // 4T：4→11国木田花丸、13善子の起動で 11→13（控え室の13）に入れ替えて 13-13-2
+      4: { board: [[{ id: YOSHIKO13, area: 1 }, 13, 2], [{ id: YOSHIKO13, area: 1 }, { id: 'PL!S-bp7-007' }, 2]], lives: [[GN, MW]] },
       5: { board: [[15, 15, 2], [15, 15, 4]], lives: [[KOIAQ, MW], [KOIAQ], [KOWARE]] },
       6: { board: [[15, 15, 9]], lives: [[KOIAQ, KOIAQ]] },
     },
