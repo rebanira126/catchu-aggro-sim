@@ -77,6 +77,7 @@ function keepListMulligan(v, keep) {
 export function defaultMain(api, opt = {}) {
   const { g, me } = api;
   useAbilities(api);
+  runScript(api);
   // 1枚出すごとに組み直す（登場時の効果で手札が変わるため）。出す予定の残りのカードは捨てないよう me.reserved に入れておく
   for (let k = 0; k < 4; k++) {
     const plan = bestPlays(g, me, opt);
@@ -134,6 +135,7 @@ export function bestPlays(g, me, opt = {}) {
       const s = stage[a];
       if (s && s.locked) continue;
       if (s && s.slot && !g.canTarget(me, a)) continue;
+      if (s && s.slot && isLocked(g, me, s.slot, a)) continue; // 固定するメンバー（strategy.lock）
       const tried = new Set();
       for (const c of handM) {
         if (used.has(c.uid) || tried.has(c.def.id)) continue;
@@ -143,7 +145,7 @@ export function bestPlays(g, me, opt = {}) {
         if (ce && ce.doubleBaton && s) {
           for (let a2 = 0; a2 < 3; a2++) {
             const s2 = stage[a2];
-            if (a2 === a || !s2 || s2.locked || (s2.slot && !g.canTarget(me, a2))) continue;
+            if (a2 === a || !s2 || s2.locked || (s2.slot && (!g.canTarget(me, a2) || isLocked(g, me, s2.slot, a2)))) continue;
             const cost2 = Math.max(0, g.costOf(me, c) - s.def.cost - s2.def.cost);
             if (cost2 > left) continue;
             const ns2 = stage.slice(); ns2[a] = { def: c.def, locked: true, card: c }; ns2[a2] = null;
@@ -397,6 +399,38 @@ function protectedCards0(g, me, opt = {}) {
   return keep;
 }
 
+// ---------------- 手順（strategy.script）と固定するメンバー（strategy.lock） ----------------
+// script: { 4: [{ play: { id | cost }, area, onto: { id | cost } }, ...] }
+//  そのターンのメインフェイズの最初に、書いた順に出す。手札に無い・エネルギーが足りないなどで出せない手順は飛ばす（いつものAIの判断に戻る）
+//  area を書かないときは onto（バトンタッチ元）に合うエリア、それも無ければ空いているエリア
+// lock: [{ id, area, fromTurn, toTurn }]  そのターンの間、そのエリアのそのメンバーにはバトンタッチしない
+export function isLocked(g, me, slot, area) {
+  const lk = me.lock;
+  if (!lk) return false;
+  return lk.some(l => g.turn >= (l.fromTurn ?? 1) && g.turn <= (l.toTurn ?? 99) && slot.card.def.id === l.id && (l.area == null || l.area === area));
+}
+
+const matchSpec = (spec, def) => !!spec && (spec.id ? def.id === spec.id : def.cost === spec.cost);
+
+function runScript(api) {
+  const { g, me } = api;
+  const steps = (me.script && me.script[g.turn]) || [];
+  for (const st of steps) {
+    if (st.play) {
+      const idx = me.hand.findIndex(c => c.def.kind === 'M' && matchSpec(st.play, c.def));
+      if (idx < 0) continue;
+      let area = st.area;
+      if (area == null && st.onto) area = me.stage.findIndex(x => x && matchSpec(st.onto, x.card.def));
+      if (area == null || area < 0) area = me.stage.findIndex(x => !x);
+      if (area < 0) continue;
+      if (st.onto && !(me.stage[area] && matchSpec(st.onto, me.stage[area].card.def))) continue;
+      const slot = me.stage[area];
+      if (slot && (isLocked(g, me, slot, area) || !g.canTarget(me, area))) continue;
+      if (api.play(idx, area, true)) { g.log(me, 'plan', `手順：${me.stage[area].card.def.name}を出した`); useAbilities(api); }
+    }
+  }
+}
+
 // ---------------- ターンごとの目標（strategy.turnPlan） ----------------
 // turnPlan: { 4: { board: [[13, 13, 2]], lives: [['ライブ番号', 'ライブ番号']] }, ... }
 //  board：目標の盤面（候補を複数書ける）。要素はコストの数か {cost, id, area}（area 0=左 1=センター 2=右）
@@ -536,7 +570,7 @@ export function successRate(g, me, cards, est, samples, stats = null) {
 // 標準方針をまとめたもの。deck.strategy で一部を差し替えられる
 export function makePolicy(strategy = {}) {
   return {
-    mulligan: v => ((v.me.prefer = strategy.prefer || null), (v.me.turnPlan = strategy.turnPlan || null), strategy.mulligan ? strategy.mulligan(v, defaultMulligan) : defaultMulligan(v, strategy.mulliganOpt)),
+    mulligan: v => ((v.me.prefer = strategy.prefer || null), (v.me.turnPlan = strategy.turnPlan || null), (v.me.script = strategy.script || null), (v.me.lock = strategy.lock || null), strategy.mulligan ? strategy.mulligan(v, defaultMulligan) : defaultMulligan(v, strategy.mulliganOpt)),
     // ライブの点数の進行（pace）は、盤面づくりでも同じ目標を使う
     main: api => (strategy.main ? strategy.main(api, defaultMain) : defaultMain(api, { pace: strategy.liveOpt && strategy.liveOpt.pace, onlyCombos: strategy.liveOpt && strategy.liveOpt.onlyCombos, ...strategy.mainOpt })),
     setLives: v => (strategy.setLives ? strategy.setLives(v, defaultSetLives) : defaultSetLives(v, strategy.liveOpt)),

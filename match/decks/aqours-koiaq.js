@@ -54,6 +54,20 @@ export default {
     // マリガン：1Tの4コス（優木あんじゅを優先）、9コス（高海千歌・徒町小鈴）、Guilty Night, Guilty Kiss!
     mulliganOpt: { keep: [{ ids: ['PL!-bp5-222'], group: 'c4', n: 1 }, { cost: 4, group: 'c4' }, { ids: ['PL!S-bp7-001', 'PL!HS-pb1-013'], n: 1 }, { ids: [GN], n: 1 }] },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1, planWeight: 6 },
+    // 手順（13善子進行のnoteより）。出せないときはいつものAIの判断に戻る
+    //  3T：センターに13善子、サイドに2。善子の起動で 2→4（控え室の4）
+    //  4T：4→11国木田花丸、善子の起動で 11→13（控え室の13）→ 13-13-2
+    //  5T：13→15 を2回で 15-15-2 ／ 6T：2→9 で 15-15-9
+    script: {
+      1: [{ play: { cost: 4 }, area: 1 }],
+      2: [{ play: { cost: 9 }, area: 1 }],
+      3: [{ play: { id: YOSHIKO13 }, area: 1 }, { play: { cost: 2 }, area: 0 }, { play: { cost: 2 }, area: 2 }],
+      4: [{ play: { id: 'PL!S-bp7-007' }, onto: { cost: 4 } }, { play: { cost: 2 } }],
+      5: [{ play: { cost: 15 }, onto: { cost: 13 } }, { play: { cost: 15 }, onto: { cost: 13 } }],
+      6: [{ play: { cost: 9 }, onto: { cost: 2 } }],
+    },
+    // 13善子は 3T・4T はセンターから動かさない（起動能力を使うため）
+    lock: [{ id: YOSHIKO13, area: 1, fromTurn: 3, toTurn: 4 }],
     // ターンごとの目標（13善子進行のnoteより）
     turnPlan: {
       // 13善子はセンターで起動するので、1Tの4コス → 2Tの9 → 3Tの13善子 をセンターでつなぐ

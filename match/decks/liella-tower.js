@@ -53,6 +53,17 @@ export default {
     // マリガン：10嵐千砂都 ＞ 4ランプ ＞ 10澁谷かのん（千砂都が無いとき）＞ 1点ライブ
     mulliganOpt: { keep: [{ ids: [CHISATO10], group: 'ten', n: 1 }, { ids: ['PL!SP-bp7-001'], group: 'ten' }, { ids: ['PL!SP-PR-006', 'PL!SP-PR-013', 'PL!SP-sd1-014', 'PL!SP-bp4-001'], n: 1 }, { ids: [LBO, GO], n: 1 }] },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
+    // 手順（noteの回し方より）。出せないときはいつものAIの判断に戻る
+    script: {
+      1: [{ play: { cost: 4 }, area: 2 }],
+      2: [{ play: { id: CHISATO10 }, area: 2 }],
+      3: [{ play: { cost: 4 }, area: 0 }, { play: { cost: 2 }, area: 1 }],
+      4: [{ play: { id: KEKE13 }, area: 0 }],
+      5: [{ play: { cost: 17 }, area: 0 }],
+      6: [{ play: { cost: 20 }, area: 1 }],
+    },
+    // 10千砂都（下にメンバーを積む）は右サイドから動かさない
+    lock: [{ id: CHISATO10, area: 2, fromTurn: 2 }],
     // ターンごとの目標（noteの回し方より。10千砂都は右サイドに置いて下にメンバーを積む、13可可は左サイド）
     turnPlan: {
       1: { board: [[{ cost: 4, area: 2 }]] },
