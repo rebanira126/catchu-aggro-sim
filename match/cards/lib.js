@@ -1,4 +1,5 @@
 // カード効果を書くときの共通の道具（判断のしかたも含む）
+import { cardLabel } from '../engine/game.js';
 import { memberValue, protectedCards, preferBonus, turnTarget } from '../engine/ai.js';
 
 export const inGroup = (def, g) => def.groups.includes(g);
@@ -81,7 +82,7 @@ export function discardWorst(g, me, n, keep = new Set()) {
     me.waiting.push(c);
     out.push(c);
   }
-  if (out.length) g.log(me, 'eff', `手札から${out.map(c => c.def.name).join('、')}を控え室に置いた`);
+  if (out.length) g.log(me, 'eff', `手札から${out.map(c => cardLabel(c)).join('、')}を控え室に置いた`);
   return out;
 }
 
@@ -99,7 +100,7 @@ export function recover(g, me, pred, label = '') {
   if (!c) return null;
   me.waiting.splice(me.waiting.indexOf(c), 1);
   me.hand.push(c);
-  g.log(me, 'eff', `${label}控え室から${c.def.name}を手札に加えた`);
+  g.log(me, 'eff', `${label}控え室から${cardLabel(c)}を手札に加えた`);
   return c;
 }
 
@@ -109,7 +110,7 @@ export function lookTake(g, me, n, pred, label = '') {
   const pick = pickBest(g, me, top, pred);
   if (pick) { top.splice(top.indexOf(pick), 1); me.hand.push(pick); }
   me.waiting.push(...top);
-  g.log(me, 'eff', `${label}デッキの上${n}枚から${pick ? pick.def.name + 'を手札に加えた' : '手札に加えるカードなし'}`);
+  g.log(me, 'eff', `${label}デッキの上${n}枚から${pick ? cardLabel(pick) + 'を手札に加えた' : '手札に加えるカードなし'}`);
   return pick;
 }
 
@@ -117,7 +118,7 @@ export function lookTake(g, me, n, pred, label = '') {
 export function sacrificeSelf(g, me, slot, area) {
   me.stage[area] = null;
   me.waiting.push(slot.card);
-  g.log(me, 'eff', `${slot.card.def.name}をステージから控え室に置いた`);
+  g.log(me, 'eff', `${cardLabel(slot.card)}をステージから控え室に置いた`);
 }
 
 // ブレードハート（色ハート・ALL・ドロー・スコアのアイコン）を持つカードか
@@ -133,7 +134,7 @@ export function waitOpp(g, opp, pred = () => true, label = '') {
   });
   if (!best) return null;
   best.active = false;
-  g.log(opp, 'eff', `${label}${best.card.def.name}がウェイトになった`);
+  g.log(opp, 'eff', `${label}${cardLabel(best.card)}がウェイトになった`);
   return best;
 }
 

@@ -1,4 +1,5 @@
 // Aqours（と恋アクで使うほかのグループのカード）のカード効果（カード番号で登録）
+import { cardLabel } from '../engine/game.js';
 import { inGroup, isLive, isMember, discardWorst, willDiscard, recover, waitOpp, waitOppN, searchBigOnEnter, scry, hasBladeHeart, hasName, lookTake, takeTop, cardWorth, oppYetToPerform } from './lib.js';
 import { memberValue, bestPlays } from '../engine/ai.js';
 
@@ -193,10 +194,10 @@ export default {
         const t = reEnterTarget(g, me, slot);
         if (!t) return false;
         discardWorst(g, me, 2);
-        g.log(me, 'eff', `渡辺 曜：自分と${t.slot.card.def.name}の登場時の効果を使う`);
+        g.log(me, 'eff', `渡辺 曜：自分と${cardLabel(t.slot.card)}の登場時の効果を使う`);
         youUnder(g, me, slot);
         const ef = g.effect(t.slot.card);
-        ef.onEnter({ g, me, opp: g.opp(me), card: t.slot.card, slot: t.slot, area: t.area, baton: false, batonFrom: null, from: 'effect' });
+        g.runEffect(me, t.slot.card, 'onEnter', () => ef.onEnter({ g, me, opp: g.opp(me), card: t.slot.card, slot: t.slot, area: t.area, baton: false, batonFrom: null, from: 'effect' }));
       },
     }],
   },
@@ -236,7 +237,7 @@ function youUnder(g, me, slot) {
   const t = me.stage.find(s => s && isAq(s.card) && !s.under.some(isMember)) || slot;
   me.waiting.splice(me.waiting.indexOf(c), 1);
   t.under.push(c);
-  g.log(me, 'eff', `渡辺 曜：${c.def.name}を${t.card.def.name}の下に置いた`);
+  g.log(me, 'eff', `渡辺 曜：${cardLabel(c)}を${cardLabel(t.card)}の下に置いた`);
 }
 
 // 登場時の効果をもう一度使う価値があるAqoursメンバー

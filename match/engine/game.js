@@ -5,6 +5,16 @@ import { emptyPool, addHearts, addBladeHeart, meetAll, poolTotal } from './heart
 
 export const AREAS = ['左サイド', 'センター', '右サイド'];
 
+// ログに書くカードの名前：「名前（コスト4・PL!N-bp7-018）」、ライブは「名前（ライブ・PL!N-bp7-026）」
+export function cardLabel(x) {
+  const d = x && (x.def || x);
+  if (!d) return '?';
+  if (d.kind === 'E') return 'エネルギー';
+  if (d.kind === 'L') return `${d.name}（ライブ・${d.id}）`;
+  if (d.kind === 'M') return `${d.name}（コスト${d.cost}・${d.id}）`;
+  return d.name;
+}
+
 let uidSeq = 1;
 
 export class Game {
@@ -54,11 +64,33 @@ export class Game {
 
   opp(P) { return this.p[1 - P.i]; }
 
-  log(P, kind, msg) {
-    if (this.trace) this.logs.push({ turn: this.turn, p: P ? P.i : null, kind, msg });
+  log(P, kind, msg, depth = 0) {
+    if (this.trace) this.logs.push({ turn: this.turn, p: P ? P.i : null, kind, msg, depth: (this.depth || 0) + depth });
   }
 
-  name(card) { return card.def.name; }
+  // カードの効果を解決する。ログを残すときは、効果の文章を見出しにして、解決中のログを一段下げ、最後に結果（手札・エネルギーなどの増減）を書く
+  // timing：onEnter / liveStart / liveSuccess / cheer / activated / onBatonOut / onOwnWait / onAnyEnter / onEnergy / onPay / fromWaiting
+  runEffect(P, card, timing, fn, k = 0) {
+    if (!this.trace) return fn();
+    const start = this.logs.length;
+    const before = snapshot(P);
+    this.depth = (this.depth || 0) + 1;
+    let ret;
+    try { ret = fn(); } finally { this.depth--; }
+    const diff = diffText(before, snapshot(P));
+    if (this.logs.length === start && !diff) return ret; // 何も起きなかった（条件を満たさない・使わなかった）
+    // 見出しにカード名を書くので、解決中のログの頭の「カード名：」は外す
+    const pre = `${card.def.name}：`;
+    for (let i = start; i < this.logs.length; i++) if (this.logs[i].msg.startsWith(pre)) this.logs[i].msg = this.logs[i].msg.slice(pre.length);
+    const head = { turn: this.turn, p: P ? P.i : null, kind: 'efh', msg: `${cardLabel(card)}の効果 ${abilityText(card.def, timing, k)}`, depth: this.depth || 0 };
+    this.logs.splice(start, 0, head);
+    // 中で起きた別の効果の結果と同じなら、くり返さない
+    const last = this.logs[this.logs.length - 1];
+    if (diff && !(last && last.kind === 'efr' && last.msg === `→ ${diff}`)) this.logs.push({ turn: this.turn, p: P ? P.i : null, kind: 'efr', msg: `→ ${diff}`, depth: (this.depth || 0) + 1 });
+    return ret;
+  }
+
+  name(card) { return cardLabel(card); }
 
   // ---------------- 基本の操作 ----------------
   shuffle(arr) { return this.rng.shuffle(arr); }
@@ -112,11 +144,11 @@ export class Game {
   addEnergyByEffect(P, { active = false, lock = false, label = '' } = {}) {
     if (!this.addEnergy(P, { active })) return false;
     if (lock) P.energy.locked = (P.energy.locked || 0) + 1;
-    this.log(P, 'eff', `${label}エネルギーを1枚${active ? 'アクティブ' : 'ウェイト'}状態で置いた（${P.energy.n}枚）`);
+    this.log(P, 'eff', `${label}エネルギーを1枚${active ? 'アクティブ' : 'ウェイト'}状態で置いた（エネルギー合計${P.energy.n}枚）`);
     P.stage.forEach((s, area) => {
       if (!s) return;
       const ef = this.effect(s.card);
-      if (ef && ef.onEnergy) ef.onEnergy({ g: this, me: P, opp: this.opp(P), card: s.card, slot: s, area });
+      if (ef && ef.onEnergy) this.runEffect(P, s.card, 'onEnergy', () => ef.onEnergy({ g: this, me: P, opp: this.opp(P), card: s.card, slot: s, area }));
     });
     return true;
   }
@@ -191,7 +223,7 @@ export class Game {
       if (ef && ef[hook]) list.push({ ef, ctx: { g: this, me: P, opp, card: live.card, live, lives: P.lives, ...extra } });
     }
     list.sort((a, b) => ((a.ef.order && a.ef.order[hook]) ?? 5) - ((b.ef.order && b.ef.order[hook]) ?? 5));
-    for (const { ef, ctx } of list) ef[hook](ctx);
+    for (const { ef, ctx } of list) this.runEffect(P, ctx.card, hook, () => ef[hook](ctx));
   }
 
   // ---------------- メンバー ----------------
@@ -247,12 +279,12 @@ export class Game {
     const handCost = this.costOf(P, card);
     P.hand.splice(handIdx, 1);
     // 別のコストの払い方（手札を控え室に置いてコストを下げる、など）
-    if (ef && ef.onPay) ef.onPay({ g: this, me: P, card, cost: handCost });
+    if (ef && ef.onPay) this.runEffect(P, card, 'onPay', () => ef.onPay({ g: this, me: P, card, cost: handCost }));
     if (second) {
       P.stage[area2] = null;
       for (const u of second.under) { if (u.def.kind === 'E') P.energyDeck++; else P.waiting.push(u); }
       P.waiting.push(second.card);
-      this.log(P, 'play', `${AREAS[area2]}の${second.card.def.name}ともバトンタッチ`);
+      this.log(P, 'play', `${AREAS[area2]}の${cardLabel(second.card)}ともバトンタッチ`);
     }
     this.putMember(P, card, area, { baton: doBaton, from: 'hand', second });
     return true;
@@ -262,6 +294,7 @@ export class Game {
   putMember(P, card, area, { baton = false, from = 'hand', second = null } = {}) {
     const prev = P.stage[area];
     const slot = { card, active: true, under: [], enteredTurn: this.turn, mods: [] };
+    this.log(P, 'play', `${AREAS[area]}に${cardLabel(card)}を${baton ? 'バトンタッチで' : ''}登場`);
     if (prev) {
       // バトンタッチ、または重複メンバー処理（10.4）：前のメンバーは控え室へ
       for (const u of prev.under) {
@@ -272,17 +305,16 @@ export class Game {
       if (baton && pe && pe.underOnBaton) slot.under.push(prev.card);
       else P.waiting.push(prev.card);
       // 「バトンタッチして控え室に置かれたとき」の自動能力
-      if (baton && pe && pe.onBatonOut) pe.onBatonOut({ g: this, me: P, card: prev.card, newCard: card });
+      if (baton && pe && pe.onBatonOut) this.runEffect(P, prev.card, 'onBatonOut', () => pe.onBatonOut({ g: this, me: P, card: prev.card, newCard: card }));
     }
     P.stage[area] = slot;
-    this.log(P, 'play', `${AREAS[area]}に${card.def.name}（コスト${card.def.cost}）を${baton ? 'バトンタッチで' : ''}登場`);
     const ef = this.effect(card);
-    if (ef && ef.onEnter) ef.onEnter({ g: this, me: P, opp: this.opp(P), card, slot, area, baton, batonFrom: baton ? prev : null, second, from });
+    if (ef && ef.onEnter) this.runEffect(P, card, 'onEnter', () => ef.onEnter({ g: this, me: P, opp: this.opp(P), card, slot, area, baton, batonFrom: baton ? prev : null, second, from }));
     // 「自分のステージにメンバーが登場したとき」の自動能力（ステージのほかのメンバーも含む）
     P.stage.forEach((s, a) => {
       if (!s) return;
       const se = this.effect(s.card);
-      if (se && se.onAnyEnter) se.onAnyEnter({ g: this, me: P, opp: this.opp(P), card: s.card, slot: s, area: a, entered: slot, enteredArea: area });
+      if (se && se.onAnyEnter) this.runEffect(P, s.card, 'onAnyEnter', () => se.onAnyEnter({ g: this, me: P, opp: this.opp(P), card: s.card, slot: s, area: a, entered: slot, enteredArea: area }));
     });
     return slot;
   }
@@ -341,7 +373,7 @@ export class Game {
       this.draw(P, aside.length);
       P.deck.push(...aside);
       this.shuffle(P.deck);
-      this.log(P, 'mull', `マリガン：${aside.map(c => c.def.name).join('、')}を戻した`);
+      this.log(P, 'mull', `マリガン：${aside.map(c => cardLabel(c)).join('、')}を戻した`);
     }
   }
 
@@ -367,8 +399,8 @@ export class Game {
     if (this.addEnergy(P)) P.energy.active++;
     // ドローフェイズ
     this.draw(P, 1);
-    this.log(P, 'turn', `${this.turn}ターン目（${P === this.p[this.first] ? '先攻' : '後攻'}）：エネルギー${P.energy.n}、手札${P.hand.length}枚`);
-    if (this.trace) this.log(P, 'hand', `手札：${P.hand.map(c => (c.def.kind === 'L' ? `［${c.def.name}］` : `${c.def.name}${c.def.cost}`)).join('、')}（控え室${P.waiting.length}枚・デッキ${P.deck.length}枚）／ステージ：${P.stage.map(x => (x ? `${x.card.def.name}${x.card.def.cost}` : '-')).join('・')}`);
+    this.log(P, 'turn', `${this.turn}ターン目（${P === this.p[this.first] ? '先攻' : '後攻'}）：エネルギー${P.energy.n}枚、手札${P.hand.length}枚`);
+    if (this.trace) this.log(P, 'hand', `手札：${P.hand.map(c => cardLabel(c)).join('、')}（控え室${P.waiting.length}枚・デッキ${P.deck.length}枚）／ステージ：${P.stage.map((x, a) => `${AREAS[a]} ${x ? cardLabel(x.card) : '-'}`).join('・')}`);
     // メインフェイズ（仮想の相手は何もしない）
     if (!P.virtual) P.policy.main(this.mainApi(P));
   }
@@ -394,7 +426,7 @@ export class Game {
     const ctx = { g: this, me: P, opp: this.opp(P), card: s.card, slot: s, area, ...extra };
     if (ab.can && !ab.can(ctx)) return false;
     if (ab.once && !this.useOnce(s, key, ab.once)) return false;
-    return ab.run(ctx) !== false;
+    return this.runEffect(P, item.card, 'activated', () => ab.run(ctx), +key.split('#')[1] || 0) !== false;
   }
 
   livePhase() {
@@ -445,7 +477,7 @@ export class Game {
     P.lives = P.liveZone.map(card => ({ card, need: this.liveNeed(P, card), bonus: 0 }));
     const perf = { cheerN: 0, cheer: [], scoreIcons: 0, ok: false, score: 0, setCount: P.liveZone.length, totalBonus: 0 };
     P.perf = perf;
-    this.log(P, 'live', `ライブ：${P.lives.map(l => l.card.def.name).join('＋')}`);
+    this.log(P, 'live', `ライブ：${P.lives.map(l => cardLabel(l.card)).join('＋')}`);
     // ライブ開始時（11.5）
     this.fire(P, 'liveStart');
     // エール（8.3.10〜8.3.12）
@@ -480,7 +512,7 @@ export class Game {
     perf.ok = res.ok;
     // 余剰ハート：必要ハートを満たしたあとに残ったハートの数
     perf.excess = res.ok ? poolTotal(res.rest) : 0;
-    this.log(P, 'cheer', `エール${blades}枚（ドロー${draws}・スコア${perf.scoreIcons}）→ ${res.ok ? '成功' : '失敗'}`);
+    this.log(P, 'cheer', `エール${blades}枚（ドローのアイコン${draws}枚・スコアのアイコン${perf.scoreIcons}枚）→ ${res.ok ? '成功' : '失敗'}`);
     if (!res.ok) {
       P.waiting.push(...P.liveZone);
       P.liveZone = []; P.lives = [];
@@ -532,7 +564,7 @@ export class Game {
         success: P.success.length,
       };
       P.turnLog.push(rec);
-      this.log(P, 'judge', `スコア ${rec.score == null ? '-' : rec.score} ${rec.won ? '→ 成功ライブ獲得' : ''}（${P.success.length}枚）`);
+      this.log(P, 'judge', `${rec.score == null ? 'スコアなし' : `スコア${rec.score}点`}${rec.won ? ' → 成功ライブ獲得' : ''}（成功ライブ置き場${P.success.length}枚）`);
       P.waiting.push(...P.liveZone, ...P.cheer);
       P.liveZone = []; P.cheer = []; P.lives = []; P.perf = null;
       for (const s of P.stage) if (s) s.mods = s.mods.filter(m => !m.untilLiveEnd);
@@ -557,4 +589,29 @@ export class Game {
       mySuccess: P.success.length, oppSuccess: opp.success.length,
     };
   }
+}
+
+// ---------------- ログ用の道具 ----------------
+const TIMING_TAG = { onEnter: '登場', liveStart: 'ライブ開始時', liveSuccess: 'ライブ成功時', activated: '起動', fromWaiting: '起動', onPay: '常時' };
+
+// カードの文章から、その効果（登場・ライブ開始時など）の部分を取り出す。見つからなければ【自動】や【常時】の文、それも無ければ全文
+function abilityText(def, timing, k = 0) {
+  const lines = String(def.text || '').split(/\n+/).map(x => x.trim()).filter(Boolean);
+  const tag = TIMING_TAG[timing];
+  const pick = tag ? lines.filter(l => l.includes(`【${tag}】`)) : lines.filter(l => l.includes('【自動】'));
+  const t = pick[k] || pick[0] || lines.find(l => l.includes('【自動】')) || lines[0] || '';
+  return t.length > 90 ? t.slice(0, 90) + '…' : t;
+}
+
+function snapshot(P) {
+  return {
+    手札: P.hand.length, アクティブなエネルギー: P.energy.active, エネルギー: P.energy.n, 控え室: P.waiting.length, デッキ: P.deck.length,
+    ウェイトのメンバー: P.stage.filter(s => s && !s.active).length,
+  };
+}
+
+function diffText(a, b) {
+  const out = [];
+  for (const k of Object.keys(a)) if (a[k] !== b[k]) out.push(`${k} ${a[k]}→${b[k]}${k.includes('メンバー') ? '人' : '枚'}`);
+  return out.join('、');
 }

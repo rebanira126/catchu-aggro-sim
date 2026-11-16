@@ -1,4 +1,5 @@
 // 蓮ノ空のカード効果（カード番号で登録）
+import { cardLabel } from '../engine/game.js';
 import { inGroup, inUnit, isLive, isMember, discardWorst, willDiscard, recover, waitOpp, waitOppN, searchBigOnEnter, scry, sacrificeSelf, cardWorth, oppYetToPerform } from './lib.js';
 import { memberValue } from '../engine/ai.js';
 
@@ -139,7 +140,7 @@ export default {
       let pick = null, pb = 99;
       opp.stage.forEach((s, a) => { if (s && s.active) { const b = g.bladesOf(opp, s, a); if (b < pb) { pb = b; pick = s; } } });
       pick.active = false;
-      g.log(opp, 'eff', `セラス：${pick.card.def.name}がウェイトになった`);
+      g.log(opp, 'eff', `セラス：${cardLabel(pick.card)}がウェイトになった`);
     },
   },
   // セラス 柳田 リリエンフェルト（15）PR-032

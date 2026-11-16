@@ -1,4 +1,5 @@
 // 虹ヶ咲（とユニット混成カード）のカード効果（カード番号で登録）
+import { cardLabel } from '../engine/game.js';
 import { inGroup, isLive, isMember, discardWorst, recover, waitOpp, anyColorHeart, hasName, oppYetToPerform, cardWorth } from './lib.js';
 
 const NIJI = '虹ヶ咲';
@@ -67,7 +68,7 @@ export default {
       if (me.energyDeck <= 0) return;
       me.energyDeck--;
       slot.under.push(g.energyCard());
-      g.log(me, 'eff', `優木せつ菜：エネルギーを下に置いた（${slot.under.filter(u => u.def.kind === 'E').length}枚）`);
+      g.log(me, 'eff', `優木せつ菜：エネルギーを下に置いた（下のエネルギー${slot.under.filter(u => u.def.kind === 'E').length}枚）`);
     },
   },
   // 国木田花丸&優木せつ菜&嵐 千砂都（15）
@@ -79,7 +80,7 @@ export default {
       const t = trio(me, card);
       if (!t) return;
       for (const c of t) { me.hand.splice(me.hand.indexOf(c), 1); me.waiting.push(c); }
-      g.log(me, 'eff', `手札の${t.map(c => c.def.name).join('、')}を控え室に置いて、コスト10で登場`);
+      g.log(me, 'eff', `手札の${t.map(c => cardLabel(c)).join('、')}を控え室に置いて、コスト10で登場`);
     },
     onEnter({ g, me }) { recover(g, me, isLive, '国木田花丸&優木せつ菜&嵐 千砂都：'); },
     liveSuccess({ g, me }) { recover(g, me, isMember, '国木田花丸&優木せつ菜&嵐 千砂都：'); },
