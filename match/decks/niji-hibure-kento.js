@@ -61,9 +61,9 @@ export default {
   ],
   plan: {
     board: "4（-2）→ 9 → 15エマ-4-2（9愛からバトンタッチ）→ 17彼方-9栞子-2かすみ ／ 17エマ-9栞子（9彼方）-2かすみ → 17-15-2（うまくいけば17-15-9）",
-    score: "（1・2Tはライブしない）→ 6 → 9〜10（17彼方）／ Cara Tesoro＋Love U・TOKIMEKI（17エマ）→ 12〜16",
+    score: "0 → 1〜2 → 6（Just Believe!!!）→ 9〜10（Just Believe!!!＋Love U・TOKIMEKI、Cara Tesoro＋Love U・TOKIMEKI）→ 12〜16（エールでブレードハートの無いカードが6枚くらい出ても成功する組み合わせ）",
     mulligan: "15エマ・9コス（愛→彼方→栞子）・4コス（璃奈→彼方→花帆）を1枚ずつ必ず残す。ライブは基本すべて戻す（15エマ・9コス・4コスがそろったときだけLanding action Yeah!!を1枚残してよい）",
-    lives: "1・2T：15エマが手札に無ければライブカード置き場に3枚置いて3枚引き直す（ついでにJust Believe!!!も探す）。ライブはせず、非ブレを伏せて控え室へ／3T：Just Believe!!!（6点）／4T以降：Just Believe!!!＋Love U my friends（10点）か Just Believe!!!＋TOKIMEKI Runners（9点）。17エマのときは Cara Tesoro＋Love U my friends か Cara Tesoro＋TOKIMEKI Runners／5T：12〜16点",
+    lives: "1・2T：15エマが手札に無ければライブカード置き場に3枚置いて3枚引き直す（Just Believe!!!は置かない）。2T：Landing action Yeah!!で1〜2点／3T：Just Believe!!!（6点。成功の見込みで打つかを決める）／4T：Just Believe!!!＋Love U my friends（10点）か Just Believe!!!＋TOKIMEKI Runners（9点）。17エマのときは Cara Tesoro＋Love U か Cara Tesoro＋TOKIMEKI／5T：12〜16点",
     key: "17彼方（最大2回エネルギー2を起こす）、9栞子（ライブ回収）、2かすみ（控え室から登場）、17エマ（2Tに9彼方を出せば乗れる）、15エマ・9愛（エネルギーを起こす）",
     refs: ["https://note.com/tyomirin2/n/n9a8cb1c1a2cc"],
     // 4T・5Tの盤面とライブの組み合わせは、デッキを作った友人に教えてもらった回し方
@@ -78,7 +78,10 @@ export default {
     // wantLives：2コストや栞子・歩夢で拾うライブ（4T以降の組み合わせで使うライブ）
     // wantMembers：2コスト（メンバー回収）で拾うメンバー（4Tの盤面の9コスト）
     // protFill：空き枠を埋めるための2コストを手札に抱えない（4コスの登場時に手札を捨ててサーチする）
-    prefer: { wantLives: [JB, LOVEU, TOKI, CARA], wantMembers: [SHIORIKO9, KANATA9], fillPrefer: [EMMA15, KANATA17, KANATA9, AI9, SHIORIKO9, 'PL!N-sd2-010', 'PL!N-sd2-001'], protFill: false },
+    prefer: {
+      // 2コスト（かすみ優先）を2Tから1枚手札に残す。4T・5Tに必ず使う。かすみが控え室にあればそこから出すので残さなくてよい
+      hold: { from: 2, to: 5, ids: [KASUMI], cost: 2, skipIfWaiting: [KASUMI] },
+      wantLives: [JB, LOVEU, TOKI, CARA], wantMembers: [SHIORIKO9, KANATA9], fillPrefer: [EMMA15, KANATA17, KANATA9, AI9, SHIORIKO9, 'PL!N-sd2-010', 'PL!N-sd2-001'], protFill: false },
     mulliganOpt: {
       // 友人の方針：15エマ・9コスト（愛→彼方→栞子）・4コスト（璃奈→彼方→花帆）を1枚ずつ必ず残す
       // ライブは基本すべて戻す。15エマ・9コスト・4コストがそろったときだけ Landing action Yeah!! を1枚残してよい
@@ -96,7 +99,7 @@ export default {
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
     turnPlan: {
       1: { board: [[4]] },
-      2: { board: [[9]] },
+      2: { board: [[9]], lives: [[LANDING]] },
       3: { board: [[{ id: EMMA15 }]], lives: [[JB]] },
       // 4T以降（友人の回し方）：17彼方-9栞子-2かすみ で Just Believe!!!＋Love U（10点）か Just Believe!!!＋TOKIMEKI（9点）
       // 17エマのときは 17エマ-9栞子-2かすみ か 17エマ-9彼方-2かすみ で Cara Tesoro＋Love U か Cara Tesoro＋TOKIMEKI
@@ -108,6 +111,8 @@ export default {
     liveOpt: {
       // 1・2Tに15エマが手札に無ければ、ライブカード置き場に3枚置いて3枚引き直す（Just Believe!!!は置かない）
       digFor: { ids: [EMMA15], turns: [1, 2], n: 3, keep: [JB], label: '15エマ' },
+      // 3T：友人は盤面スタッツ（ハートとブレードの合計）15未満なら温存するが、シミュレーターでは12〜14でも72%成功するため、
+      // 温存はせず成功の見込みで決める（statMin は使わない）
       dummyTurns: [2], dummyMinLives: 2, fill: true, fillMaxCost: 9, pace: [6, 9, 12], th1: 1.01, minP: 0.45, planMinP: 0.45 },
   },
 };

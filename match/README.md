@@ -47,12 +47,15 @@ noteの回し方をデッキファイルに書き写すための項目です。�
 | `prefer.mill` | 山札を削りたいデッキ | `true` |
 | `prefer.fillPrefer` | ライブ置き場の空き枠に優先して伏せる（控え室に置いておきたい）カード | 非ブレ虹ヶ咲の15エマ・17彼方など |
 | `prefer.protFill` | `false` で、空き枠を埋めるための2コストを手札に抱えない（サーチで手札を捨てやすくする） | `false` |
+| `prefer.hold` | 後のターンに必ず使うカードを1枚手札に残す（from〜to のターン。控え室に代わりがあれば残さない） | `{ from: 2, to: 5, ids: [KASUMI], cost: 2, skipIfWaiting: [KASUMI] }` |
 | `prefer.wantMembers` | 2コスト（メンバー回収）で優先して拾うメンバー（手札・ステージに無く、控え室にあれば拾う） | `[SHIORIKO9, KANATA9]` |
 | `prefer.wantLives` | 2コストなどでライブを拾うとき優先するライブ（手札に無ければ、ほかのライブがあっても拾う） | `[JB]` |
 | `prefer.unit` / `prefer.bigLive` | 優先するユニット、2Tから1枚残す大きいライブの点数 | `{ unit: 'CatChu!', bigLive: 6 }` |
 | `liveOpt.pace` | ライブの点数の進行（成功の回数ごとの目標点） | `[1, 4, 7]` |
 | `liveOpt.planMinP` | ターンの目標のライブの組み合わせは、成功の見込みがこの値以上なら置く（minP より低くしたいとき） | `0.35` |
 | `liveOpt.digFor` | 探すカードがそのターンに手札に無ければ、ライブカード置き場を n 枚まで埋めて引き直す（`keep` のカードは置かない。次のターンの盤面に要るカードも残す） | `{ ids: [EMMA15], turns: [1, 2], n: 3, keep: [JB] }` |
+| `liveOpt.statMin` | 盤面スタッツ（ステージのハートとブレードの合計）がこの値より少ないターンはライブをしない（温存） | `{ 3: 15 }` |
+| `liveOpt.bladeMargin` | エールでブレードハートの無いカードがこの枚数めくれても成功する見込みで選ぶ（エールの枚数から引いて計算） | `{ 5: 6 }` |
 | `liveOpt.dummyTurns` / `dummyMinLives` | わざと成功しないライブ：そのターンにライブを置かないとき、一番いらないライブを1枚置いてエールをする（控え室を増やす）。手札のライブがこの枚数以上のときだけ | `[2]` / `2` |
 | `liveOpt.onlyCombos` | 決まったターン・組み合わせでしか置かないライブ | MIRACLE WAVE を 4T は Guilty Night と |
 | `liveOpt.fill` / `fillMaxCost` | ライブ置き場の空き枠に不要なメンバーを伏せて引き直す | `true` / `4` |
