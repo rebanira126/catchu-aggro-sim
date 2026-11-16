@@ -1,6 +1,7 @@
 // 標準のプレイ方針（どのデッキでも使える簡単な判断）
 // デッキファイルの strategy で、マリガン・メインフェイズ・ライブの出し方を上書きできる。
 import { emptyPool, addHearts, addBladeHeart, meetAll, needTotal, poolTotal } from './hearts.js';
+import { AREAS } from './game.js';
 
 // メンバー1人の「強さ」の目安：ハートの数＋ブレードの数（ブレードはエールの枚数）
 // デッキごとの「優先したいメンバー」（strategy.prefer）：{ unit, ids, w }。手札の評価・マリガン・入れ替えで少し高く見る
@@ -77,6 +78,22 @@ function keepListMulligan(v, keep) {
 // 手札のメンバーを最大3回まで出す組み合わせを全部試し、ステージの合計の強さが一番高くなるものを選ぶ。
 // 同じ強さならエネルギーが多く残る方。
 export function defaultMain(api, opt = {}) {
+  const { g, me } = api;
+  const logStart = g.trace ? g.logs.length : 0;
+  me.candRound = 0;
+  try { mainBody(api, opt); } finally { if (g.trace) groupCandidates(g, me, logStart); }
+}
+
+// ログ：メインフェイズの盤面候補を、最後に作った盤面の下にまとめる（一段下げる）
+function groupCandidates(g, me, start) {
+  const cands = [];
+  for (let i = g.logs.length - 1; i >= start; i--) if (g.logs[i].kind === 'cand') cands.unshift(g.logs.splice(i, 1)[0]);
+  const board = me.stage.map((s, a) => `${AREAS[a]} ${s ? `${s.card.def.name}（コスト${s.card.def.cost}）` : '-'}`).join('／');
+  g.log(me, 'board', `作った盤面：${board}（エネルギー残り${me.energy.active}/${me.energy.n}）`);
+  for (const c of cands) { c.depth = (c.depth || 0) + 1; g.logs.push(c); }
+}
+
+function mainBody(api, opt) {
   const { g, me } = api;
   useAbilities(api);
   runScript(api);
@@ -156,7 +173,7 @@ export function useAbilities(api, { late = false } = {}) {
         const fw = ef && ef.fromWaiting;
         if (!fw) continue;
         const ctx = { g, me, opp: g.opp(me), card: c, late };
-        if (fw.ai(ctx) && fw.run(ctx) !== false) used = true;
+        if (fw.ai(ctx) && g.runEffect(me, c, 'fromWaiting', () => fw.run(ctx)) !== false) used = true;
       }
     }
     if (!used) break;
@@ -263,8 +280,9 @@ export function bestPlays(g, me, opt = {}) {
   }
   if (opt.debug) opt.debug(top);
   if (g.trace) {
-    const nm = c => c.plan.map(st => { const x = me.hand.find(h => h.uid === st.uid); return x ? `${x.def.name}${x.def.cost}→${st.area}` : '?'; }).join('、') || '出さない';
-    top.slice().sort((a, b) => b.score - a.score).slice(0, 4).forEach(c => g.log(me, 'cand', `盤面候補 ${nm(c)}：${c.score.toFixed(2)}（ライブ${c.ev.toFixed(2)}）`));
+    const nm = c => c.plan.map(st => { const x = me.hand.find(h => h.uid === st.uid); return x ? `${AREAS[st.area]}に${x.def.name}（コスト${x.def.cost}）` : '?'; }).join('、') || '出さない';
+    me.candRound = (me.candRound || 0) + 1;
+    top.slice().sort((a, b) => b.score - a.score).slice(0, 4).forEach((c, i) => g.log(me, 'cand', `${me.candRound}回目の検討（エネルギー${me.energy.active}）${i === 0 ? '◎' : '・'} ${nm(c)}：評価${c.score.toFixed(2)}（うちライブ${c.ev.toFixed(2)}）`));
   }
   return best.plan;
 }

@@ -196,7 +196,7 @@ export default {
         g.log(me, 'eff', `渡辺 曜：自分と${t.slot.card.def.name}の登場時の効果を使う`);
         youUnder(g, me, slot);
         const ef = g.effect(t.slot.card);
-        ef.onEnter({ g, me, opp: g.opp(me), card: t.slot.card, slot: t.slot, area: t.area, baton: false, batonFrom: null, from: 'effect' });
+        g.runEffect(me, t.slot.card, 'onEnter', () => ef.onEnter({ g, me, opp: g.opp(me), card: t.slot.card, slot: t.slot, area: t.area, baton: false, batonFrom: null, from: 'effect' }));
       },
     }],
   },

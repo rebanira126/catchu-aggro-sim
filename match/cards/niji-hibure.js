@@ -100,7 +100,7 @@ export function waitOwn(g, me, slot, label = '') {
   me.stage.forEach((s, area) => {
     if (!s) return;
     const ef = g.effect(s.card);
-    if (ef && ef.onOwnWait) ef.onOwnWait({ g, me, opp: g.opp(me), card: s.card, slot: s, area, waited: slot });
+    if (ef && ef.onOwnWait) g.runEffect(me, s.card, 'onOwnWait', () => ef.onOwnWait({ g, me, opp: g.opp(me), card: s.card, slot: s, area, waited: slot }));
   });
   return true;
 }
@@ -316,7 +316,7 @@ export default {
     onBatonOut({ g, me, newCard }) {
       if (!newCard || !nijiNoBH(newCard) || newCard.def.cost < 10) return;
       nijiEnergy(g, me, 2, '宮下 愛：');
-      if (newCard.def.cost >= 15) g.draw(me, 1);
+      if (newCard.def.cost >= 15) { g.draw(me, 1); g.log(me, 'eff', '宮下 愛：1枚引いた'); }
     },
     batonRefund: ({ newCard }) => (nijiNoBH(newCard) && newCard.def.cost >= 10 ? 2 : 0),
   },
