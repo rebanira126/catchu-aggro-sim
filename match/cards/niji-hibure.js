@@ -215,6 +215,8 @@ export default {
       nijiEnergy(g, me, put.length, 'エマ・ヴェルデ：');
     },
     refund: ({ me }) => Math.min(4, me.waiting.filter(noBH).length),
+    // 盤面の強さだけでは見えない価値：デッキの下に戻したカードが後のエールで外れにならない・17彼方の落とす効果の当たりが増える
+    aiBonus: ({ me }) => (me.waiting.filter(noBH).length >= 2 ? 2 : 0),
   },
   // エマ・ヴェルデ（17）pb1-008
   [EMMA17]: {

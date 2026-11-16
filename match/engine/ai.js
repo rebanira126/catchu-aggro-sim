@@ -596,10 +596,13 @@ function protectedCards0(g, me, opt = {}) {
   }
   // 後のターンに必ず使うカード（strategy.prefer.hold）を1枚手札に残す
   // hold: { from: 2, to: 5, ids: [優先するカード], cost: 2, skipIfWaiting: [控え室にあれば残さなくてよいカード] }
-  const hd = me.prefer && me.prefer.hold;
-  if (hd && g.turn >= (hd.from ?? 1) && g.turn <= (hd.to ?? 99) && !(hd.skipIfWaiting && me.waiting.some(c => hd.skipIfWaiting.includes(c.def.id)))) {
+  // 複数書くときは配列（それぞれ1枚ずつ。ids は前に書いたものほど優先）
+  const hds = me.prefer && me.prefer.hold ? [].concat(me.prefer.hold) : [];
+  for (const hd of hds) {
+    if (!(g.turn >= (hd.from ?? 1) && g.turn <= (hd.to ?? 99)) || (hd.skipIfWaiting && me.waiting.some(c => hd.skipIfWaiting.includes(c.def.id)))) continue;
+    const rank = d => { const k = (hd.ids || []).indexOf(d.id); return k < 0 ? 99 : k; };
     const c = ms.filter(x => !keep.has(x.uid) && ((hd.ids && hd.ids.includes(x.def.id)) || (hd.cost != null && x.def.cost === hd.cost)))
-      .sort((a, b) => ((hd.ids || []).includes(b.def.id) - (hd.ids || []).includes(a.def.id)) || (memberValue(b.def) - memberValue(a.def)))[0];
+      .sort((a, b) => (rank(a.def) - rank(b.def)) || (memberValue(b.def) - memberValue(a.def)))[0];
     if (c) keep.add(c.uid);
   }
   // 決めの大きいライブ（strategy.prefer.bigLive 点以上）は2ターン目から1枚残す
