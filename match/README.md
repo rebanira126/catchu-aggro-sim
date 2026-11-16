@@ -50,6 +50,7 @@ noteの回し方をデッキファイルに書き写すための項目です。�
 | `prefer.wantLives` | 2コストなどでライブを拾うとき優先するライブ（手札に無ければ、ほかのライブがあっても拾う） | `[JB]` |
 | `prefer.unit` / `prefer.bigLive` | 優先するユニット、2Tから1枚残す大きいライブの点数 | `{ unit: 'CatChu!', bigLive: 6 }` |
 | `liveOpt.pace` | ライブの点数の進行（成功の回数ごとの目標点） | `[1, 4, 7]` |
+| `liveOpt.planMinP` | ターンの目標のライブの組み合わせは、成功の見込みがこの値以上なら置く（minP より低くしたいとき） | `0.35` |
 | `liveOpt.onlyCombos` | 決まったターン・組み合わせでしか置かないライブ | MIRACLE WAVE を 4T は Guilty Night と |
 | `liveOpt.fill` / `fillMaxCost` | ライブ置き場の空き枠に不要なメンバーを伏せて引き直す | `true` / `4` |
 | `mainOpt.unitBonus` | ユニットの名前の種類をそろえる | `{ unit: 'CatChu!', w: 0.8 }` |

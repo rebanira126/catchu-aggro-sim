@@ -95,6 +95,6 @@ export default {
       5: { board: LATE },
       6: { board: LATE },
     },
-    liveOpt: { fill: true, fillMaxCost: 9, pace: [6, 9, 12], th1: 1.01, minP: 0.45 },
+    liveOpt: { fill: true, fillMaxCost: 9, pace: [6, 9, 12], th1: 1.01, minP: 0.45, planMinP: 0.25 },
   },
 };

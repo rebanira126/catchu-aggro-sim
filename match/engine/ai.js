@@ -362,6 +362,7 @@ export function defaultSetLives(v, opt = {}) {
     const st = {};
     const p = successRate(g, me, pick.map(x => x.c), est, samples, st);
     const score = pick.reduce((s, x) => s + previewScore(g, me, x.c), 0) + (st.adj || 0);
+    if (g.trace) g.log(me, 'est', `候補 ${pick.map(x => x.c.def.name).join('＋')}：成功${Math.round(p * 100)}% ${score.toFixed(1)}点${planLives(g, me, pick.map(x => x.c.def.id)) ? '（目標）' : ''}`);
     if (oppD) {
       const ids = pick.map(x => x.c.def.id);
       let u = liveUtility(g, me, oppD, p, score);
@@ -378,10 +379,12 @@ export function defaultSetLives(v, opt = {}) {
     if (opt.pace) {
       // 点数の進行（例：1→4→7）に合わせる：目標に届く中で一番小さい点数、届かなければ一番大きい点数
       const tg = opt.pace[Math.min(succ, opt.pace.length - 1)];
-      const th = g.turn <= 1 && opt.th1 != null ? opt.th1 : (succ === opt.pace.length - 1 && score >= tg && opt.thLast != null ? opt.thLast : minP);
-      if (p < th || p <= 0) continue;
+      const th0 = g.turn <= 1 && opt.th1 != null ? opt.th1 : (succ === opt.pace.length - 1 && score >= tg && opt.thLast != null ? opt.thLast : minP);
       const pids = pick.map(x => x.c.def.id);
       const planned = planLives(g, me, pids);
+      // そのターンに置きたい組み合わせは、成功の見込みが低めでも置く（opt.planMinP）
+      const th = planned && opt.planMinP != null && g.turn > 1 ? Math.min(th0, opt.planMinP) : th0;
+      if (p < th || p <= 0) continue;
       if (!planned && opt.reserveStrict && usesReserved(g, me, pids)) continue; // 後のターンのために取っておく
       // そのターンに置きたい組み合わせを一番に。次に点数の進行
       const key = (planned ? 2000 : 0) + (score >= tg ? 1000 - score : score);

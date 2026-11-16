@@ -1,12 +1,41 @@
 // 虹ヶ咲（非ブレ＝ブレードハートを持たないメンバー）のカード効果（カード番号で登録）
 // エネルギーやメンバーをアクティブにして動くデッキ用。
 // ・me.nijiAct：このターンに『虹ヶ咲』の効果でウェイトのエネルギー／メンバーをアクティブにしたか（Cara Tesoro が見る）
-import { memberValue } from '../engine/ai.js';
+import { memberValue, turnTarget } from '../engine/ai.js';
 import {
-  inGroup, isLive, isMember, hasBladeHeart, cardWorth, discardWorst, willDiscard, lookTake, recover, scry, takeTop,
+  inGroup, isLive, isMember, hasBladeHeart, cardWorth, discardWorst, willDiscard, lookTake, recover, takeTop,
 } from './lib.js';
 
 const NIJI = '虹ヶ咲';
+
+// 次のターンの目標（turnPlan の盤面・ライブの組み合わせのどれか）を、このカードがそろえるなら高く見る
+// ・盤面：ステージと手札にまだ無いメンバー
+// ・ライブ：組み合わせの相方が手札にあり、このライブがまだ手札に無い
+// それ以外はいつもの「持っておきたさ」
+export function nextWorth(g, me, card, extraHand = []) {
+  const tgt = turnTarget(me, g.turn + 1);
+  const hand = me.hand.concat(extraHand).filter(c => c !== card);
+  const base = cardWorth(g, me, card);
+  if (!tgt) return base;
+  let bonus = 0;
+  const have = d => me.stage.some(s => s && s.card.def.id === d) || hand.some(c => c.def.id === d);
+  const haveCost = c => me.stage.some(s => s && s.card.def.cost === c) || hand.some(h => isMember(h) && h.def.cost === c);
+  for (const want of tgt.board || []) {
+    for (const x of want) {
+      const it = typeof x === 'number' ? { cost: x } : x;
+      if (it.id ? card.def.id === it.id && !have(it.id) : isMember(card) && card.def.cost === it.cost && !haveCost(it.cost)) bonus = Math.max(bonus, 6);
+    }
+  }
+  if (isLive(card)) {
+    for (const combo of tgt.lives || []) {
+      if (!combo.includes(card.def.id) || hand.some(c => c.def.id === card.def.id)) continue;
+      const others = combo.filter((id, k) => k !== combo.indexOf(card.def.id));
+      if (others.every(id => hand.some(c => c.def.id === id))) bonus = Math.max(bonus, 8); // これで組み合わせがそろう
+      else bonus = Math.max(bonus, 3);
+    }
+  }
+  return base + bonus;
+}
 const EMMA17 = 'PL!N-pb1-008';
 const isNiji = c => inGroup(c.def, NIJI);
 const noBH = c => isMember(c) && !hasBladeHeart(c.def);
@@ -330,7 +359,7 @@ export default {
       const n = me.stage.filter(Boolean).length + 2;
       const top = takeTop(g, me, n);
       if (!top.length) return;
-      const keep = top.slice().sort((a, b) => cardWorth(g, me, b) - cardWorth(g, me, a))[0];
+      const keep = top.slice().sort((a, b) => nextWorth(g, me, b) - nextWorth(g, me, a))[0];
       top.splice(top.indexOf(keep), 1);
       me.deck.unshift(keep);
       me.waiting.push(...top);
@@ -338,7 +367,8 @@ export default {
     },
     liveSuccess({ g, me }) {
       if (!me.cheer.length) return;
-      const c = me.cheer.slice().sort((a, b) => cardWorth(g, me, b) - cardWorth(g, me, a))[0];
+      // 次のターンに引くカード：次のターンの目標の盤面・ライブの組み合わせに足りないものを優先
+      const c = me.cheer.slice().sort((a, b) => nextWorth(g, me, b) - nextWorth(g, me, a))[0];
       me.cheer.splice(me.cheer.indexOf(c), 1);
       me.deck.unshift(c);
       g.log(me, 'eff', `日野下花帆：エールの${c.def.name}をデッキの上に置いた`);
@@ -347,7 +377,15 @@ export default {
   // 中須かすみ（2）bp1-002
   'PL!N-bp1-002': {
     note: '登場：デッキの上3枚を見て、好きな枚数を上に戻し残りは控え室。起動（控え室にあるとき）[E][E]手札を1枚捨てる：控え室からステージに登場',
-    onEnter({ g, me }) { scry(g, me, 3, '中須かすみ：'); },
+    // 次のターンの目標に足りないカードを上に（一番欲しいものを一番上に）。いらないカードは控え室へ
+    onEnter({ g, me }) {
+      const top = takeTop(g, me, 3);
+      const keep = top.filter(c => nextWorth(g, me, c) >= 6).sort((a, b) => nextWorth(g, me, b) - nextWorth(g, me, a));
+      const drop = top.filter(c => !keep.includes(c));
+      me.deck.unshift(...keep);
+      me.waiting.push(...drop);
+      g.log(me, 'eff', `中須かすみ：デッキの上3枚：${keep.map(c => c.def.name).join('、') || 'なし'}を上に戻し、${drop.length}枚を控え室に置いた`);
+    },
     fromWaiting: {
       // メインフェイズの終わりに、空いているエリアがあってエネルギーが余っていれば出す
       ai: ({ g, me, late }) => late && me.energy.active >= 2 && me.hand.length >= 1 && kasumiArea(g, me) >= 0 && willDiscard(g, me),
