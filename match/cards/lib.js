@@ -217,3 +217,21 @@ function planLiveNeed(g, me, card) {
   }
   return false;
 }
+
+// このターン（next なら次のターンも）の目標のライブの組み合わせ（turnPlan の lives）を、手札にあと1枚でそろえられるときの、その足りないライブの番号
+// 例：目標が [JB, LoveU] で手札に JB だけある → LoveU の番号
+export function comboMissing(g, me, { next = false } = {}) {
+  const out = new Set();
+  for (const t of next ? [g.turn, g.turn + 1] : [g.turn]) {
+    const tgt = turnTarget(me, t);
+    if (!tgt || !tgt.lives) continue;
+    for (const combo of tgt.lives) {
+      const hand = me.hand.filter(isLive).map(c => c.def.id);
+      const miss = [];
+      for (const id of combo) { const k = hand.indexOf(id); if (k >= 0) hand.splice(k, 1); else miss.push(id); }
+      if (miss.length === 1) out.add(miss[0]);
+    }
+    if (out.size) break;
+  }
+  return out;
+}
