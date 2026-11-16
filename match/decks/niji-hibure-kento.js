@@ -23,6 +23,17 @@ const FINAL = [
   [{ id: EMMA17 }, { id: KANATA9 }, { id: KASUMI }],
 ];
 const LATE = [[17, 15, 9], [17, 15, 2]];
+// 5T以降（友人の回し方）：Just Believe!!!かCara Tesoro（両方でもよい）を軸に、ライブを2〜3枚
+const AXES = [JB, CARA];
+const OTHERS = [JB, CARA, LOVEU, TOKI, LANDING];
+const LATE_LIVES = (() => {
+  const out = [];
+  const seen = new Set();
+  const add = combo => { const k = combo.slice().sort().join('+'); if (!seen.has(k)) { seen.add(k); out.push(combo); } };
+  for (const a of AXES) for (const b of OTHERS) add([a, b]);
+  for (const a of AXES) for (const b of OTHERS) for (const c of OTHERS) add([a, b, c]);
+  return out;
+})();
 const FINAL_LIVES = [[JB, LOVEU], [JB, TOKI], [CARA, LOVEU], [CARA, TOKI]];
 
 export default {
@@ -64,7 +75,7 @@ export default {
     board: "4（-2）→ 9 → 15エマ-4-2（9愛からバトンタッチ）→ 17彼方-9栞子-2かすみ ／ 17エマ-9栞子（9彼方）-2かすみ → 17-15-2（うまくいけば17-15-9）",
     score: "0 → 1〜2 → 6（Just Believe!!!）→ 9〜10（Just Believe!!!＋Love U・TOKIMEKI、Cara Tesoro＋Love U・TOKIMEKI）→ 12〜16（エールでブレードハートの無いカードが6枚くらい出ても成功する組み合わせ）",
     mulligan: "15エマ・9コス（愛→彼方→栞子）・4コス（璃奈→彼方→花帆）を1枚ずつ必ず残す。ライブは基本すべて戻す（15エマ・9コス・4コスがそろったときだけLanding action Yeah!!を1枚残してよい）",
-    lives: "1・2T：15エマが手札に無ければライブカード置き場に3枚置いて3枚引き直す（Just Believe!!!は置かない）。2T：Landing action Yeah!!で1〜2点／3T：Just Believe!!!（6点。成功の見込みで打つかを決める）／4T：Just Believe!!!＋Love U my friends（10点）か Just Believe!!!＋TOKIMEKI Runners（9点）。17エマのときは Cara Tesoro＋Love U か Cara Tesoro＋TOKIMEKI／5T：12〜16点",
+    lives: "1・2T：15エマが手札に無ければライブカード置き場に3枚置いて3枚引き直す（Just Believe!!!は置かない）。2T：Landing action Yeah!!で1〜2点／3T：Just Believe!!!（6点。成功の見込みで打つかを決める）／4T：Just Believe!!!＋Love U my friends（10点）か Just Believe!!!＋TOKIMEKI Runners（9点）。17エマのときは Cara Tesoro＋Love U か Cara Tesoro＋TOKIMEKI／5T以降：Just Believe!!!かCara Tesoro（両方でもよい）を軸にライブ2〜3枚で12〜16点（足りないライブはライブ回収で拾う）",
     key: "17彼方（最大2回エネルギー2を起こす）、9栞子（ライブ回収）、2かすみ（控え室から登場）、17エマ（2Tに9彼方を出せば乗れる）、15エマ・9愛（エネルギーを起こす）",
     refs: ["https://note.com/tyomirin2/n/n9a8cb1c1a2cc"],
     // 4T・5Tの盤面とライブの組み合わせは、デッキを作った友人に教えてもらった回し方
@@ -112,8 +123,8 @@ export default {
       // 17エマのときは 17エマ-9栞子-2かすみ か 17エマ-9彼方-2かすみ で Cara Tesoro＋Love U か Cara Tesoro＋TOKIMEKI
       4: { board: FINAL, lives: FINAL_LIVES },
       // 5T以降（友人の回し方）：17-15-2、うまくいけば17-15-9 で12〜16点
-      5: { board: LATE },
-      6: { board: LATE },
+      5: { board: LATE, lives: LATE_LIVES },
+      6: { board: LATE, lives: LATE_LIVES },
     },
     liveOpt: {
       // 1・2Tに15エマが手札に無ければ、ライブカード置き場に3枚置いて3枚引き直す（Just Believe!!!は置かない）
