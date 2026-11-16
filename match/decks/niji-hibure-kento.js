@@ -1,4 +1,4 @@
-// 非ブレ虹ヶ咲（友人作・デッキコード 1BAYEG）
+// 非ブレ虹・検討デッキ（友人作・デッキコード 1BAYEG）
 // レシピはデッキログのものそのまま。回し方は plan に書いたnote（桃軸の非ブレ虹ヶ咲）を基本形にしている。
 const EMMA15 = 'PL!N-bp7-008';   // エマ・ヴェルデ（コスト15）
 const EMMA17 = 'PL!N-pb1-008';   // エマ・ヴェルデ（コスト17）
@@ -21,9 +21,9 @@ const LATE = [[17, 15, 9], [17, 15, 2]];
 const FINAL_LIVES = [[JB, LOVEU], [JB, TOKI], [CARA, LOVEU], [CARA, TOKI]];
 
 export default {
-  id: "niji-hibure",
-  type: "非ブレ虹ヶ咲",
-  name: "非ブレ虹ヶ咲（友人作）",
+  id: "niji-hibure-kento",
+  type: "非ブレ虹・検討デッキ",
+  name: "非ブレ虹・検討デッキ（友人作）",
   code: "1BAYEG",
   lastPlaced: "",
   source: "https://decklog.bushiroad.com/view/1BAYEG",

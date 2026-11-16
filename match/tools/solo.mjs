@@ -5,7 +5,7 @@ import { EFFECTS } from '../cards/index.js';
 import { BUILTIN_DECKS } from '../decks/index.js';
 import { playSolo } from '../engine/index.js';
 
-const [id = 'niji-hibure', nArg, tArg, traceSeed] = process.argv.slice(2);
+const [id = 'niji-hibure-kento', nArg, tArg, traceSeed] = process.argv.slice(2);
 const N = +nArg || 1000, T = +tArg || 6;
 const deck = BUILTIN_DECKS.find(d => d.id === id);
 if (!deck) throw new Error(`デッキがありません: ${id}`);
