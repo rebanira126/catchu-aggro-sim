@@ -17,6 +17,7 @@ const FINAL = [
   [{ id: EMMA17 }, { id: SHIORIKO9 }, { id: KASUMI }],
   [{ id: EMMA17 }, { id: KANATA9 }, { id: KASUMI }],
 ];
+const LATE = [[17, 15, 9], [17, 15, 2]];
 const FINAL_LIVES = [[JB, LOVEU], [JB, TOKI], [CARA, LOVEU], [CARA, TOKI]];
 
 export default {
@@ -55,13 +56,13 @@ export default {
     ["PL!N-sd2-010", 1], // 三船栞子（コスト17）
   ],
   plan: {
-    board: "4（-2）→ 9 → 15エマ-4-2（9愛からバトンタッチ）→ 17彼方-9栞子-2かすみ ／ 17エマ-9栞子（9彼方）-2かすみ",
-    score: "（1・2Tはライブしない）→ 6 → 9〜10（17彼方）／ Cara Tesoro＋Love U・TOKIMEKI（17エマ）",
+    board: "4（-2）→ 9 → 15エマ-4-2（9愛からバトンタッチ）→ 17彼方-9栞子-2かすみ ／ 17エマ-9栞子（9彼方）-2かすみ → 17-15-2（うまくいけば17-15-9）",
+    score: "（1・2Tはライブしない）→ 6 → 9〜10（17彼方）／ Cara Tesoro＋Love U・TOKIMEKI（17エマ）→ 12〜16",
     mulligan: "15エマ・9愛 ＞ 9コス（彼方・栞子）＞ 4コス ＞ Just Believe!!!。15エマは9コス・4コスが無くてもキープ",
-    lives: "1T：ライブせず、非ブレを伏せて控え室へ／3T：Just Believe!!!（6点）／4T以降：Just Believe!!!＋Love U my friends（10点）か Just Believe!!!＋TOKIMEKI Runners（9点）。17エマのときは Cara Tesoro＋Love U my friends か Cara Tesoro＋TOKIMEKI Runners",
+    lives: "1T：ライブせず、非ブレを伏せて控え室へ／3T：Just Believe!!!（6点）／4T以降：Just Believe!!!＋Love U my friends（10点）か Just Believe!!!＋TOKIMEKI Runners（9点）。17エマのときは Cara Tesoro＋Love U my friends か Cara Tesoro＋TOKIMEKI Runners／5T：12〜16点",
     key: "17彼方（最大2回エネルギー2を起こす）、9栞子（ライブ回収）、2かすみ（控え室から登場）、17エマ（2Tに9彼方を出せば乗れる）、15エマ・9愛（エネルギーを起こす）",
     refs: ["https://note.com/tyomirin2/n/n9a8cb1c1a2cc"],
-    // 4T以降の盤面とライブの組み合わせは、デッキを作った友人に教えてもらった回し方
+    // 4T・5Tの盤面とライブの組み合わせは、デッキを作った友人に教えてもらった回し方
   },
   // プレイ方針（noteの回し方より）
   // ・マリガン：15エマ・9愛 ＞ 9コス ＞ 4コス ＞ Just Believe!!!
@@ -90,9 +91,10 @@ export default {
       // 4T以降（友人の回し方）：17彼方-9栞子-2かすみ で Just Believe!!!＋Love U（10点）か Just Believe!!!＋TOKIMEKI（9点）
       // 17エマのときは 17エマ-9栞子-2かすみ か 17エマ-9彼方-2かすみ で Cara Tesoro＋Love U か Cara Tesoro＋TOKIMEKI
       4: { board: FINAL, lives: FINAL_LIVES },
-      5: { board: FINAL, lives: FINAL_LIVES },
-      6: { board: FINAL, lives: FINAL_LIVES },
+      // 5T以降（友人の回し方）：17-15-2、うまくいけば17-15-9 で12〜16点
+      5: { board: LATE },
+      6: { board: LATE },
     },
-    liveOpt: { fill: true, fillMaxCost: 9, pace: [6, 9, 15], th1: 1.01, minP: 0.45 },
+    liveOpt: { fill: true, fillMaxCost: 9, pace: [6, 9, 12], th1: 1.01, minP: 0.45 },
   },
 };
