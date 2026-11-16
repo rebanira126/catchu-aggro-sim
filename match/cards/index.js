@@ -5,11 +5,12 @@
 import liella from './liella.js';
 import muse from './muse.js';
 import niji from './niji.js';
+import nijiHibure from './niji-hibure.js';
 import hasu from './hasu.js';
 import aqours from './aqours.js';
 import common from './common.js';
 
-export const BY_ID = Object.assign({}, liella, muse, niji, hasu, aqours);
+export const BY_ID = Object.assign({}, liella, muse, niji, nijiHibure, hasu, aqours);
 export const BY_TEXT = Object.assign({}, common);
 
 export function resolveEffect(def) {

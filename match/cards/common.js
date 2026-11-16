@@ -2,6 +2,9 @@
 import { memberValue } from '../engine/ai.js';
 import { isLive, isMember, recover, sacrificeSelf, discardWorst, willDiscard, lookTake } from './lib.js';
 
+// デッキの主力のライブ（strategy.prefer.wantLives の番号）に当たるかを調べる関数。指定が無ければ null
+const wanted = me => (me.prefer && me.prefer.wantLives ? c => isLive(c) && me.prefer.wantLives.includes(c.def.id) : null);
+
 export const T = {
   recoverLive: '【起動】このメンバーをステージから控え室に置く：自分の控え室からライブカードを1枚手札に加える。',
   recoverMember: '【起動】このメンバーをステージから控え室に置く：自分の控え室からメンバーカードを1枚手札に加える。',
@@ -17,8 +20,9 @@ export default {
   [T.recoverLive]: {
     note: '起動：自分を控え室に置き、控え室のライブを1枚手札に',
     activated: [{
-      ai: ({ me }) => me.hand.filter(isLive).length === 0 && me.waiting.some(isLive),
-      run: ({ g, me, slot, area }) => { sacrificeSelf(g, me, slot, area); recover(g, me, isLive); },
+      // デッキの主力のライブ（strategy.prefer.wantLives）が手札に無く、控え室にあるときも使う
+      ai: ({ me }) => (me.hand.filter(isLive).length === 0 && me.waiting.some(isLive)) || (wanted(me) && !me.hand.some(wanted(me)) && me.waiting.some(wanted(me))),
+      run: ({ g, me, slot, area }) => { sacrificeSelf(g, me, slot, area); (wanted(me) && recover(g, me, wanted(me))) || recover(g, me, isLive); },
     }],
   },
   [T.recoverMember]: {
