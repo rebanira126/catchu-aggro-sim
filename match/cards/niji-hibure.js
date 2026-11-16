@@ -1,6 +1,7 @@
 // 虹ヶ咲（非ブレ＝ブレードハートを持たないメンバー）のカード効果（カード番号で登録）
 // エネルギーやメンバーをアクティブにして動くデッキ用。
 // ・me.nijiAct：このターンに『虹ヶ咲』の効果でウェイトのエネルギー／メンバーをアクティブにしたか（Cara Tesoro が見る）
+import { cardLabel } from '../engine/game.js';
 import { memberValue, turnTarget } from '../engine/ai.js';
 import {
   inGroup, isLive, isMember, hasBladeHeart, cardWorth, discardWorst, willDiscard, recover, takeTop,
@@ -31,7 +32,7 @@ function lookTakePlan(g, me, n, pred, label) {
   const pick = top.filter(pred).sort((a, b) => planWorth(g, me, b) - planWorth(g, me, a))[0] || null;
   if (pick) { top.splice(top.indexOf(pick), 1); me.hand.push(pick); }
   me.waiting.push(...top);
-  g.log(me, 'eff', `${label}デッキの上${n}枚から${pick ? pick.def.name + 'を手札に加えた' : '手札に加えるカードなし'}`);
+  g.log(me, 'eff', `${label}デッキの上${n}枚から${pick ? cardLabel(pick) + 'を手札に加えた' : '手札に加えるカードなし'}`);
   return pick;
 }
 
@@ -88,7 +89,7 @@ export function nijiActivate(g, me, slot, label = '') {
   if (!slot || slot.active) return false;
   slot.active = true;
   actFlags(g, me).member = true;
-  g.log(me, 'eff', `${label}${slot.card.def.name}をアクティブにした`);
+  g.log(me, 'eff', `${label}${cardLabel(slot.card)}をアクティブにした`);
   return true;
 }
 
@@ -96,7 +97,7 @@ export function nijiActivate(g, me, slot, label = '') {
 export function waitOwn(g, me, slot, label = '') {
   if (!slot || !slot.active) return false;
   slot.active = false;
-  g.log(me, 'eff', `${label}${slot.card.def.name}をウェイトにした`);
+  g.log(me, 'eff', `${label}${cardLabel(slot.card)}をウェイトにした`);
   me.stage.forEach((s, area) => {
     if (!s) return;
     const ef = g.effect(s.card);
@@ -282,7 +283,7 @@ export default {
         const milled = me.deck.splice(0, 3);
         me.waiting.push(...milled);
         const hit = milled.some(c => (isLive(c) && isNiji(c)) || nijiNoBH(c));
-        g.log(me, 'eff', `近江彼方：デッキの上3枚を控え室に置いた（${milled.map(c => c.def.name).join('、')}）${hit ? '' : '→ 該当なし'}`);
+        g.log(me, 'eff', `近江彼方：デッキの上3枚を控え室に置いた（${milled.map(c => cardLabel(c)).join('、')}）${hit ? '' : '→ 該当なし'}`);
         if (!hit) return;
         const waitE = me.energy.n - me.energy.active;
         if (!late && waitE > 0 && needsEnergy(g, me, Math.max(2, energyPotential(g, me) + 2), { waitNiji: true })) nijiEnergy(g, me, 2, '近江彼方：');
@@ -391,7 +392,7 @@ export default {
       const pick = top.slice().sort((a, b) => cardWorth(g, me, b) - cardWorth(g, me, a)).slice(0, 2);
       for (const c of pick) { top.splice(top.indexOf(c), 1); me.hand.push(c); }
       me.waiting.push(...top);
-      g.log(me, 'eff', `百生吟子：デッキの上${n}枚から${pick.map(c => c.def.name).join('、')}を手札に加えた`);
+      g.log(me, 'eff', `百生吟子：デッキの上${n}枚から${pick.map(c => cardLabel(c)).join('、')}を手札に加えた`);
     },
   },
   // 日野下花帆（4）HS-bp6-001
@@ -406,7 +407,7 @@ export default {
       me.deck.unshift(keep);
       markTop(me, [keep]);
       me.waiting.push(...top);
-      g.log(me, 'eff', `日野下花帆：デッキの上${n}枚から${keep.def.name}を上に戻し、${top.length}枚を控え室に置いた`);
+      g.log(me, 'eff', `日野下花帆：デッキの上${n}枚から${cardLabel(keep)}を上に戻し、${top.length}枚を控え室に置いた`);
     },
     liveSuccess({ g, me }) {
       if (!me.cheer.length) return;
@@ -415,7 +416,7 @@ export default {
       me.cheer.splice(me.cheer.indexOf(c), 1);
       me.deck.unshift(c);
       markTop(me, [c]);
-      g.log(me, 'eff', `日野下花帆：エールの${c.def.name}をデッキの上に置いた`);
+      g.log(me, 'eff', `日野下花帆：エールの${cardLabel(c)}をデッキの上に置いた`);
     },
   },
   // 中須かすみ（2）bp1-002
@@ -429,7 +430,7 @@ export default {
       me.deck.unshift(...keep);
       markTop(me, keep);
       me.waiting.push(...drop);
-      g.log(me, 'eff', `中須かすみ：デッキの上3枚：${keep.map(c => c.def.name).join('、') || 'なし'}を上に戻し、${drop.length}枚を控え室に置いた`);
+      g.log(me, 'eff', `中須かすみ：デッキの上3枚：${keep.map(c => cardLabel(c)).join('、') || 'なし'}を上に戻し、${drop.length}枚を控え室に置いた`);
     },
     fromWaiting: {
       // メインフェイズの終わりに、空いているエリアがあってエネルギーが余っていれば出す

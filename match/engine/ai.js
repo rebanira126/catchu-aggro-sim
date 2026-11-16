@@ -1,7 +1,7 @@
 // 標準のプレイ方針（どのデッキでも使える簡単な判断）
 // デッキファイルの strategy で、マリガン・メインフェイズ・ライブの出し方を上書きできる。
 import { emptyPool, addHearts, addBladeHeart, meetAll, needTotal, poolTotal } from './hearts.js';
-import { AREAS } from './game.js';
+import { AREAS, cardLabel } from './game.js';
 
 // メンバー1人の「強さ」の目安：ハートの数＋ブレードの数（ブレードはエールの枚数）
 // デッキごとの「優先したいメンバー」（strategy.prefer）：{ unit, ids, w }。手札の評価・マリガン・入れ替えで少し高く見る
@@ -88,8 +88,8 @@ export function defaultMain(api, opt = {}) {
 function groupCandidates(g, me, start) {
   const cands = [];
   for (let i = g.logs.length - 1; i >= start; i--) if (g.logs[i].kind === 'cand') cands.unshift(g.logs.splice(i, 1)[0]);
-  const board = me.stage.map((s, a) => `${AREAS[a]} ${s ? `${s.card.def.name}（コスト${s.card.def.cost}）` : '-'}`).join('／');
-  g.log(me, 'board', `作った盤面：${board}（エネルギー残り${me.energy.active}/${me.energy.n}）`);
+  const board = me.stage.map((s, a) => `${AREAS[a]} ${s ? `${cardLabel(s.card)}` : '-'}`).join('／');
+  g.log(me, 'board', `作った盤面：${board}（アクティブなエネルギー残り${me.energy.active}枚／全部で${me.energy.n}枚）`);
   for (const c of cands) { c.depth = (c.depth || 0) + 1; g.logs.push(c); }
 }
 
@@ -280,9 +280,9 @@ export function bestPlays(g, me, opt = {}) {
   }
   if (opt.debug) opt.debug(top);
   if (g.trace) {
-    const nm = c => c.plan.map(st => { const x = me.hand.find(h => h.uid === st.uid); return x ? `${AREAS[st.area]}に${x.def.name}（コスト${x.def.cost}）` : '?'; }).join('、') || '出さない';
+    const nm = c => c.plan.map(st => { const x = me.hand.find(h => h.uid === st.uid); return x ? `${AREAS[st.area]}に${cardLabel(x)}` : '?'; }).join('、') || '出さない';
     me.candRound = (me.candRound || 0) + 1;
-    top.slice().sort((a, b) => b.score - a.score).slice(0, 4).forEach((c, i) => g.log(me, 'cand', `${me.candRound}回目の検討（エネルギー${me.energy.active}）${i === 0 ? '◎' : '・'} ${nm(c)}：評価${c.score.toFixed(2)}（うちライブ${c.ev.toFixed(2)}）`));
+    top.slice().sort((a, b) => b.score - a.score).slice(0, 4).forEach((c, i) => g.log(me, 'cand', `${me.candRound}回目の検討（使えるエネルギー${me.energy.active}枚）${i === 0 ? '◎' : '・'} ${nm(c)}：評価値${c.score.toFixed(2)}（うちライブの期待値${c.ev.toFixed(2)}）`));
   }
   return best.plan;
 }
@@ -384,7 +384,7 @@ export function defaultSetLives(v, opt = {}) {
     const st = {};
     const p = successRate(g, me, pick.map(x => x.c), est, samples, st);
     const score = pick.reduce((s, x) => s + previewScore(g, me, x.c), 0) + (st.adj || 0);
-    if (g.trace) g.log(me, 'est', `候補 ${pick.map(x => x.c.def.name).join('＋')}：成功${Math.round(p * 100)}% ${score.toFixed(1)}点${planLives(g, me, pick.map(x => x.c.def.id)) ? '（目標）' : ''}`);
+    if (g.trace) g.log(me, 'est', `ライブの候補 ${pick.map(x => cardLabel(x.c)).join('＋')}：成功の見込み${Math.round(p * 100)}%・成功時の点数${score.toFixed(1)}点${planLives(g, me, pick.map(x => x.c.def.id)) ? '（このターンの目標の組み合わせ）' : ''}`);
     if (oppD) {
       const ids = pick.map(x => x.c.def.id);
       let u = liveUtility(g, me, oppD, p, score);
@@ -437,7 +437,7 @@ export function defaultSetLives(v, opt = {}) {
     const keep = protectedCards(g, me, opt);
     const L = me.hand.map((c, i) => ({ c, i })).filter(x => x.c.def.kind === 'L' && !keep.has(x.c.uid))
       .sort((a, b) => handVal(a.c, me) - handVal(b.c, me));
-    if (L.length && me.hand.filter(c => c.def.kind === 'L').length >= (opt.dummyMinLives ?? 2)) { out.push(L[0].i); g.log(me, 'plan', `わざと成功しないライブ：${L[0].c.def.name}`); }
+    if (L.length && me.hand.filter(c => c.def.kind === 'L').length >= (opt.dummyMinLives ?? 2)) { out.push(L[0].i); g.log(me, 'plan', `わざと成功しないライブ：${cardLabel(L[0].c)}`); }
   }
   // 空いた枠に不要なメンバーを伏せて、同じ枚数を引き直す（ライブでないカードは控え室へ行く）
   // 山札を削りたいデッキ（prefer.mill）は、空いた枠をいつも埋めて引き直す
@@ -586,7 +586,7 @@ function runScript(api) {
       if (st.onto && !(me.stage[area] && matchSpec(st.onto, me.stage[area].card.def))) continue;
       const slot = me.stage[area];
       if (slot && (isLocked(g, me, slot, area) || !g.canTarget(me, area))) continue;
-      if (api.play(idx, area, true)) { g.log(me, 'plan', `手順：${me.stage[area].card.def.name}を出した`); useAbilities(api); }
+      if (api.play(idx, area, true)) { g.log(me, 'plan', `手順：${cardLabel(me.stage[area].card)}を出した`); useAbilities(api); }
     }
   }
 }

@@ -1,4 +1,5 @@
 // Liella! のカード効果（カード番号で登録）
+import { cardLabel } from '../engine/game.js';
 import { inUnit, inGroup, isLive, isMember, distinctNames, activateEnergy, discardWorst, willDiscard, lookTake, recover, takeTop, pickBest, cardWorth, hasBladeHeart, waitOpp, allInGroup } from './lib.js';
 
 const catchuNames = (me, except) => distinctNames(me, d => inUnit(d, 'CatChu!'), except);
@@ -49,7 +50,7 @@ export default {
       if (pick) {
         me.cheer.splice(me.cheer.indexOf(pick), 1);
         me.deck.unshift(pick);
-        g.log(me, 'eff', `START!! True dreams：${pick.def.name}をデッキの一番上に置いた`);
+        g.log(me, 'eff', `START!! True dreams：${cardLabel(pick)}をデッキの一番上に置いた`);
       }
     },
   },
@@ -258,8 +259,8 @@ export default {
       me.waiting.push(...top);
       if (!pick) { g.log(me, 'eff', '澁谷かのん：デッキの上5枚に出せるメンバーなし'); return; }
       const empty = me.stage.findIndex(s => !s);
-      if (empty >= 0) { g.log(me, 'eff', `澁谷かのん：${pick.def.name}を空いているエリアに登場させる`); g.putMember(me, pick, empty, { from: 'effect' }); }
-      else { me.hand.push(pick); g.log(me, 'eff', `澁谷かのん：${pick.def.name}を手札に加えた`); }
+      if (empty >= 0) { g.log(me, 'eff', `澁谷かのん：${cardLabel(pick)}を空いているエリアに登場させる`); g.putMember(me, pick, empty, { from: 'effect' }); }
+      else { me.hand.push(pick); g.log(me, 'eff', `澁谷かのん：${cardLabel(pick)}を手札に加えた`); }
     },
   },
   // 嵐 千砂都（17）
@@ -324,7 +325,7 @@ export default {
         me.hand.splice(me.hand.indexOf(c), 1);
         slot.under.push(c);
         g.draw(me, 2);
-        g.log(me, 'eff', `嵐 千砂都：${c.def.name}を下に置いて2枚引いた（下${slot.under.length}枚）`);
+        g.log(me, 'eff', `嵐 千砂都：${cardLabel(c)}を下に置いて2枚引いた（下${slot.under.length}枚）`);
       },
     }],
   },
@@ -355,7 +356,7 @@ export default {
         const n = out.filter(c => isMember(c) && !hasBladeHeart(c.def)).length;
         if (n >= 1) slot.active = true;
         if (n >= 2) slot.mods.push({ blades: 2, untilLiveEnd: true });
-        g.log(me, 'eff', `唐 可可：3枚引いて${out.map(c => c.def.name).join('、')}を捨てた${n >= 1 ? '（アクティブに戻った' + (n >= 2 ? '・ブレード+2' : '') + '）' : ''}`);
+        g.log(me, 'eff', `唐 可可：3枚引いて${out.map(c => cardLabel(c)).join('、')}を捨てた${n >= 1 ? '（アクティブに戻った' + (n >= 2 ? '・ブレード+2' : '') + '）' : ''}`);
       },
     }],
   },
@@ -375,7 +376,7 @@ export default {
       if (i < 0 || !inGroup(c.def, 'Liella!') || !isMember(c)) return;
       me.waiting.splice(i, 1);
       slot.under.push(c);
-      g.log(me, 'eff', `葉月 恋：${c.def.name}を下に置いた`);
+      g.log(me, 'eff', `葉月 恋：${cardLabel(c)}を下に置いた`);
     },
     inheritUnder: def => inGroup(def, 'Liella!'),
   },
@@ -478,6 +479,6 @@ function natsumiWait(g, me, opp, noLive) {
   if (!best) return;
   best.s.active = false;
   best.t.active = false;
-  g.log(me, 'eff', `鬼塚夏美：${best.s.card.def.name}をウェイトにして、相手の${best.t.card.def.name}をウェイトにした`);
+  g.log(me, 'eff', `鬼塚夏美：${cardLabel(best.s.card)}をウェイトにして、相手の${cardLabel(best.t.card)}をウェイトにした`);
 }
 

@@ -5,6 +5,16 @@ import { emptyPool, addHearts, addBladeHeart, meetAll, poolTotal } from './heart
 
 export const AREAS = ['左サイド', 'センター', '右サイド'];
 
+// ログに書くカードの名前：「名前（コスト4・PL!N-bp7-018）」、ライブは「名前（ライブ・PL!N-bp7-026）」
+export function cardLabel(x) {
+  const d = x && (x.def || x);
+  if (!d) return '?';
+  if (d.kind === 'E') return 'エネルギー';
+  if (d.kind === 'L') return `${d.name}（ライブ・${d.id}）`;
+  if (d.kind === 'M') return `${d.name}（コスト${d.cost}・${d.id}）`;
+  return d.name;
+}
+
 let uidSeq = 1;
 
 export class Game {
@@ -69,13 +79,16 @@ export class Game {
     try { ret = fn(); } finally { this.depth--; }
     const diff = diffText(before, snapshot(P));
     if (this.logs.length === start && !diff) return ret; // 何も起きなかった（条件を満たさない・使わなかった）
-    const head = { turn: this.turn, p: P ? P.i : null, kind: 'efh', msg: `${card.def.name}${card.def.cost != null ? `（コスト${card.def.cost}）` : ''}の効果 ${abilityText(card.def, timing, k)}`, depth: this.depth || 0 };
+    // 見出しにカード名を書くので、解決中のログの頭の「カード名：」は外す
+    const pre = `${card.def.name}：`;
+    for (let i = start; i < this.logs.length; i++) if (this.logs[i].msg.startsWith(pre)) this.logs[i].msg = this.logs[i].msg.slice(pre.length);
+    const head = { turn: this.turn, p: P ? P.i : null, kind: 'efh', msg: `${cardLabel(card)}の効果 ${abilityText(card.def, timing, k)}`, depth: this.depth || 0 };
     this.logs.splice(start, 0, head);
     if (diff) this.logs.push({ turn: this.turn, p: P ? P.i : null, kind: 'efr', msg: `→ ${diff}`, depth: (this.depth || 0) + 1 });
     return ret;
   }
 
-  name(card) { return card.def.name; }
+  name(card) { return cardLabel(card); }
 
   // ---------------- 基本の操作 ----------------
   shuffle(arr) { return this.rng.shuffle(arr); }
@@ -129,7 +142,7 @@ export class Game {
   addEnergyByEffect(P, { active = false, lock = false, label = '' } = {}) {
     if (!this.addEnergy(P, { active })) return false;
     if (lock) P.energy.locked = (P.energy.locked || 0) + 1;
-    this.log(P, 'eff', `${label}エネルギーを1枚${active ? 'アクティブ' : 'ウェイト'}状態で置いた（${P.energy.n}枚）`);
+    this.log(P, 'eff', `${label}エネルギーを1枚${active ? 'アクティブ' : 'ウェイト'}状態で置いた（エネルギー合計${P.energy.n}枚）`);
     P.stage.forEach((s, area) => {
       if (!s) return;
       const ef = this.effect(s.card);
@@ -269,7 +282,7 @@ export class Game {
       P.stage[area2] = null;
       for (const u of second.under) { if (u.def.kind === 'E') P.energyDeck++; else P.waiting.push(u); }
       P.waiting.push(second.card);
-      this.log(P, 'play', `${AREAS[area2]}の${second.card.def.name}ともバトンタッチ`);
+      this.log(P, 'play', `${AREAS[area2]}の${cardLabel(second.card)}ともバトンタッチ`);
     }
     this.putMember(P, card, area, { baton: doBaton, from: 'hand', second });
     return true;
@@ -279,7 +292,7 @@ export class Game {
   putMember(P, card, area, { baton = false, from = 'hand', second = null } = {}) {
     const prev = P.stage[area];
     const slot = { card, active: true, under: [], enteredTurn: this.turn, mods: [] };
-    this.log(P, 'play', `${AREAS[area]}に${card.def.name}（コスト${card.def.cost}）を${baton ? 'バトンタッチで' : ''}登場`);
+    this.log(P, 'play', `${AREAS[area]}に${cardLabel(card)}を${baton ? 'バトンタッチで' : ''}登場`);
     if (prev) {
       // バトンタッチ、または重複メンバー処理（10.4）：前のメンバーは控え室へ
       for (const u of prev.under) {
@@ -358,7 +371,7 @@ export class Game {
       this.draw(P, aside.length);
       P.deck.push(...aside);
       this.shuffle(P.deck);
-      this.log(P, 'mull', `マリガン：${aside.map(c => c.def.name).join('、')}を戻した`);
+      this.log(P, 'mull', `マリガン：${aside.map(c => cardLabel(c)).join('、')}を戻した`);
     }
   }
 
@@ -384,8 +397,8 @@ export class Game {
     if (this.addEnergy(P)) P.energy.active++;
     // ドローフェイズ
     this.draw(P, 1);
-    this.log(P, 'turn', `${this.turn}ターン目（${P === this.p[this.first] ? '先攻' : '後攻'}）：エネルギー${P.energy.n}、手札${P.hand.length}枚`);
-    if (this.trace) this.log(P, 'hand', `手札：${P.hand.map(c => (c.def.kind === 'L' ? `［${c.def.name}］` : `${c.def.name}${c.def.cost}`)).join('、')}（控え室${P.waiting.length}枚・デッキ${P.deck.length}枚）／ステージ：${P.stage.map(x => (x ? `${x.card.def.name}${x.card.def.cost}` : '-')).join('・')}`);
+    this.log(P, 'turn', `${this.turn}ターン目（${P === this.p[this.first] ? '先攻' : '後攻'}）：エネルギー${P.energy.n}枚、手札${P.hand.length}枚`);
+    if (this.trace) this.log(P, 'hand', `手札：${P.hand.map(c => cardLabel(c)).join('、')}（控え室${P.waiting.length}枚・デッキ${P.deck.length}枚）／ステージ：${P.stage.map((x, a) => `${AREAS[a]} ${x ? cardLabel(x.card) : '-'}`).join('・')}`);
     // メインフェイズ（仮想の相手は何もしない）
     if (!P.virtual) P.policy.main(this.mainApi(P));
   }
@@ -462,7 +475,7 @@ export class Game {
     P.lives = P.liveZone.map(card => ({ card, need: this.liveNeed(P, card), bonus: 0 }));
     const perf = { cheerN: 0, cheer: [], scoreIcons: 0, ok: false, score: 0, setCount: P.liveZone.length, totalBonus: 0 };
     P.perf = perf;
-    this.log(P, 'live', `ライブ：${P.lives.map(l => l.card.def.name).join('＋')}`);
+    this.log(P, 'live', `ライブ：${P.lives.map(l => cardLabel(l.card)).join('＋')}`);
     // ライブ開始時（11.5）
     this.fire(P, 'liveStart');
     // エール（8.3.10〜8.3.12）
@@ -497,7 +510,7 @@ export class Game {
     perf.ok = res.ok;
     // 余剰ハート：必要ハートを満たしたあとに残ったハートの数
     perf.excess = res.ok ? poolTotal(res.rest) : 0;
-    this.log(P, 'cheer', `エール${blades}枚（ドロー${draws}・スコア${perf.scoreIcons}）→ ${res.ok ? '成功' : '失敗'}`);
+    this.log(P, 'cheer', `エール${blades}枚（ドローのアイコン${draws}枚・スコアのアイコン${perf.scoreIcons}枚）→ ${res.ok ? '成功' : '失敗'}`);
     if (!res.ok) {
       P.waiting.push(...P.liveZone);
       P.liveZone = []; P.lives = [];
@@ -549,7 +562,7 @@ export class Game {
         success: P.success.length,
       };
       P.turnLog.push(rec);
-      this.log(P, 'judge', `スコア ${rec.score == null ? '-' : rec.score} ${rec.won ? '→ 成功ライブ獲得' : ''}（${P.success.length}枚）`);
+      this.log(P, 'judge', `${rec.score == null ? 'スコアなし' : `スコア${rec.score}点`}${rec.won ? ' → 成功ライブ獲得' : ''}（成功ライブ置き場${P.success.length}枚）`);
       P.waiting.push(...P.liveZone, ...P.cheer);
       P.liveZone = []; P.cheer = []; P.lives = []; P.perf = null;
       for (const s of P.stage) if (s) s.mods = s.mods.filter(m => !m.untilLiveEnd);

@@ -1,4 +1,5 @@
 // μ's のカード効果（カード番号で登録）
+import { cardLabel } from '../engine/game.js';
 import { inGroup, isLive, isMember, discardWorst, willDiscard, recover, waitOpp, allInGroup, searchBigOnEnter, scry, hasBladeHeart, cardWorth, anyColorHeart, oppYetToPerform } from './lib.js';
 
 const MUSE = "μ's";
@@ -56,7 +57,7 @@ export default {
       discardWorst(g, me, 1);
       me.cheer.splice(me.cheer.indexOf(cand), 1);
       me.hand.push(cand);
-      g.log(me, 'eff', `輝夜の城で踊りたい：エールの${cand.def.name}を手札に加えた`);
+      g.log(me, 'eff', `輝夜の城で踊りたい：エールの${cardLabel(cand)}を手札に加えた`);
     },
   },
 
@@ -125,7 +126,7 @@ export default {
       me.hand.splice(me.hand.indexOf(c), 1);
       slot.under.push(c);
       anyColorHeart(slot);
-      g.log(me, 'eff', `南 ことり：${c.def.name}を下に置き、好きな色のハート+1`);
+      g.log(me, 'eff', `南 ことり：${cardLabel(c)}を下に置き、好きな色のハート+1`);
     },
     liveSuccess({ g, me, slot }) {
       const empty = me.stage.findIndex(s => !s);
