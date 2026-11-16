@@ -225,8 +225,8 @@ export default {
       if (waitedNiji(me)) return;
       const k = kanata9(me);
       if (!k) return;
-      waitOwn(g, me, k, '近江彼方：');
-      nijiEnergy(g, me, 1, '近江彼方：');
+      // 9彼方の起動能力を使う（ログでは9彼方の効果として一段下げて書く）
+      g.runEffect(me, k.card, 'activated', () => { waitOwn(g, me, k); nijiEnergy(g, me, 1); });
     },
     refund: () => 2,
     onEnter({ g, me, slot }) {

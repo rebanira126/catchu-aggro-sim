@@ -84,7 +84,9 @@ export class Game {
     for (let i = start; i < this.logs.length; i++) if (this.logs[i].msg.startsWith(pre)) this.logs[i].msg = this.logs[i].msg.slice(pre.length);
     const head = { turn: this.turn, p: P ? P.i : null, kind: 'efh', msg: `${cardLabel(card)}の効果 ${abilityText(card.def, timing, k)}`, depth: this.depth || 0 };
     this.logs.splice(start, 0, head);
-    if (diff) this.logs.push({ turn: this.turn, p: P ? P.i : null, kind: 'efr', msg: `→ ${diff}`, depth: (this.depth || 0) + 1 });
+    // 中で起きた別の効果の結果と同じなら、くり返さない
+    const last = this.logs[this.logs.length - 1];
+    if (diff && !(last && last.kind === 'efr' && last.msg === `→ ${diff}`)) this.logs.push({ turn: this.turn, p: P ? P.i : null, kind: 'efr', msg: `→ ${diff}`, depth: (this.depth || 0) + 1 });
     return ret;
   }
 
