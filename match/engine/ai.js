@@ -262,6 +262,10 @@ export function bestPlays(g, me, opt = {}) {
     if (!best || c.score > best.score) best = c;
   }
   if (opt.debug) opt.debug(top);
+  if (g.trace) {
+    const nm = c => c.plan.map(st => { const x = me.hand.find(h => h.uid === st.uid); return x ? `${x.def.name}${x.def.cost}→${st.area}` : '?'; }).join('、') || '出さない';
+    top.slice().sort((a, b) => b.score - a.score).slice(0, 4).forEach(c => g.log(me, 'cand', `盤面候補 ${nm(c)}：${c.score.toFixed(2)}（ライブ${c.ev.toFixed(2)}）`));
+  }
   return best.plan;
 }
 
@@ -409,6 +413,14 @@ export function defaultSetLives(v, opt = {}) {
     best = bestU && bestU.u > u0 + (opt.oppMargin ?? 0.02) ? bestU : null;
   }
   const out = best ? best.pick.map(x => x.i) : [];
+  // わざと成功しないライブ（opt.dummyTurns）：そのターンにライブを置かないなら、一番いらないライブを1枚置いてエールをする
+  // （エールでめくったカードが控え室に行く。控え室のメンバーを増やすテクニック）
+  if (opt.dummyTurns && opt.dummyTurns.includes(g.turn) && !out.some(i => me.hand[i].def.kind === 'L')) {
+    const keep = protectedCards(g, me, opt);
+    const L = me.hand.map((c, i) => ({ c, i })).filter(x => x.c.def.kind === 'L' && !keep.has(x.c.uid))
+      .sort((a, b) => handVal(a.c, me) - handVal(b.c, me));
+    if (L.length && me.hand.filter(c => c.def.kind === 'L').length >= (opt.dummyMinLives ?? 2)) { out.push(L[0].i); g.log(me, 'plan', `わざと成功しないライブ：${L[0].c.def.name}`); }
+  }
   // 空いた枠に不要なメンバーを伏せて、同じ枚数を引き直す（ライブでないカードは控え室へ行く）
   // 山札を削りたいデッキ（prefer.mill）は、空いた枠をいつも埋めて引き直す
   if ((opt.fill || (me.prefer && me.prefer.mill)) && out.length < 3) {
@@ -645,6 +657,9 @@ export function estimateContext(g, me) {
     const { h, all } = g.heartsOf(me, s, area);
     addHearts(pool, h); pool.all += all;
     if (s.active) blades += g.bladesOf(me, s, area);
+    // このターンにまだ起動能力で足せるブレードの見込み（効果側の estBlades）
+    const ef = g.effect(s.card);
+    if (s.active && ef && ef.estBlades) blades += ef.estBlades({ g, me, slot: s, area }) || 0;
   });
   // デッキの中身は分かるが順番は分からないので、残りデッキ（＋控え室）からランダムに引いて試す
   // ただし、効果でデッキの上に置いたカード（me.knownTop）はエールで必ずめくれ、

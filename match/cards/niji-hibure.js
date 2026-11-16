@@ -3,10 +3,37 @@
 // ・me.nijiAct：このターンに『虹ヶ咲』の効果でウェイトのエネルギー／メンバーをアクティブにしたか（Cara Tesoro が見る）
 import { memberValue, turnTarget } from '../engine/ai.js';
 import {
-  inGroup, isLive, isMember, hasBladeHeart, cardWorth, discardWorst, willDiscard, lookTake, recover, takeTop,
+  inGroup, isLive, isMember, hasBladeHeart, cardWorth, discardWorst, willDiscard, recover, takeTop,
 } from './lib.js';
 
 const NIJI = '虹ヶ咲';
+
+// サーチで選ぶカード：この先3ターンの目標の盤面（どの候補でも）に足りないメンバーを、近いターンの分から優先
+export function planWorth(g, me, card) {
+  let bonus = 0;
+  const hand = me.hand.filter(c => c !== card);
+  for (let d = 1; d <= 3; d++) {
+    const tgt = turnTarget(me, g.turn + d);
+    if (!tgt || !tgt.board || !isMember(card)) continue;
+    for (const want of tgt.board) for (const x of want) {
+      const it = typeof x === 'number' ? { cost: x } : x;
+      const hit = it.id ? card.def.id === it.id : card.def.cost === it.cost;
+      if (!hit) continue;
+      const have = it.id ? hand.some(c => c.def.id === it.id) : hand.some(c => isMember(c) && c.def.cost === it.cost);
+      if (!have) bonus = Math.max(bonus, 10 - d * 2);
+    }
+  }
+  return cardWorth(g, me, card) + bonus;
+}
+
+function lookTakePlan(g, me, n, pred, label) {
+  const top = takeTop(g, me, n);
+  const pick = top.filter(pred).sort((a, b) => planWorth(g, me, b) - planWorth(g, me, a))[0] || null;
+  if (pick) { top.splice(top.indexOf(pick), 1); me.hand.push(pick); }
+  me.waiting.push(...top);
+  g.log(me, 'eff', `${label}デッキの上${n}枚から${pick ? pick.def.name + 'を手札に加えた' : '手札に加えるカードなし'}`);
+  return pick;
+}
 
 // 次のターンの目標（turnPlan の盤面・ライブの組み合わせのどれか）を、このカードがそろえるなら高く見る
 // ・盤面：ステージと手札にまだ無いメンバー
@@ -240,6 +267,8 @@ export default {
     note: '起動（ターン1回）[E]：デッキの上4枚を並べ替え（使わない）。起動（ターン2回）：デッキの上3枚を控え室→虹ヶ咲のライブかブレードハートなしの虹ヶ咲メンバーがあれば、エネルギー2枚アクティブかブレード+2',
     // 出すと毎ターン、エネルギー最大4枚かブレード最大+4になる（盤面の強さの数字に表れない分）
     energyPotential: ({ g, me, slot }) => kanataUsesLeft(g, me, slot) * 2,
+    // メインフェイズの最後に使えばブレード+2が2回（落とした3枚に当たりがある見込みで少し割り引く）
+    estBlades: ({ g, me, slot }) => Math.floor(kanataUsesLeft(g, me, slot) * 2 * 0.8),
     aiBonus: ({ me, card }) => (me.deck.length >= 6 && !me.stage.some(s => s && s.card.def.id === card.def.id) ? 3 : 0),
     activated: [{
       once: 2,
@@ -278,7 +307,7 @@ export default {
   'PL!N-bp7-018': {
     note: '登場：手札を1枚捨ててよい→デッキの上5枚からブレードハートなしの虹ヶ咲メンバーを1枚手札に',
     // 1ターン目は必ず使う（デッキを控え室に送り、2かすみ・9コスを控え室に用意する）
-    onEnter({ g, me }) { if ((g.turn === 1 && me.hand.length) || willDiscard(g, me)) { discardWorst(g, me, 1); lookTake(g, me, 5, nijiNoBH, '近江彼方：'); } },
+    onEnter({ g, me }) { if ((g.turn === 1 && me.hand.length) || willDiscard(g, me)) { discardWorst(g, me, 1); lookTakePlan(g, me, 5, nijiNoBH, '近江彼方：'); } },
     aiBonus: () => 1,
   },
   // 宮下 愛（9）bp5-005
@@ -300,7 +329,7 @@ export default {
       if (!(g.turn === 1 && me.hand.length) && (!rinaWants(g, me) || !willDiscard(g, me))) return;
       slot.active = false;
       discardWorst(g, me, 1);
-      lookTake(g, me, 5, c => isMember(c) && c.def.cost >= 9 && isNiji(c), '天王寺璃奈：');
+      lookTakePlan(g, me, 5, c => isMember(c) && c.def.cost >= 9 && isNiji(c), '天王寺璃奈：');
     },
     aiBonus({ g, me }) { return rinaWants(g, me) ? 1.5 : 0; },
   },
@@ -434,6 +463,16 @@ function sixColors(g, me) {
 
 // 璃奈で探したいか：次のターンに出せる大きいメンバーが手札に無い
 function rinaWants(g, me) {
+  // 次の2ターンの目標の盤面のコスト9以上のメンバー（9・15エマ・17彼方など）が手札に無い
+  for (const d of [1, 2]) {
+    const tgt = turnTarget(me, g.turn + d);
+    if (!tgt || !tgt.board) continue;
+    const items = tgt.board[0].map(x => (typeof x === 'number' ? { cost: x } : x)).filter(it => (it.cost ?? 9) >= 9);
+    for (const it of items) {
+      const m = c => (it.id ? c.def.id === it.id : isMember(c) && c.def.cost === it.cost);
+      if (!me.hand.some(m) && !me.stage.some(s => s && m(s.card))) return true;
+    }
+  }
   const nextE = me.energy.n + 1;
   const top = Math.max(0, ...me.stage.filter(Boolean).map(s => s.card.def.cost), 4);
   return !me.hand.some(c => isMember(c) && c.def.cost >= 9 && c.def.cost - top <= nextE);
