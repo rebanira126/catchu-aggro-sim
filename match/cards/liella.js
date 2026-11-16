@@ -356,7 +356,7 @@ export default {
         const n = out.filter(c => isMember(c) && !hasBladeHeart(c.def)).length;
         if (n >= 1) slot.active = true;
         if (n >= 2) slot.mods.push({ blades: 2, untilLiveEnd: true });
-        g.log(me, 'eff', `唐 可可：3枚引いて${out.map(c => cardLabel(c)).join('、')}を捨てた${n >= 1 ? '（アクティブに戻った' + (n >= 2 ? '・ブレード+2' : '') + '）' : ''}`);
+        g.listLog(me, 'eff', out, t => `唐 可可：3枚引いて${t}を捨てた${n >= 1 ? '（アクティブに戻った' + (n >= 2 ? '・ブレード+2' : '') + '）' : ''}`);
       },
     }],
   },

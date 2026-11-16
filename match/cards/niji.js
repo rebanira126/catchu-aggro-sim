@@ -80,7 +80,7 @@ export default {
       const t = trio(me, card);
       if (!t) return;
       for (const c of t) { me.hand.splice(me.hand.indexOf(c), 1); me.waiting.push(c); }
-      g.log(me, 'eff', `手札の${t.map(c => cardLabel(c)).join('、')}を控え室に置いて、コスト10で登場`);
+      g.listLog(me, 'eff', t, x => `手札の${x}を控え室に置いて、コスト10で登場`);
     },
     onEnter({ g, me }) { recover(g, me, isLive, '国木田花丸&優木せつ菜&嵐 千砂都：'); },
     liveSuccess({ g, me }) { recover(g, me, isMember, '国木田花丸&優木せつ菜&嵐 千砂都：'); },

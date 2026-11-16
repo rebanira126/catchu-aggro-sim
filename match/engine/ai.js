@@ -88,8 +88,7 @@ export function defaultMain(api, opt = {}) {
 function groupCandidates(g, me, start) {
   const cands = [];
   for (let i = g.logs.length - 1; i >= start; i--) if (g.logs[i].kind === 'cand') cands.unshift(g.logs.splice(i, 1)[0]);
-  const board = me.stage.map((s, a) => `${AREAS[a]} ${s ? `${cardLabel(s.card)}` : '-'}`).join('／');
-  g.log(me, 'board', `作った盤面：${board}（アクティブなエネルギー残り${me.energy.active}枚／全部で${me.energy.n}枚）`);
+  g.log(me, 'board', `作った盤面（アクティブなエネルギー残り${me.energy.active}枚／全部で${me.energy.n}枚）`, 0, me.stage.map((s, a) => `${AREAS[a]}：${s ? cardLabel(s.card) : 'なし'}`));
   for (const c of cands) { c.depth = (c.depth || 0) + 1; g.logs.push(c); }
 }
 
@@ -280,9 +279,13 @@ export function bestPlays(g, me, opt = {}) {
   }
   if (opt.debug) opt.debug(top);
   if (g.trace) {
-    const nm = c => c.plan.map(st => { const x = me.hand.find(h => h.uid === st.uid); return x ? `${AREAS[st.area]}に${cardLabel(x)}` : '?'; }).join('、') || '出さない';
+    const plays = c => c.plan.map(st => { const x = me.hand.find(h => h.uid === st.uid); return x ? `${AREAS[st.area]}に${cardLabel(x)}` : '?'; });
     me.candRound = (me.candRound || 0) + 1;
-    top.slice().sort((a, b) => b.score - a.score).slice(0, 4).forEach((c, i) => g.log(me, 'cand', `${me.candRound}回目の検討（使えるエネルギー${me.energy.active}枚）${i === 0 ? '◎' : '・'} ${nm(c)}：評価値${c.score.toFixed(2)}（うちライブの期待値${c.ev.toFixed(2)}）`));
+    top.slice().sort((a, b) => b.score - a.score).slice(0, 4).forEach((c, i) => {
+      const ps = plays(c);
+      const what = ps.length === 0 ? '出さない' : ps.length === 1 ? ps[0] : `次の${ps.length}枚を出す`;
+      g.log(me, 'cand', `${me.candRound}回目の検討（使えるエネルギー${me.energy.active}枚）${i === 0 ? '◎' : '・'} ${what}：評価値${c.score.toFixed(2)}（うちライブの期待値${c.ev.toFixed(2)}）`, 0, ps.length >= 2 ? ps : null);
+    });
   }
   return best.plan;
 }
@@ -384,7 +387,7 @@ export function defaultSetLives(v, opt = {}) {
     const st = {};
     const p = successRate(g, me, pick.map(x => x.c), est, samples, st);
     const score = pick.reduce((s, x) => s + previewScore(g, me, x.c), 0) + (st.adj || 0);
-    if (g.trace) g.log(me, 'est', `ライブの候補 ${pick.map(x => cardLabel(x.c)).join('＋')}：成功の見込み${Math.round(p * 100)}%・成功時の点数${score.toFixed(1)}点${planLives(g, me, pick.map(x => x.c.def.id)) ? '（このターンの目標の組み合わせ）' : ''}`);
+    if (g.trace) g.listLog(me, 'est', pick.map(x => x.c), t => `ライブの候補 ${t}：成功の見込み${Math.round(p * 100)}%・成功時の点数${score.toFixed(1)}点${planLives(g, me, pick.map(x => x.c.def.id)) ? '（このターンの目標の組み合わせ）' : ''}`);
     if (oppD) {
       const ids = pick.map(x => x.c.def.id);
       let u = liveUtility(g, me, oppD, p, score);
