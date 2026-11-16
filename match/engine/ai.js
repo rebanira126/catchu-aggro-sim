@@ -647,12 +647,22 @@ export function estimateContext(g, me) {
     if (s.active) blades += g.bladesOf(me, s, area);
   });
   // デッキの中身は分かるが順番は分からないので、残りデッキ（＋控え室）からランダムに引いて試す
-  const unknown = me.deck.length >= blades ? me.deck : me.deck.concat(me.waiting);
-  return { pool, blades, unknown };
+  // ただし、効果でデッキの上に置いたカード（me.knownTop）はエールで必ずめくれ、
+  // デッキの下に置いたカード（me.knownBottom）はデッキが多ければめくれない
+  const kt = me.knownTop, kb = me.knownBottom;
+  let top = 0;
+  while (kt && top < me.deck.length && top < blades && kt.has(me.deck[top].uid)) top++;
+  let bottom = 0;
+  while (kb && bottom < me.deck.length - top && kb.has(me.deck[me.deck.length - 1 - bottom].uid)) bottom++;
+  const fixed = me.deck.slice(0, top);
+  const rest = me.deck.slice(top, me.deck.length - bottom);
+  const unknown = rest.length >= blades - top ? rest : me.deck.length - top >= blades - top ? me.deck.slice(top) : me.deck.slice(top).concat(me.waiting);
+  return { pool, blades, unknown, fixed };
 }
 
 // 成功率を見積もる。stats を渡すと、成功したときの点数の増減（効果の successAdjust）の平均を stats.adj に入れる
-export function successRate(g, me, cards, est, samples, stats = null) {
+export function successRate(g, me, cards, est0, samples, stats = null) {
+  let est = est0;
   let extra = 0; // 効果で増えるエールの枚数（live.cheer）
   const adjusters = [];
   const needs = cards.map(card => {
@@ -664,7 +674,14 @@ export function successRate(g, me, cards, est, samples, stats = null) {
     return live.need;
   });
   const arr = est.unknown;
-  const blades = est.blades + extra;
+  const fixed = est.fixed || [];
+  const blades = est.blades + extra - Math.min(fixed.length, est.blades + extra);
+  if (fixed.length) {
+    // 上に置いたと分かっているカードは必ずめくれる
+    const base = { c: est.pool.c.slice(), all: est.pool.all, gen: est.pool.gen };
+    for (const c of fixed.slice(0, est.blades + extra)) addBladeHeart(base, c.def.bh);
+    est = { ...est, pool: base };
+  }
   if (stats) stats.adj = 0;
   const judge = (pool, cheer) => {
     const res = meetAll(pool, needs);

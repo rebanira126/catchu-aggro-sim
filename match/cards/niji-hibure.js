@@ -79,6 +79,9 @@ export function waitOwn(g, me, slot, label = '') {
 }
 
 const kanata9 = me => me.stage.find(s => s && s.active && s.card.def.id === 'PL!N-pb1-006') || null;
+// デッキの上・下に置いたと分かっているカード（成功の見込みの計算で使う）
+const markTop = (me, cards) => { me.knownTop = me.knownTop || new Set(); for (const c of cards) me.knownTop.add(c.uid); };
+const markBottom = (me, cards) => { me.knownBottom = me.knownBottom || new Set(); for (const c of cards) me.knownBottom.add(c.uid); };
 const waitedNiji = (me, except = null) => me.stage.some(s => s && s !== except && !s.active && isNiji(s.card));
 
 // あと extra エネルギーあれば出せるようになる手札のメンバーがあるか（バトンタッチも考える）
@@ -144,6 +147,13 @@ export default {
       if (me.cheer.filter(noBH).length >= 2) { live.bonus += 1; g.log(me, 'eff', 'Just Believe!!!：スコア+1'); }
     },
     successAdjust({ cheer }) { return cheer.filter(noBH).length >= 2 ? 1 : 0; },
+    // ライブ開始時に手札を捨ててブレードを足せる分（アクティブな虹ヶ咲メンバーの数・手札のライブ以外の枚数まで）
+    preview({ g, me, live }) {
+      const targets = me.stage.filter(s => s && s.active && isNiji(s.card)).length;
+      let n = 0;
+      while (n < Math.min(2, targets) && willDiscard(g, me, n + 1)) n++;
+      live.cheer = (live.cheer || 0) + n;
+    },
   },
   // Cara Tesoro（5点）
   'PL!N-pb1-037': {
@@ -172,6 +182,7 @@ export default {
       const n = Math.min(4, cand.length, Math.max(waitE, 2));
       const put = cand.slice(0, n);
       for (const c of put) { me.waiting.splice(me.waiting.indexOf(c), 1); me.deck.push(c); }
+      markBottom(me, put);
       if (put.length) g.log(me, 'eff', `エマ・ヴェルデ：控え室の${put.length}枚をデッキの下に置いた`);
       nijiEnergy(g, me, put.length, 'エマ・ヴェルデ：');
     },
@@ -364,6 +375,7 @@ export default {
       const keep = top.slice().sort((a, b) => nextWorth(g, me, b) - nextWorth(g, me, a))[0];
       top.splice(top.indexOf(keep), 1);
       me.deck.unshift(keep);
+      markTop(me, [keep]);
       me.waiting.push(...top);
       g.log(me, 'eff', `日野下花帆：デッキの上${n}枚から${keep.def.name}を上に戻し、${top.length}枚を控え室に置いた`);
     },
@@ -373,6 +385,7 @@ export default {
       const c = me.cheer.slice().sort((a, b) => nextWorth(g, me, b) - nextWorth(g, me, a))[0];
       me.cheer.splice(me.cheer.indexOf(c), 1);
       me.deck.unshift(c);
+      markTop(me, [c]);
       g.log(me, 'eff', `日野下花帆：エールの${c.def.name}をデッキの上に置いた`);
     },
   },
@@ -385,6 +398,7 @@ export default {
       const keep = top.filter(c => nextWorth(g, me, c) >= 6).sort((a, b) => nextWorth(g, me, b) - nextWorth(g, me, a));
       const drop = top.filter(c => !keep.includes(c));
       me.deck.unshift(...keep);
+      markTop(me, keep);
       me.waiting.push(...drop);
       g.log(me, 'eff', `中須かすみ：デッキの上3枚：${keep.map(c => c.def.name).join('、') || 'なし'}を上に戻し、${drop.length}枚を控え室に置いた`);
     },
