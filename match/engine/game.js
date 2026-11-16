@@ -375,9 +375,10 @@ export class Game {
     }
     // マリガン：先攻から（6.2.1.6）
     for (const P of this.order()) {
+      if (this.trace && !P.virtual) this.log(P, 'hand', `マリガン前の手札${P.hand.length}枚`, 0, P.hand.map(c => cardLabel(c)));
       const back = P.policy.mulligan(this.view(P)) || [];
       const idxs = [...new Set(back)].filter(i => i >= 0 && i < P.hand.length).sort((a, b) => b - a);
-      if (!idxs.length) continue;
+      if (!idxs.length) { if (!P.virtual) this.log(P, 'mull', 'マリガン：戻さない'); continue; }
       const aside = idxs.map(i => P.hand.splice(i, 1)[0]);
       this.draw(P, aside.length);
       P.deck.push(...aside);
@@ -446,12 +447,18 @@ export class Game {
     // ライブカードセット（先攻 → 後攻）
     for (const P of [A, B]) {
       if (P.virtual) { this.virtualSet(P); continue; }
+      const logStart = this.logs.length;
       const pick = P.policy.setLives(this.view(P)) || [];
+      // 置き方を決める間のログ（ライブの候補など）は、セットしたカードのログの下に一段下げて書く
+      const notes = this.trace ? this.logs.splice(logStart) : [];
       const idxs = [...new Set(pick)].filter(i => i >= 0 && i < P.hand.length).slice(0, 3).sort((a, b) => b - a);
       const set = idxs.map(i => P.hand.splice(i, 1)[0]);
       P.liveZone.push(...set);
+      // 伏せたカード（ライブでないメンバーは、パフォーマンスのときに控え室へ行く）
+      if (set.length) this.log(P, 'set', `ライブカード置き場に${set.length}枚セット`, 0, set.map(c => (c.def.kind === 'L' ? cardLabel(c) : `${cardLabel(c)}（ライブではないので控え室へ）`)));
+      else this.log(P, 'set', 'ライブカード置き場にセットしない');
+      for (const x of notes) { x.depth = (x.depth || 0) + 1; this.logs.push(x); }
       this.draw(P, set.length);
-      if (set.length) this.log(P, 'set', `ライブカード置き場に${set.length}枚セット`);
     }
     // 盤面の記録（集計用）
     for (const P of [A, B]) (P.stageLog = P.stageLog || []).push({ s: P.stage.map(x => (x ? x.card.def.cost : 0)).join('-'), E: P.energy.n, h: P.hand.length });

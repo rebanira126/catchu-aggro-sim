@@ -195,6 +195,9 @@ function renderRRResult(results, opps) {
   }).join('')}</tr>`).join('')}</tbody></table>`;
 }
 
+// 折りたたみにするログ（種類 → 見出し）
+const FOLD = { cand: '盤面の候補', est: 'ライブの候補' };
+
 function renderLog(g, el) {
   const who = x => (x.p == null ? '' : (x.p === 0 ? 'p1' : 'p2'));
   const tag = x => `${x.turn ? x.turn + 'T ' : ''}${x.p == null ? '' : (x.p === 0 ? '自分' : '相手')}` || '準備';
@@ -205,12 +208,13 @@ function renderLog(g, el) {
   const logs = g.logs;
   for (let i = 0; i < logs.length; i++) {
     const x = logs[i];
-    if (x.kind !== 'cand') { out.push(row(x)); continue; }
-    // 続く盤面候補をまとめて、折りたたみにする（最初は閉じておく）
+    const title = FOLD[x.kind];
+    if (!title) { out.push(row(x)); continue; }
+    // 続く候補（盤面・ライブ）をまとめて、折りたたみにする（最初は閉じておく）
     const group = [];
-    while (i < logs.length && logs[i].kind === 'cand' && logs[i].p === x.p && logs[i].turn === x.turn) group.push(logs[i++]);
+    while (i < logs.length && logs[i].kind === x.kind && logs[i].p === x.p && logs[i].turn === x.turn) group.push(logs[i++]);
     i--;
-    out.push(`<li class="k-cand"><span class="tag ${who(x)}">${esc(tag(x))}</span><details class="msg" style="padding-left:${(x.depth || 0) * 18}px"><summary>盤面の候補（${group.length}件）</summary><ol class="cands">${group.map(c => `<li>${body(c)}</li>`).join('')}</ol></details></li>`);
+    out.push(`<li class="k-${esc(x.kind)}"><span class="tag ${who(x)}">${esc(tag(x))}</span><details class="msg" style="padding-left:${(x.depth || 0) * 18}px"><summary>${title}（${group.length}件）</summary><ol class="cands">${group.map(c => `<li>${body(c)}</li>`).join('')}</ol></details></li>`);
   }
   el.innerHTML = out.join('');
 }
