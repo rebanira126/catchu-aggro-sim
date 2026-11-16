@@ -72,8 +72,9 @@ export default {
   strategy: {
     // fillPrefer：ライブフェイズで伏せて控え室に送りたいカード（ブレードハートを持たないメンバー。15エマで戻してエネルギーにする）
     // wantLives：2コストや栞子・歩夢で拾うライブ（4T以降の組み合わせで使うライブ）
+    // wantMembers：2コスト（メンバー回収）で拾うメンバー（4Tの盤面の9コスト）
     // protFill：空き枠を埋めるための2コストを手札に抱えない（4コスの登場時に手札を捨ててサーチする）
-    prefer: { wantLives: [JB, LOVEU, TOKI, CARA], fillPrefer: [EMMA15, KANATA17, KANATA9, AI9, SHIORIKO9, 'PL!N-sd2-010', 'PL!N-sd2-001'], protFill: false },
+    prefer: { wantLives: [JB, LOVEU, TOKI, CARA], wantMembers: [SHIORIKO9, KANATA9], fillPrefer: [EMMA15, KANATA17, KANATA9, AI9, SHIORIKO9, 'PL!N-sd2-010', 'PL!N-sd2-001'], protFill: false },
     mulliganOpt: {
       keep: [
         { ids: [EMMA15], n: 1 },

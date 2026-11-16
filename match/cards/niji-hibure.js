@@ -266,7 +266,8 @@ export default {
   // 近江彼方（4）bp7-018
   'PL!N-bp7-018': {
     note: '登場：手札を1枚捨ててよい→デッキの上5枚からブレードハートなしの虹ヶ咲メンバーを1枚手札に',
-    onEnter({ g, me }) { if (willDiscard(g, me)) { discardWorst(g, me, 1); lookTake(g, me, 5, nijiNoBH, '近江彼方：'); } },
+    // 1ターン目は必ず使う（デッキを控え室に送り、2かすみ・9コスを控え室に用意する）
+    onEnter({ g, me }) { if ((g.turn === 1 && me.hand.length) || willDiscard(g, me)) { discardWorst(g, me, 1); lookTake(g, me, 5, nijiNoBH, '近江彼方：'); } },
     aiBonus: () => 1,
   },
   // 宮下 愛（9）bp5-005
@@ -284,7 +285,8 @@ export default {
   'PL!N-bp5-009': {
     note: '登場：このメンバーをウェイトにし手札を1枚捨ててよい→デッキの上5枚からコスト9以上の虹ヶ咲メンバーを1枚手札に',
     onEnter({ g, me, slot }) {
-      if (!rinaWants(g, me) || !willDiscard(g, me)) return;
+      // 1ターン目は必ず使う（デッキを控え室に送る）
+      if (!(g.turn === 1 && me.hand.length) && (!rinaWants(g, me) || !willDiscard(g, me))) return;
       slot.active = false;
       discardWorst(g, me, 1);
       lookTake(g, me, 5, c => isMember(c) && c.def.cost >= 9 && isNiji(c), '天王寺璃奈：');
@@ -424,8 +426,19 @@ function rinaWants(g, me) {
 }
 
 // かすみを控え室から出すエリア：空いているエリア（このターンに登場したメンバーのいるエリアは選べない）
+// 空きが無ければ、目標の盤面にかすみがあるときに限り、このターンに登場していないコスト4以下のメンバーと入れ替える
 function kasumiArea(g, me) {
-  return me.stage.findIndex(s => !s);
+  const empty = me.stage.findIndex(s => !s);
+  if (empty >= 0) return empty;
+  const tgt = turnTarget(me, g.turn);
+  const wants = tgt && tgt.board && tgt.board.some(b => b.some(x => x && x.id === 'PL!N-bp1-002'));
+  if (!wants || me.stage.some(s => s && s.card.def.id === 'PL!N-bp1-002')) return -1;
+  let best = -1, bc = 99;
+  me.stage.forEach((s, a) => {
+    if (!s || s.enteredTurn === g.turn || s.card.def.cost > 4 || s.under.length) return;
+    if (s.card.def.cost < bc) { bc = s.card.def.cost; best = a; }
+  });
+  return best;
 }
 
 function lanzhu(me) {

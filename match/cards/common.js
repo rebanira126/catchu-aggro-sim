@@ -29,11 +29,18 @@ export default {
     note: '起動：自分を控え室に置き、控え室のメンバーを1枚手札に',
     activated: [{
       ai: ({ me, slot }) => {
+        // デッキの盤面に要るメンバー（strategy.prefer.wantMembers）が手札・ステージに無く、控え室にあるとき
+        const wm = me.prefer && me.prefer.wantMembers;
+        if (wm && !wm.includes(slot.card.def.id) && !me.hand.concat(me.stage.filter(Boolean).map(s => s.card)).some(c => wm.includes(c.def.id)) && me.waiting.some(c => wm.includes(c.def.id))) return true;
         const e = me.energy.active;
         if (me.hand.some(c => isMember(c) && c.def.cost <= e)) return false;
         return me.waiting.some(c => isMember(c) && c.def.cost <= e && memberValue(c.def) > memberValue(slot.card.def) + 1);
       },
-      run: ({ g, me, slot, area }) => { sacrificeSelf(g, me, slot, area); recover(g, me, isMember); },
+      run: ({ g, me, slot, area }) => {
+        sacrificeSelf(g, me, slot, area);
+        const wm = me.prefer && me.prefer.wantMembers;
+        (wm && recover(g, me, c => isMember(c) && wm.includes(c.def.id))) || recover(g, me, isMember);
+      },
     }],
   },
   [T.bladePlus2]: {
