@@ -372,7 +372,7 @@ export default {
     note: '起動（ターン1回）[E][E]：控え室の虹ヶ咲のライブを1枚手札に',
     activated: [{
       once: 1,
-      ai: ({ me, late }) => me.energy.active >= 2 && (late ? wantLive(me, 3) : wantLive(me, 1)),
+      ai: ({ g, me, late }) => me.energy.active >= 2 && (missInWaiting(g, me, true) || (late ? wantLive(me, 3) : wantLive(me, 1))),
       run: ({ g, me }) => {
         if (!g.payEnergy(me, 2)) return false;
         const wl = me.prefer && me.prefer.wantLives;
@@ -388,8 +388,12 @@ export default {
     blades({ me }) { return lanzhu(me) ? 2 : 0; },
     activated: [{
       once: 1,
-      ai: ({ me, late }) => me.energy.active >= 3 && (late ? me.hand.filter(isLive).length < 3 : me.hand.filter(isLive).length === 0) && me.waiting.some(isLive),
-      run: ({ g, me }) => { if (!g.payEnergy(me, 3)) return false; recover(g, me, isLive, '鐘 嵐珠：'); },
+      ai: ({ g, me, late }) => me.energy.active >= 3 && (missInWaiting(g, me, false) || ((late ? me.hand.filter(isLive).length < 3 : me.hand.filter(isLive).length === 0) && me.waiting.some(isLive))),
+      run: ({ g, me }) => {
+        if (!g.payEnergy(me, 3)) return false;
+        const miss = comboMissing(g, me);
+        (miss.size && recover(g, me, c => isLive(c) && miss.has(c.def.id), '鐘 嵐珠：')) || recover(g, me, isLive, '鐘 嵐珠：');
+      },
     }],
   },
   // 百生吟子（15）HS-PR-039
@@ -503,6 +507,12 @@ function kasumiArea(g, me) {
     if (s.card.def.cost < bc) { bc = s.card.def.cost; best = a; }
   });
   return best;
+}
+
+// 目標のライブの組み合わせに足りないライブが控え室にあるか（nijiOnly：『虹ヶ咲』のライブだけ）
+function missInWaiting(g, me, nijiOnly) {
+  const miss = comboMissing(g, me);
+  return miss.size > 0 && me.waiting.some(c => isLive(c) && miss.has(c.def.id) && (!nijiOnly || isNiji(c)));
 }
 
 function lanzhu(me) {
