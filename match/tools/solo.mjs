@@ -12,7 +12,10 @@ if (!deck) throw new Error(`デッキがありません: ${id}`);
 const db = loadDbNode();
 if (traceSeed) {
   const g = playSolo({ db, effects: EFFECTS, deck, seed: +traceSeed, turns: T, trace: true });
-  for (const l of g.logs) if (l.p === 0) console.log(`${l.turn}T ${'  '.repeat(l.depth || 0)}[${l.kind}] ${l.msg}`);
+  for (const l of g.logs) if (l.p === 0) {
+    console.log(`${l.turn}T ${'  '.repeat(l.depth || 0)}[${l.kind}] ${l.msg}`);
+    for (const it of l.items || []) console.log(`${l.turn}T ${'  '.repeat((l.depth || 0) + 1)}・${it}`);
+  }
   process.exit(0);
 }
 const acc = Array.from({ length: T }, () => ({ ok: 0, sum: 0, dist: {} }));

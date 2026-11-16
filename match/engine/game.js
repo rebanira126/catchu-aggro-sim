@@ -64,8 +64,17 @@ export class Game {
 
   opp(P) { return this.p[1 - P.i]; }
 
-  log(P, kind, msg, depth = 0) {
-    if (this.trace) this.logs.push({ turn: this.turn, p: P ? P.i : null, kind, msg, depth: (this.depth || 0) + depth });
+  log(P, kind, msg, depth = 0, items = null) {
+    if (this.trace) this.logs.push({ turn: this.turn, p: P ? P.i : null, kind, msg, depth: (this.depth || 0) + depth, ...(items && items.length ? { items } : {}) });
+  }
+
+  // カードを並べるログ：2枚以上なら箇条書き（items）、1枚なら1行に書く。head(text) は並べた部分を入れた文
+  // 例：listLog(P, 'eff', cards, t => `手札から${t}を控え室に置いた`)
+  listLog(P, kind, list, head, { always = false } = {}) {
+    if (!this.trace) return;
+    const labels = list.map(x => (typeof x === 'string' ? x : cardLabel(x)));
+    if (labels.length >= 2 || (always && labels.length)) this.log(P, kind, head(`次の${labels.length}枚`), 0, labels);
+    else this.log(P, kind, head(labels[0] || 'なし'));
   }
 
   // カードの効果を解決する。ログを残すときは、効果の文章を見出しにして、解決中のログを一段下げ、最後に結果（手札・エネルギーなどの増減）を書く
@@ -373,7 +382,7 @@ export class Game {
       this.draw(P, aside.length);
       P.deck.push(...aside);
       this.shuffle(P.deck);
-      this.log(P, 'mull', `マリガン：${aside.map(c => cardLabel(c)).join('、')}を戻した`);
+      this.listLog(P, 'mull', aside, t => `マリガン：${t}を戻した`);
     }
   }
 
@@ -400,7 +409,10 @@ export class Game {
     // ドローフェイズ
     this.draw(P, 1);
     this.log(P, 'turn', `${this.turn}ターン目（${P === this.p[this.first] ? '先攻' : '後攻'}）：エネルギー${P.energy.n}枚、手札${P.hand.length}枚`);
-    if (this.trace) this.log(P, 'hand', `手札：${P.hand.map(c => cardLabel(c)).join('、')}（控え室${P.waiting.length}枚・デッキ${P.deck.length}枚）／ステージ：${P.stage.map((x, a) => `${AREAS[a]} ${x ? cardLabel(x.card) : '-'}`).join('・')}`);
+    if (this.trace) {
+      this.log(P, 'hand', `手札${P.hand.length}枚（控え室${P.waiting.length}枚・デッキ${P.deck.length}枚）`, 0, P.hand.map(c => cardLabel(c)));
+      this.log(P, 'hand', 'ステージ', 0, P.stage.map((x, a) => `${AREAS[a]}：${x ? cardLabel(x.card) : 'なし'}`));
+    }
     // メインフェイズ（仮想の相手は何もしない）
     if (!P.virtual) P.policy.main(this.mainApi(P));
   }
@@ -477,7 +489,7 @@ export class Game {
     P.lives = P.liveZone.map(card => ({ card, need: this.liveNeed(P, card), bonus: 0 }));
     const perf = { cheerN: 0, cheer: [], scoreIcons: 0, ok: false, score: 0, setCount: P.liveZone.length, totalBonus: 0 };
     P.perf = perf;
-    this.log(P, 'live', `ライブ：${P.lives.map(l => cardLabel(l.card)).join('＋')}`);
+    this.listLog(P, 'live', P.lives.map(l => l.card), t => `ライブ：${t}`);
     // ライブ開始時（11.5）
     this.fire(P, 'liveStart');
     // エール（8.3.10〜8.3.12）

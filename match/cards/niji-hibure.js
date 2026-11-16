@@ -283,7 +283,7 @@ export default {
         const milled = me.deck.splice(0, 3);
         me.waiting.push(...milled);
         const hit = milled.some(c => (isLive(c) && isNiji(c)) || nijiNoBH(c));
-        g.log(me, 'eff', `近江彼方：デッキの上3枚を控え室に置いた（${milled.map(c => cardLabel(c)).join('、')}）${hit ? '' : '→ 該当なし'}`);
+        g.listLog(me, 'eff', milled, t => `近江彼方：デッキの上から${t}を控え室に置いた${hit ? '' : '→ 該当なし'}`);
         if (!hit) return;
         const waitE = me.energy.n - me.energy.active;
         if (!late && waitE > 0 && needsEnergy(g, me, Math.max(2, energyPotential(g, me) + 2), { waitNiji: true })) nijiEnergy(g, me, 2, '近江彼方：');
@@ -392,7 +392,7 @@ export default {
       const pick = top.slice().sort((a, b) => cardWorth(g, me, b) - cardWorth(g, me, a)).slice(0, 2);
       for (const c of pick) { top.splice(top.indexOf(c), 1); me.hand.push(c); }
       me.waiting.push(...top);
-      g.log(me, 'eff', `百生吟子：デッキの上${n}枚から${pick.map(c => cardLabel(c)).join('、')}を手札に加えた`);
+      g.listLog(me, 'eff', pick, t => `百生吟子：デッキの上${n}枚から${t}を手札に加えた`);
     },
   },
   // 日野下花帆（4）HS-bp6-001
@@ -430,7 +430,7 @@ export default {
       me.deck.unshift(...keep);
       markTop(me, keep);
       me.waiting.push(...drop);
-      g.log(me, 'eff', `中須かすみ：デッキの上3枚：${keep.map(c => cardLabel(c)).join('、') || 'なし'}を上に戻し、${drop.length}枚を控え室に置いた`);
+      g.listLog(me, 'eff', keep, t => `中須かすみ：デッキの上3枚から${t}を上に戻し、${drop.length}枚を控え室に置いた`);
     },
     fromWaiting: {
       // メインフェイズの終わりに、空いているエリアがあってエネルギーが余っていれば出す

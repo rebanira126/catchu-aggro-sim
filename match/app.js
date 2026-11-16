@@ -200,7 +200,7 @@ function renderLog(g, el) {
     const who = x.p == null ? '' : (x.p === 0 ? 'p1' : 'p2');
     const tag = `${x.turn ? x.turn + 'T ' : ''}${x.p == null ? '' : (x.p === 0 ? '自分' : '相手')}`;
     // 効果の見出し（efh）・結果（efr）・盤面（board）は色を変え、解決中のログや盤面候補は一段ずつ下げる
-    return `<li class="k-${esc(x.kind)}"><span class="tag ${who}">${esc(tag || '準備')}</span><span class="msg" style="padding-left:${(x.depth || 0) * 18}px">${esc(x.msg)}</span></li>`;
+    return `<li class="k-${esc(x.kind)}"><span class="tag ${who}">${esc(tag || '準備')}</span><span class="msg" style="padding-left:${(x.depth || 0) * 18}px">${esc(x.msg)}${x.items ? `<ul class="items">${x.items.map(it => `<li>${esc(it)}</li>`).join('')}</ul>` : ''}</span></li>`;
   }).join('');
 }
 

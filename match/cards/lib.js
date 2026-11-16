@@ -82,7 +82,7 @@ export function discardWorst(g, me, n, keep = new Set()) {
     me.waiting.push(c);
     out.push(c);
   }
-  if (out.length) g.log(me, 'eff', `手札から${out.map(c => cardLabel(c)).join('、')}を控え室に置いた`);
+  if (out.length) g.listLog(me, 'eff', out, t => `手札から${t}を控え室に置いた`);
   return out;
 }
 
