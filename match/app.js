@@ -196,12 +196,23 @@ function renderRRResult(results, opps) {
 }
 
 function renderLog(g, el) {
-  el.innerHTML = g.logs.map(x => {
-    const who = x.p == null ? '' : (x.p === 0 ? 'p1' : 'p2');
-    const tag = `${x.turn ? x.turn + 'T ' : ''}${x.p == null ? '' : (x.p === 0 ? '自分' : '相手')}`;
-    // 効果の見出し（efh）・結果（efr）・盤面（board）は色を変え、解決中のログや盤面候補は一段ずつ下げる
-    return `<li class="k-${esc(x.kind)}"><span class="tag ${who}">${esc(tag || '準備')}</span><span class="msg" style="padding-left:${(x.depth || 0) * 18}px">${esc(x.msg)}${x.items ? `<ul class="items">${x.items.map(it => `<li>${esc(it)}</li>`).join('')}</ul>` : ''}</span></li>`;
-  }).join('');
+  const who = x => (x.p == null ? '' : (x.p === 0 ? 'p1' : 'p2'));
+  const tag = x => `${x.turn ? x.turn + 'T ' : ''}${x.p == null ? '' : (x.p === 0 ? '自分' : '相手')}` || '準備';
+  const body = x => `${esc(x.msg)}${x.items ? `<ul class="items">${x.items.map(it => `<li>${esc(it)}</li>`).join('')}</ul>` : ''}`;
+  // 効果の見出し（efh）・結果（efr）・盤面（board）は色を変え、解決中のログや盤面候補は一段ずつ下げる
+  const row = x => `<li class="k-${esc(x.kind)}"><span class="tag ${who(x)}">${esc(tag(x))}</span><span class="msg" style="padding-left:${(x.depth || 0) * 18}px">${body(x)}</span></li>`;
+  const out = [];
+  const logs = g.logs;
+  for (let i = 0; i < logs.length; i++) {
+    const x = logs[i];
+    if (x.kind !== 'cand') { out.push(row(x)); continue; }
+    // 続く盤面候補をまとめて、折りたたみにする（最初は閉じておく）
+    const group = [];
+    while (i < logs.length && logs[i].kind === 'cand' && logs[i].p === x.p && logs[i].turn === x.turn) group.push(logs[i++]);
+    i--;
+    out.push(`<li class="k-cand"><span class="tag ${who(x)}">${esc(tag(x))}</span><details class="msg" style="padding-left:${(x.depth || 0) * 18}px"><summary>盤面の候補（${group.length}件）</summary><ol class="cands">${group.map(c => `<li>${body(c)}</li>`).join('')}</ol></details></li>`);
+  }
+  el.innerHTML = out.join('');
 }
 
 function showTrace(a, b) {
