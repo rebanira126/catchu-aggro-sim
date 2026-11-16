@@ -84,7 +84,10 @@ export function defaultMain(api, opt = {}) {
   for (let k = 0; k < 4; k++) {
     const plan = bestPlays(g, me, opt);
     if (!plan.length) break;
-    const step = firstStep(g, me, plan);
+    let step = firstStep(g, me, plan);
+    // 今のエネルギーでは出せない（起動能力でエネルギーを起こす前提の手順）：先に起動能力を使ってみる
+    if (!step) { useAbilities(api); step = firstStep(g, me, plan); }
+    if (!step) break;
     const idx = me.hand.findIndex(c => c.uid === step.uid);
     if (idx < 0) break;
     me.reserved = new Set(plan.filter(x => x !== step).map(x => x.uid));
@@ -94,6 +97,8 @@ export function defaultMain(api, opt = {}) {
     // 出したあとに使えるようになる起動能力（入れ替え先が控え室にある、など）
     useAbilities(api);
   }
+  // メインフェイズの最後：もう出すカードが無いときに使う起動能力（ブレードを得る、ライブを拾う、など。効果側は ctx.late を見る）
+  useAbilities(api, { late: true });
 }
 
 // 先に出すカード：登場時に手札を見る・引く効果のあるメンバーを先に（結果を見て組み直せるように）
@@ -103,11 +108,32 @@ function firstStep(g, me, plan) {
     const ef = c && g.effect(c);
     return ef && ef.onEnter ? 0 : 1;
   };
-  return plan.slice().sort((a, b) => rank(a) - rank(b))[0];
+  // 今のエネルギーで出せる手順だけ（起動能力で起こすエネルギーを見込んだ手順は、出せるようになってから）
+  const ok = st => {
+    const c = me.hand.find(x => x.uid === st.uid);
+    if (!c) return false;
+    let cost = g.costOf(me, c);
+    const s = me.stage[st.area];
+    if (s && cost > 0) cost = Math.max(0, cost - s.card.def.cost);
+    if (st.area2 != null && me.stage[st.area2]) cost = Math.max(0, cost - me.stage[st.area2].card.def.cost);
+    return cost <= me.energy.active;
+  };
+  return plan.filter(ok).sort((a, b) => rank(a) - rank(b))[0] || null;
+}
+
+// ステージのメンバーの起動能力で、このターンにまだ起こせるエネルギーの見込み（効果側の energyPotential）
+function abilityPotential(g, me) {
+  let n = 0;
+  me.stage.forEach((s, area) => {
+    if (!s) return;
+    const ef = g.effect(s.card);
+    if (ef && ef.energyPotential) n += ef.energyPotential({ g, me, slot: s, area }) || 0;
+  });
+  return Math.min(n, me.energy.n);
 }
 
 // 起動能力：効果側の ai(ctx) が true を返したら使う（使うと盤面が変わるので1つずつ確認）
-export function useAbilities(api) {
+export function useAbilities(api, { late = false } = {}) {
   const { g, me } = api;
   for (let guard = 0; guard < 8; guard++) {
     let used = false;
@@ -116,9 +142,22 @@ export function useAbilities(api) {
       if (!s) continue;
       g.abilities(s).forEach(({ ab }, k) => {
         if (used || !ab.ai) return;
-        const ctx = { g, me, opp: g.opp(me), card: s.card, slot: s, area };
-        if (ab.ai(ctx) && api.activate(area, k)) used = true;
+        const ctx = { g, me, opp: g.opp(me), card: s.card, slot: s, area, late };
+        if (ab.ai(ctx) && api.activate(area, k, { late })) used = true;
       });
+    }
+    // 控え室にあるときだけ使える起動能力（効果側の fromWaiting：控え室からステージに登場する、など）
+    if (!used) {
+      const seen = new Set();
+      for (const c of me.waiting.slice()) {
+        if (used || seen.has(c.def.id)) continue;
+        seen.add(c.def.id);
+        const ef = g.effect(c);
+        const fw = ef && ef.fromWaiting;
+        if (!fw) continue;
+        const ctx = { g, me, opp: g.opp(me), card: c, late };
+        if (fw.ai(ctx) && fw.run(ctx) !== false) used = true;
+      }
     }
     if (!used) break;
   }
@@ -127,11 +166,13 @@ export function useAbilities(api) {
 export function bestPlays(g, me, opt = {}) {
   const value = opt.value || memberValue;
   const energy = me.energy.active;
+  // 起動能力で起こせるエネルギー（ウェイトのエネルギーがあるときだけ使える）。手順の途中で使う
+  const pot0 = abilityPotential(g, me);
   const stage0 = me.stage.map(s => (s ? { def: s.card.def, locked: s.enteredTurn === g.turn, slot: s } : null));
   const handM = me.hand.filter(c => c.def.kind === 'M');
   const cands = [{ stage: stage0, left: energy, plan: [] }];
   const seen = new Map();
-  const dfs = (stage, left, used, plan) => {
+  const dfs = (stage, left, used, plan, pot = pot0) => {
     if (plan.length >= 3) return;
     for (let a = 0; a < 3; a++) {
       const s = stage[a];
@@ -161,9 +202,15 @@ export function bestPlays(g, me, opt = {}) {
         }
         let cost = g.costOf(me, c);
         if (s && cost > 0) cost = Math.max(0, cost - s.def.cost);
-        if (cost > left) continue;
+        // 足りない分は起動能力で起こす（起こせるのはウェイトのエネルギーの数まで）
+        const usePot = Math.max(0, cost - left);
+        if (usePot > Math.min(pot, me.energy.n - left)) continue;
         const ns = stage.slice(); ns[a] = { def: c.def, locked: true, card: c };
-        const key = ns.map(x => (x ? x.def.id : '-')).join('|') + '#' + (left - cost);
+        // 登場時・バトンタッチ時にエネルギーが戻る効果（refund / batonRefund）。ウェイトのエネルギーの数まで
+        cost -= usePot;
+        cost -= refundOf(g, me, c, s, left - cost);
+        const npot = pot - usePot;
+        const key = ns.map(x => (x ? x.def.id : '-')).join('|') + '#' + (left - cost) + '/' + npot;
         const np = plan.concat([{ uid: c.uid, area: a }]);
         // 同じ盤面・同じ残りエネルギーになる手順は、使うカードが少ない方だけ残す
         const prev = seen.get(key);
@@ -171,7 +218,7 @@ export function bestPlays(g, me, opt = {}) {
         if (prev) { prev.plan = np; prev.stage = ns; }
         else { const cand = { stage: ns, left: left - cost, plan: np }; seen.set(key, cand); cands.push(cand); }
         used.add(c.uid);
-        dfs(ns, left - cost, used, np);
+        dfs(ns, left - cost, used, np, npot);
         used.delete(c.uid);
       }
     }
@@ -215,7 +262,22 @@ export function bestPlays(g, me, opt = {}) {
     if (!best || c.score > best.score) best = c;
   }
   if (opt.debug) opt.debug(top);
+  if (g.trace) {
+    const nm = c => c.plan.map(st => { const x = me.hand.find(h => h.uid === st.uid); return x ? `${x.def.name}${x.def.cost}→${st.area}` : '?'; }).join('、') || '出さない';
+    top.slice().sort((a, b) => b.score - a.score).slice(0, 4).forEach(c => g.log(me, 'cand', `盤面候補 ${nm(c)}：${c.score.toFixed(2)}（ライブ${c.ev.toFixed(2)}）`));
+  }
   return best.plan;
+}
+
+// 出したときに戻ってくるエネルギーの見込み（効果側の refund：登場時、batonRefund：バトンタッチで控え室に置かれる側）
+function refundOf(g, me, card, prev, leftAfter) {
+  let r = 0;
+  const ce = g.effect(card);
+  if (ce && ce.refund) r += ce.refund({ g, me, card }) || 0;
+  const pc = prev && (prev.card || (prev.slot && prev.slot.card));
+  const pe = pc && g.effect(pc);
+  if (pe && pe.batonRefund) r += pe.batonRefund({ g, me, card: pc, newCard: card }) || 0;
+  return Math.max(0, Math.min(r, me.energy.n - leftAfter));
 }
 
 // 候補の盤面で、入れ替えられて失う「下に置かれたメンバー」の枚数
@@ -304,6 +366,7 @@ export function defaultSetLives(v, opt = {}) {
     const st = {};
     const p = successRate(g, me, pick.map(x => x.c), est, samples, st);
     const score = pick.reduce((s, x) => s + previewScore(g, me, x.c), 0) + (st.adj || 0);
+    if (g.trace) g.log(me, 'est', `候補 ${pick.map(x => x.c.def.name).join('＋')}：成功${Math.round(p * 100)}% ${score.toFixed(1)}点${planLives(g, me, pick.map(x => x.c.def.id)) ? '（目標）' : ''}`);
     if (oppD) {
       const ids = pick.map(x => x.c.def.id);
       let u = liveUtility(g, me, oppD, p, score);
@@ -320,10 +383,12 @@ export function defaultSetLives(v, opt = {}) {
     if (opt.pace) {
       // 点数の進行（例：1→4→7）に合わせる：目標に届く中で一番小さい点数、届かなければ一番大きい点数
       const tg = opt.pace[Math.min(succ, opt.pace.length - 1)];
-      const th = g.turn <= 1 && opt.th1 != null ? opt.th1 : (succ === opt.pace.length - 1 && score >= tg && opt.thLast != null ? opt.thLast : minP);
-      if (p < th || p <= 0) continue;
+      const th0 = g.turn <= 1 && opt.th1 != null ? opt.th1 : (succ === opt.pace.length - 1 && score >= tg && opt.thLast != null ? opt.thLast : minP);
       const pids = pick.map(x => x.c.def.id);
       const planned = planLives(g, me, pids);
+      // そのターンに置きたい組み合わせは、成功の見込みが低めでも置く（opt.planMinP）
+      const th = planned && opt.planMinP != null && g.turn > 1 ? Math.min(th0, opt.planMinP) : th0;
+      if (p < th || p <= 0) continue;
       if (!planned && opt.reserveStrict && usesReserved(g, me, pids)) continue; // 後のターンのために取っておく
       // そのターンに置きたい組み合わせを一番に。次に点数の進行
       const key = (planned ? 2000 : 0) + (score >= tg ? 1000 - score : score);
@@ -348,13 +413,23 @@ export function defaultSetLives(v, opt = {}) {
     best = bestU && bestU.u > u0 + (opt.oppMargin ?? 0.02) ? bestU : null;
   }
   const out = best ? best.pick.map(x => x.i) : [];
+  // わざと成功しないライブ（opt.dummyTurns）：そのターンにライブを置かないなら、一番いらないライブを1枚置いてエールをする
+  // （エールでめくったカードが控え室に行く。控え室のメンバーを増やすテクニック）
+  if (opt.dummyTurns && opt.dummyTurns.includes(g.turn) && !out.some(i => me.hand[i].def.kind === 'L')) {
+    const keep = protectedCards(g, me, opt);
+    const L = me.hand.map((c, i) => ({ c, i })).filter(x => x.c.def.kind === 'L' && !keep.has(x.c.uid))
+      .sort((a, b) => handVal(a.c, me) - handVal(b.c, me));
+    if (L.length && me.hand.filter(c => c.def.kind === 'L').length >= (opt.dummyMinLives ?? 2)) { out.push(L[0].i); g.log(me, 'plan', `わざと成功しないライブ：${L[0].c.def.name}`); }
+  }
   // 空いた枠に不要なメンバーを伏せて、同じ枚数を引き直す（ライブでないカードは控え室へ行く）
   // 山札を削りたいデッキ（prefer.mill）は、空いた枠をいつも埋めて引き直す
   if ((opt.fill || (me.prefer && me.prefer.mill)) && out.length < 3) {
     const keep = protectedCards(g, me, opt);
+    // 伏せたいメンバー（strategy.prefer.fillPrefer：控え室に置いておきたいカード）を先に
+    const fp = c => (me.prefer && me.prefer.fillPrefer && me.prefer.fillPrefer.includes(c.def.id) ? 1 : 0);
     const cand = me.hand.map((c, i) => ({ c, i }))
-      .filter(x => x.c.def.kind === 'M' && !keep.has(x.c.uid) && (x.c.def.cost <= (opt.fillMaxCost ?? 99) || isToWaiting(me, x.c)))
-      .sort((a, b) => (isToWaiting(me, b.c) - isToWaiting(me, a.c)) || (handVal(a.c, me) - handVal(b.c, me)));
+      .filter(x => x.c.def.kind === 'M' && !keep.has(x.c.uid) && (x.c.def.cost <= (opt.fillMaxCost ?? 99) || isToWaiting(me, x.c) || fp(x.c)))
+      .sort((a, b) => (isToWaiting(me, b.c) - isToWaiting(me, a.c)) || (fp(b.c) - fp(a.c)) || (handVal(a.c, me) - handVal(b.c, me)));
     for (const x of cand) { if (out.length >= 3) break; out.push(x.i); }
   }
   return out;
@@ -449,7 +524,7 @@ function protectedCards0(g, me, opt = {}) {
   }
   // ステージの空き枠を次のターンに埋めるための低コストのメンバー
   const empty = me.stage.filter(x => !x).length;
-  if (empty && opt.protFill !== false) {
+  if (empty && opt.protFill !== false && !(me.prefer && me.prefer.protFill === false)) {
     const low = ms.filter(c => c.def.cost <= 2 && !keep.has(c.uid)).sort((a, b) => memberValue(b.def) - memberValue(a.def));
     low.slice(0, empty).forEach(c => keep.add(c.uid));
   }
@@ -582,14 +657,27 @@ export function estimateContext(g, me) {
     const { h, all } = g.heartsOf(me, s, area);
     addHearts(pool, h); pool.all += all;
     if (s.active) blades += g.bladesOf(me, s, area);
+    // このターンにまだ起動能力で足せるブレードの見込み（効果側の estBlades）
+    const ef = g.effect(s.card);
+    if (s.active && ef && ef.estBlades) blades += ef.estBlades({ g, me, slot: s, area }) || 0;
   });
   // デッキの中身は分かるが順番は分からないので、残りデッキ（＋控え室）からランダムに引いて試す
-  const unknown = me.deck.length >= blades ? me.deck : me.deck.concat(me.waiting);
-  return { pool, blades, unknown };
+  // ただし、効果でデッキの上に置いたカード（me.knownTop）はエールで必ずめくれ、
+  // デッキの下に置いたカード（me.knownBottom）はデッキが多ければめくれない
+  const kt = me.knownTop, kb = me.knownBottom;
+  let top = 0;
+  while (kt && top < me.deck.length && top < blades && kt.has(me.deck[top].uid)) top++;
+  let bottom = 0;
+  while (kb && bottom < me.deck.length - top && kb.has(me.deck[me.deck.length - 1 - bottom].uid)) bottom++;
+  const fixed = me.deck.slice(0, top);
+  const rest = me.deck.slice(top, me.deck.length - bottom);
+  const unknown = rest.length >= blades - top ? rest : me.deck.length - top >= blades - top ? me.deck.slice(top) : me.deck.slice(top).concat(me.waiting);
+  return { pool, blades, unknown, fixed };
 }
 
 // 成功率を見積もる。stats を渡すと、成功したときの点数の増減（効果の successAdjust）の平均を stats.adj に入れる
-export function successRate(g, me, cards, est, samples, stats = null) {
+export function successRate(g, me, cards, est0, samples, stats = null) {
+  let est = est0;
   let extra = 0; // 効果で増えるエールの枚数（live.cheer）
   const adjusters = [];
   const needs = cards.map(card => {
@@ -601,7 +689,14 @@ export function successRate(g, me, cards, est, samples, stats = null) {
     return live.need;
   });
   const arr = est.unknown;
-  const blades = est.blades + extra;
+  const fixed = est.fixed || [];
+  const blades = est.blades + extra - Math.min(fixed.length, est.blades + extra);
+  if (fixed.length) {
+    // 上に置いたと分かっているカードは必ずめくれる
+    const base = { c: est.pool.c.slice(), all: est.pool.all, gen: est.pool.gen };
+    for (const c of fixed.slice(0, est.blades + extra)) addBladeHeart(base, c.def.bh);
+    est = { ...est, pool: base };
+  }
   if (stats) stats.adj = 0;
   const judge = (pool, cheer) => {
     const res = meetAll(pool, needs);

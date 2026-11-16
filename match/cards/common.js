@@ -2,6 +2,9 @@
 import { memberValue } from '../engine/ai.js';
 import { isLive, isMember, recover, sacrificeSelf, discardWorst, willDiscard, lookTake } from './lib.js';
 
+// デッキの主力のライブ（strategy.prefer.wantLives の番号）に当たるかを調べる関数。指定が無ければ null
+const wanted = me => (me.prefer && me.prefer.wantLives ? c => isLive(c) && me.prefer.wantLives.includes(c.def.id) : null);
+
 export const T = {
   recoverLive: '【起動】このメンバーをステージから控え室に置く：自分の控え室からライブカードを1枚手札に加える。',
   recoverMember: '【起動】このメンバーをステージから控え室に置く：自分の控え室からメンバーカードを1枚手札に加える。',
@@ -17,19 +20,27 @@ export default {
   [T.recoverLive]: {
     note: '起動：自分を控え室に置き、控え室のライブを1枚手札に',
     activated: [{
-      ai: ({ me }) => me.hand.filter(isLive).length === 0 && me.waiting.some(isLive),
-      run: ({ g, me, slot, area }) => { sacrificeSelf(g, me, slot, area); recover(g, me, isLive); },
+      // デッキの主力のライブ（strategy.prefer.wantLives）が手札に無く、控え室にあるときも使う
+      ai: ({ me }) => (me.hand.filter(isLive).length === 0 && me.waiting.some(isLive)) || (wanted(me) && !me.hand.some(wanted(me)) && me.waiting.some(wanted(me))),
+      run: ({ g, me, slot, area }) => { sacrificeSelf(g, me, slot, area); (wanted(me) && recover(g, me, wanted(me))) || recover(g, me, isLive); },
     }],
   },
   [T.recoverMember]: {
     note: '起動：自分を控え室に置き、控え室のメンバーを1枚手札に',
     activated: [{
       ai: ({ me, slot }) => {
+        // デッキの盤面に要るメンバー（strategy.prefer.wantMembers）が手札・ステージに無く、控え室にあるとき
+        const wm = me.prefer && me.prefer.wantMembers;
+        if (wm && !wm.includes(slot.card.def.id) && !me.hand.concat(me.stage.filter(Boolean).map(s => s.card)).some(c => wm.includes(c.def.id)) && me.waiting.some(c => wm.includes(c.def.id))) return true;
         const e = me.energy.active;
         if (me.hand.some(c => isMember(c) && c.def.cost <= e)) return false;
         return me.waiting.some(c => isMember(c) && c.def.cost <= e && memberValue(c.def) > memberValue(slot.card.def) + 1);
       },
-      run: ({ g, me, slot, area }) => { sacrificeSelf(g, me, slot, area); recover(g, me, isMember); },
+      run: ({ g, me, slot, area }) => {
+        sacrificeSelf(g, me, slot, area);
+        const wm = me.prefer && me.prefer.wantMembers;
+        (wm && recover(g, me, c => isMember(c) && wm.includes(c.def.id))) || recover(g, me, isMember);
+      },
     }],
   },
   [T.bladePlus2]: {

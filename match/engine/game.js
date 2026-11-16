@@ -368,6 +368,7 @@ export class Game {
     // ドローフェイズ
     this.draw(P, 1);
     this.log(P, 'turn', `${this.turn}ターン目（${P === this.p[this.first] ? '先攻' : '後攻'}）：エネルギー${P.energy.n}、手札${P.hand.length}枚`);
+    if (this.trace) this.log(P, 'hand', `手札：${P.hand.map(c => (c.def.kind === 'L' ? `［${c.def.name}］` : `${c.def.name}${c.def.cost}`)).join('、')}（控え室${P.waiting.length}枚・デッキ${P.deck.length}枚）／ステージ：${P.stage.map(x => (x ? `${x.card.def.name}${x.card.def.cost}` : '-')).join('・')}`);
     // メインフェイズ（仮想の相手は何もしない）
     if (!P.virtual) P.policy.main(this.mainApi(P));
   }
@@ -378,19 +379,19 @@ export class Game {
       g, me: P, opp: this.opp(P), turn: this.turn,
       isFirst: P === this.p[this.first],
       play: (handIdx, area, baton = true, area2 = null) => g.play(P, handIdx, area, baton, area2),
-      activate: (area, abilityIdx = 0) => g.activate(P, area, abilityIdx),
+      activate: (area, abilityIdx = 0, extra = {}) => g.activate(P, area, abilityIdx, extra),
       view: () => g.view(P),
     };
   }
 
   // 起動能力
-  activate(P, area, k = 0) {
+  activate(P, area, k = 0, extra = {}) {
     const s = P.stage[area];
     if (!s) return false;
     const item = this.abilities(s)[k];
     if (!item) return false;
     const { ab, key } = item;
-    const ctx = { g: this, me: P, opp: this.opp(P), card: s.card, slot: s, area };
+    const ctx = { g: this, me: P, opp: this.opp(P), card: s.card, slot: s, area, ...extra };
     if (ab.can && !ab.can(ctx)) return false;
     if (ab.once && !this.useOnce(s, key, ab.once)) return false;
     return ab.run(ctx) !== false;
