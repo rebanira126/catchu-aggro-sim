@@ -4,7 +4,7 @@
 import { cardLabel } from '../engine/game.js';
 import { memberValue, turnTarget } from '../engine/ai.js';
 import {
-  inGroup, isLive, isMember, hasBladeHeart, cardWorth, discardWorst, willDiscard, recover, takeTop,
+  inGroup, isLive, isMember, hasBladeHeart, cardWorth, discardWorst, willDiscard, recover, takeTop, comboMissing,
 } from './lib.js';
 
 const NIJI = '虹ヶ咲';
@@ -273,6 +273,7 @@ export default {
     aiBonus: ({ me, card }) => (me.deck.length >= 6 && !me.stage.some(s => s && s.card.def.id === card.def.id) ? 3 : 0),
     activated: [{
       once: 2,
+      textIdx: 1, // カードの文章では2つ目の【起動】
       can: ({ me }) => me.deck.length >= 3,
       ai: ({ g, me, slot, late }) => {
         if (me.deck.length < 3) return false;
@@ -340,8 +341,14 @@ export default {
     onEnter({ g, me }) {
       const wl = me.prefer && me.prefer.wantLives;
       const want = c => isLive(c) && isNiji(c) && wl && wl.includes(c.def.id);
-      const need = wantLive(me, 2) || (wl && !me.hand.some(want) && me.waiting.some(want));
-      if (need && willDiscard(g, me)) { discardWorst(g, me, 1); recover(g, me, c => want(c), '三船栞子：') || recover(g, me, c => isLive(c) && isNiji(c), '三船栞子：'); }
+      // 目標のライブの組み合わせに足りないライブがあれば、それを拾う
+      const miss = comboMissing(g, me);
+      const missNiji = c => isLive(c) && isNiji(c) && miss.has(c.def.id);
+      const need = me.waiting.some(missNiji) || wantLive(me, 2) || (wl && !me.hand.some(want) && me.waiting.some(want));
+      if (need && (willDiscard(g, me) || me.waiting.some(missNiji))) {
+        discardWorst(g, me, 1);
+        recover(g, me, missNiji, '三船栞子：') || recover(g, me, c => want(c), '三船栞子：') || recover(g, me, c => isLive(c) && isNiji(c), '三船栞子：');
+      }
     },
   },
   // 三船栞子（17）sd2-010
@@ -367,7 +374,8 @@ export default {
       run: ({ g, me }) => {
         if (!g.payEnergy(me, 2)) return false;
         const wl = me.prefer && me.prefer.wantLives;
-        (wl && recover(g, me, c => isLive(c) && wl.includes(c.def.id), '上原歩夢：')) || recover(g, me, c => isLive(c) && isNiji(c), '上原歩夢：');
+        const miss = comboMissing(g, me);
+        (miss.size && recover(g, me, c => isLive(c) && isNiji(c) && miss.has(c.def.id), '上原歩夢：')) || (wl && recover(g, me, c => isLive(c) && wl.includes(c.def.id), '上原歩夢：')) || recover(g, me, c => isLive(c) && isNiji(c), '上原歩夢：');
       },
     }],
   },

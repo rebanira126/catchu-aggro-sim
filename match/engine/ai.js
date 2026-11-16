@@ -458,6 +458,8 @@ export function defaultSetLives(v, opt = {}) {
   // 引きに行くカード（opt.digFor）：そのターンに手札に無ければ、ライブカード置き場を n 枚まで埋めて同じ枚数を引き直す
   // digFor: { ids: [探すカード], turns: [1, 2], n: 3, keep: [置かないカード] }
   const dig = opt.digFor;
+  // 伏せたいカード（strategy.prefer.fillPrefer）を先に置く
+  const fp = c => (me.prefer && me.prefer.fillPrefer && me.prefer.fillPrefer.includes(c.def.id) ? 1 : 0);
   if (dig && (dig.turns || []).includes(g.turn) && !me.hand.some(c => dig.ids.includes(c.def.id)) && out.length < (dig.n ?? 3)) {
     const prot = protectedCards(g, me, opt);
     const next = turnTarget(me, g.turn + 1);
@@ -469,7 +471,7 @@ export function defaultSetLives(v, opt = {}) {
     const hold = new Set(me.hand.filter(c => forNext(c)).map(c => c.uid));
     const cand = me.hand.map((c, i) => ({ c, i }))
       .filter(x => !out.includes(x.i) && !keepIds.has(x.c.def.id) && !hold.has(x.c.uid))
-      .sort((a, b) => (prot.has(a.c.uid) - prot.has(b.c.uid)) || (handVal(a.c, me) - handVal(b.c, me)));
+      .sort((a, b) => (prot.has(a.c.uid) - prot.has(b.c.uid)) || (fp(b.c) - fp(a.c)) || (handVal(a.c, me) - handVal(b.c, me)));
     const before = out.length;
     for (const x of cand) { if (out.length >= (dig.n ?? 3)) break; out.push(x.i); }
     if (out.length > before) g.log(me, 'plan', `${dig.label || '探すカード'}が手札に無いので、ライブカード置き場を${out.length}枚まで埋めて引き直す`);

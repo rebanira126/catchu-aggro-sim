@@ -439,7 +439,7 @@ export class Game {
     const ctx = { g: this, me: P, opp: this.opp(P), card: s.card, slot: s, area, ...extra };
     if (ab.can && !ab.can(ctx)) return false;
     if (ab.once && !this.useOnce(s, key, ab.once)) return false;
-    return this.runEffect(P, item.card, 'activated', () => ab.run(ctx), +key.split('#')[1] || 0) !== false;
+    return this.runEffect(P, item.card, 'activated', () => ab.run(ctx), ab.textIdx ?? (+key.split('#')[1] || 0)) !== false;
   }
 
   livePhase() {
