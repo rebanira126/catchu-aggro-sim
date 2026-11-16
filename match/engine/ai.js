@@ -146,6 +146,19 @@ export function useAbilities(api, { late = false } = {}) {
         if (ab.ai(ctx) && api.activate(area, k, { late })) used = true;
       });
     }
+    // 控え室にあるときだけ使える起動能力（効果側の fromWaiting：控え室からステージに登場する、など）
+    if (!used) {
+      const seen = new Set();
+      for (const c of me.waiting.slice()) {
+        if (used || seen.has(c.def.id)) continue;
+        seen.add(c.def.id);
+        const ef = g.effect(c);
+        const fw = ef && ef.fromWaiting;
+        if (!fw) continue;
+        const ctx = { g, me, opp: g.opp(me), card: c, late };
+        if (fw.ai(ctx) && fw.run(ctx) !== false) used = true;
+      }
+    }
     if (!used) break;
   }
 }

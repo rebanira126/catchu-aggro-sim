@@ -49,6 +49,7 @@ export function waitOwn(g, me, slot, label = '') {
   return true;
 }
 
+const kanata9 = me => me.stage.find(s => s && s.active && s.card.def.id === 'PL!N-pb1-006') || null;
 const waitedNiji = (me, except = null) => me.stage.some(s => s && s !== except && !s.active && isNiji(s.card));
 
 // あと extra エネルギーあれば出せるようになる手札のメンバーがあるか（バトンタッチも考える）
@@ -150,7 +151,15 @@ export default {
   // エマ・ヴェルデ（17）pb1-008
   [EMMA17]: {
     note: '常時：ステージにウェイトの虹ヶ咲メンバーがいれば手札のこのカードのコスト-2。登場：メンバー1人かエネルギー2枚をアクティブ',
-    handCost({ me, base }) { return waitedNiji(me) ? base - 2 : base; },
+    // アクティブな9彼方がいれば、起動能力でウェイトにしてからプレイする（コスト-2）
+    handCost({ me, base }) { return waitedNiji(me) || kanata9(me) ? base - 2 : base; },
+    onPay({ g, me }) {
+      if (waitedNiji(me)) return;
+      const k = kanata9(me);
+      if (!k) return;
+      waitOwn(g, me, k, '近江彼方：');
+      nijiEnergy(g, me, 1, '近江彼方：');
+    },
     refund: () => 2,
     onEnter({ g, me, slot }) {
       const waited = me.stage.filter(s => s && s !== slot && !s.active).sort((a, b) => g.bladesOf(me, b, 0) - g.bladesOf(me, a, 0))[0];
@@ -337,8 +346,20 @@ export default {
   },
   // 中須かすみ（2）bp1-002
   'PL!N-bp1-002': {
-    note: '登場：デッキの上3枚を見て、好きな枚数を上に戻し残りは控え室（控え室から登場する起動能力は未対応）',
+    note: '登場：デッキの上3枚を見て、好きな枚数を上に戻し残りは控え室。起動（控え室にあるとき）[E][E]手札を1枚捨てる：控え室からステージに登場',
     onEnter({ g, me }) { scry(g, me, 3, '中須かすみ：'); },
+    fromWaiting: {
+      // メインフェイズの終わりに、空いているエリアがあってエネルギーが余っていれば出す
+      ai: ({ g, me, late }) => late && me.energy.active >= 2 && me.hand.length >= 1 && kasumiArea(g, me) >= 0 && willDiscard(g, me),
+      run: ({ g, me, card }) => {
+        const area = kasumiArea(g, me);
+        if (area < 0 || !g.payEnergy(me, 2)) return false;
+        discardWorst(g, me, 1);
+        me.waiting.splice(me.waiting.indexOf(card), 1);
+        g.log(me, 'eff', '中須かすみ：控え室から登場');
+        g.putMember(me, card, area, { from: 'waiting' });
+      },
+    },
   },
 };
 
@@ -362,6 +383,11 @@ function rinaWants(g, me) {
   const nextE = me.energy.n + 1;
   const top = Math.max(0, ...me.stage.filter(Boolean).map(s => s.card.def.cost), 4);
   return !me.hand.some(c => isMember(c) && c.def.cost >= 9 && c.def.cost - top <= nextE);
+}
+
+// かすみを控え室から出すエリア：空いているエリア（このターンに登場したメンバーのいるエリアは選べない）
+function kasumiArea(g, me) {
+  return me.stage.findIndex(s => !s);
 }
 
 function lanzhu(me) {

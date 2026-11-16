@@ -7,6 +7,17 @@ const KANATA9 = 'PL!N-pb1-006';  // 近江彼方（コスト9）
 const AI9 = 'PL!N-bp5-005';      // 宮下 愛（コスト9）
 const SHIORIKO9 = 'PL!N-bp5-022'; // 三船栞子（コスト9）
 const JB = 'PL!N-bp7-026';       // Just Believe!!!
+const LOVEU = 'PL!N-bp3-030';    // Love U my friends
+const TOKI = 'PL!N-bp5-026';     // TOKIMEKI Runners
+const CARA = 'PL!N-pb1-037';     // Cara Tesoro
+const KASUMI = 'PL!N-bp1-002';   // 中須かすみ（コスト2）
+
+const FINAL = [
+  [{ id: KANATA17 }, { id: SHIORIKO9 }, { id: KASUMI }],
+  [{ id: EMMA17 }, { id: SHIORIKO9 }, { id: KASUMI }],
+  [{ id: EMMA17 }, { id: KANATA9 }, { id: KASUMI }],
+];
+const FINAL_LIVES = [[JB, LOVEU], [JB, TOKI], [CARA, LOVEU], [CARA, TOKI]];
 
 export default {
   id: "niji-hibure",
@@ -44,12 +55,13 @@ export default {
     ["PL!N-sd2-010", 1], // 三船栞子（コスト17）
   ],
   plan: {
-    board: "4（-2）→ 9 → 15エマ-4-2（9愛からバトンタッチ）→ 17彼方-15/9-2 → 17彼方-17-2",
-    score: "（1・2Tはライブしない）→ 6 → 8〜11 → 15〜16",
+    board: "4（-2）→ 9 → 15エマ-4-2（9愛からバトンタッチ）→ 17彼方-9栞子-2かすみ ／ 17エマ-9栞子（9彼方）-2かすみ",
+    score: "（1・2Tはライブしない）→ 6 → 9〜10（17彼方）／ Cara Tesoro＋Love U・TOKIMEKI（17エマ）",
     mulligan: "15エマ・9愛 ＞ 9コス（彼方・栞子）＞ 4コス ＞ Just Believe!!!。15エマは9コス・4コスが無くてもキープ",
-    lives: "1T：ライブせず、非ブレを伏せて控え室へ／3T：Just Believe!!!（6点）／4T：Just Believe!!!＋α（9〜11点）／5T以降：15〜16点",
-    key: "15エマ（控え室の非ブレを戻してエネルギーを起こす）、17彼方（3枚落としてエネルギー2かブレード2）、9愛（15エマへのバトンタッチでエネルギー2・1ドロー）",
+    lives: "1T：ライブせず、非ブレを伏せて控え室へ／3T：Just Believe!!!（6点）／4T以降：Just Believe!!!＋Love U my friends（10点）か Just Believe!!!＋TOKIMEKI Runners（9点）。17エマのときは Cara Tesoro＋Love U my friends か Cara Tesoro＋TOKIMEKI Runners",
+    key: "17彼方（最大2回エネルギー2を起こす）、9栞子（ライブ回収）、2かすみ（控え室から登場）、17エマ（2Tに9彼方を出せば乗れる）、15エマ・9愛（エネルギーを起こす）",
     refs: ["https://note.com/tyomirin2/n/n9a8cb1c1a2cc"],
+    // 4T以降の盤面とライブの組み合わせは、デッキを作った友人に教えてもらった回し方
   },
   // プレイ方針（noteの回し方より）
   // ・マリガン：15エマ・9愛 ＞ 9コス ＞ 4コス ＞ Just Believe!!!
@@ -58,9 +70,9 @@ export default {
   // ・4T以降：17彼方を出し、起動能力でエネルギーを起こして盤面を広げる
   strategy: {
     // fillPrefer：ライブフェイズで伏せて控え室に送りたいカード（ブレードハートを持たないメンバー。15エマで戻してエネルギーにする）
-    // wantLives：2コストや栞子・歩夢で拾うライブ（主力のJust Believe!!!を優先）
+    // wantLives：2コストや栞子・歩夢で拾うライブ（4T以降の組み合わせで使うライブ）
     // protFill：空き枠を埋めるための2コストを手札に抱えない（4コスの登場時に手札を捨ててサーチする）
-    prefer: { wantLives: [JB], fillPrefer: [EMMA15, KANATA17, KANATA9, AI9, SHIORIKO9, 'PL!N-sd2-010', 'PL!N-sd2-001'], protFill: false },
+    prefer: { wantLives: [JB, LOVEU, TOKI, CARA], fillPrefer: [EMMA15, KANATA17, KANATA9, AI9, SHIORIKO9, 'PL!N-sd2-010', 'PL!N-sd2-001'], protFill: false },
     mulliganOpt: {
       keep: [
         { ids: [EMMA15], n: 1 },
@@ -75,8 +87,11 @@ export default {
       1: { board: [[4]] },
       2: { board: [[9]] },
       3: { board: [[{ id: EMMA15 }]], lives: [[JB]] },
-      4: { board: [[{ id: KANATA17 }, 15], [{ id: KANATA17 }, 9], [{ id: KANATA17 }]] },
-      5: { board: [[{ id: KANATA17 }, 17, 15], [{ id: KANATA17 }, 15]] },
+      // 4T以降（友人の回し方）：17彼方-9栞子-2かすみ で Just Believe!!!＋Love U（10点）か Just Believe!!!＋TOKIMEKI（9点）
+      // 17エマのときは 17エマ-9栞子-2かすみ か 17エマ-9彼方-2かすみ で Cara Tesoro＋Love U か Cara Tesoro＋TOKIMEKI
+      4: { board: FINAL, lives: FINAL_LIVES },
+      5: { board: FINAL, lives: FINAL_LIVES },
+      6: { board: FINAL, lives: FINAL_LIVES },
     },
     liveOpt: { fill: true, fillMaxCost: 9, pace: [6, 9, 15], th1: 1.01, minP: 0.45 },
   },
