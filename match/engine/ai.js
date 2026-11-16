@@ -380,7 +380,17 @@ export function defaultSetLives(v, opt = {}) {
     if (!comboAllowed(g, pick.map(x => x.c.def.id), opt)) continue;
     combos.push(pick);
   }
-  const est = combos.length ? estimateContext(g, me) : null;
+  // 盤面スタッツ（ステージのハートとブレードの合計）が足りないターンはライブをしない（opt.statMin：{ ターン: 最低値 }）
+  const smin = opt.statMin && opt.statMin[g.turn];
+  if (smin != null && combos.length) {
+    const st = boardStat(g, me);
+    if (st < smin) { combos.length = 0; g.log(me, 'plan', `盤面スタッツ（ハートとブレードの合計）${st}が${smin}より少ないので、ライブを温存する`); }
+    else g.log(me, 'plan', `盤面スタッツ（ハートとブレードの合計）${st}が${smin}以上なので、ライブをする`);
+  }
+  let est = combos.length ? estimateContext(g, me) : null;
+  // エールでブレードハートの無いカードが多くめくれても成功する組み合わせを選ぶ（opt.bladeMargin：{ ターン: 外れてもよい枚数 }）
+  const margin = opt.bladeMargin && opt.bladeMargin[Math.min(g.turn, Math.max(...Object.keys(opt.bladeMargin).map(Number)))];
+  if (est && margin) est = { ...est, blades: Math.max(0, est.blades - margin) };
   let best = null;
   // 相手の点数の見込みがあるとき（対戦）は、相手と比べた勝ち負けで選ぶ
   const oppD = opt.oppAware === false ? null : oppDistribution(g, me);
@@ -538,6 +548,18 @@ function handVal(c, me) {
 }
 
 // 入れ替えに使わずに残すカード：次に出す中コストの一番いい1枚と、序盤は大型の一番いい1枚
+// 盤面スタッツ：ステージのメンバーのハートの数と（アクティブな）ブレードの数の合計
+export function boardStat(g, me) {
+  let n = 0;
+  me.stage.forEach((s, area) => {
+    if (!s) return;
+    const h = g.heartsOf(me, s, area);
+    n += h.h.reduce((a, b) => a + b, 0) + (h.all || 0);
+    if (s.active) n += g.bladesOf(me, s, area);
+  });
+  return n;
+}
+
 export function protectedCards(g, me, opt = {}) {
   const keep = protectedCards0(g, me, opt);
   // 控え室に送りたいカードは守らない
@@ -571,6 +593,14 @@ function protectedCards0(g, me, opt = {}) {
   if (empty && opt.protFill !== false && !(me.prefer && me.prefer.protFill === false)) {
     const low = ms.filter(c => c.def.cost <= 2 && !keep.has(c.uid)).sort((a, b) => memberValue(b.def) - memberValue(a.def));
     low.slice(0, empty).forEach(c => keep.add(c.uid));
+  }
+  // 後のターンに必ず使うカード（strategy.prefer.hold）を1枚手札に残す
+  // hold: { from: 2, to: 5, ids: [優先するカード], cost: 2, skipIfWaiting: [控え室にあれば残さなくてよいカード] }
+  const hd = me.prefer && me.prefer.hold;
+  if (hd && g.turn >= (hd.from ?? 1) && g.turn <= (hd.to ?? 99) && !(hd.skipIfWaiting && me.waiting.some(c => hd.skipIfWaiting.includes(c.def.id)))) {
+    const c = ms.filter(x => !keep.has(x.uid) && ((hd.ids && hd.ids.includes(x.def.id)) || (hd.cost != null && x.def.cost === hd.cost)))
+      .sort((a, b) => ((hd.ids || []).includes(b.def.id) - (hd.ids || []).includes(a.def.id)) || (memberValue(b.def) - memberValue(a.def)))[0];
+    if (c) keep.add(c.uid);
   }
   // 決めの大きいライブ（strategy.prefer.bigLive 点以上）は2ターン目から1枚残す
   const bl = me.prefer && me.prefer.bigLive;
