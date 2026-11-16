@@ -447,13 +447,17 @@ export class Game {
     // ライブカードセット（先攻 → 後攻）
     for (const P of [A, B]) {
       if (P.virtual) { this.virtualSet(P); continue; }
+      const logStart = this.logs.length;
       const pick = P.policy.setLives(this.view(P)) || [];
+      // 置き方を決める間のログ（ライブの候補など）は、セットしたカードのログの下に一段下げて書く
+      const notes = this.trace ? this.logs.splice(logStart) : [];
       const idxs = [...new Set(pick)].filter(i => i >= 0 && i < P.hand.length).slice(0, 3).sort((a, b) => b - a);
       const set = idxs.map(i => P.hand.splice(i, 1)[0]);
       P.liveZone.push(...set);
       // 伏せたカード（ライブでないメンバーは、パフォーマンスのときに控え室へ行く）
       if (set.length) this.log(P, 'set', `ライブカード置き場に${set.length}枚セット`, 0, set.map(c => (c.def.kind === 'L' ? cardLabel(c) : `${cardLabel(c)}（ライブではないので控え室へ）`)));
       else this.log(P, 'set', 'ライブカード置き場にセットしない');
+      for (const x of notes) { x.depth = (x.depth || 0) + 1; this.logs.push(x); }
       this.draw(P, set.length);
     }
     // 盤面の記録（集計用）
