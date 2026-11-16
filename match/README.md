@@ -47,7 +47,7 @@ noteの回し方をデッキファイルに書き写すための項目です。�
 | `prefer.mill` | 山札を削りたいデッキ | `true` |
 | `prefer.fillPrefer` | ライブ置き場の空き枠に優先して伏せる（控え室に置いておきたい）カード | 非ブレ虹ヶ咲の15エマ・17彼方など |
 | `prefer.protFill` | `false` で、空き枠を埋めるための2コストを手札に抱えない（サーチで手札を捨てやすくする） | `false` |
-| `prefer.hold` | 後のターンに必ず使うカードを1枚手札に残す（from〜to のターン。控え室に代わりがあれば残さない） | `{ from: 2, to: 5, ids: [KASUMI], cost: 2, skipIfWaiting: [KASUMI] }` |
+| `prefer.hold` | 後のターンに必ず使うカードを1枚手札に残す（from〜to のターン。控え室に代わりがあれば残さない。配列で複数書ける） | `{ from: 2, to: 5, ids: [KASUMI], cost: 2, skipIfWaiting: [KASUMI] }` |
 | `prefer.wantMembers` | 2コスト（メンバー回収）で優先して拾うメンバー（手札・ステージに無く、控え室にあれば拾う） | `[SHIORIKO9, KANATA9]` |
 | `prefer.wantLives` | 2コストなどでライブを拾うとき優先するライブ（手札に無ければ、ほかのライブがあっても拾う） | `[JB]` |
 | `prefer.unit` / `prefer.bigLive` | 優先するユニット、2Tから1枚残す大きいライブの点数 | `{ unit: 'CatChu!', bigLive: 6 }` |

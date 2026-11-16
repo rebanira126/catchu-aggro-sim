@@ -17,6 +17,7 @@ const KAHO4 = 'PL!HS-bp6-001';   // 日野下花帆（コスト4）
 const LANDING = 'PL!S-bp5-020';  // Landing action Yeah!!
 
 const FINAL = [
+  [{ id: KANATA17 }, 9, { id: KASUMI }],
   [{ id: KANATA17 }, { id: SHIORIKO9 }, { id: KASUMI }],
   [{ id: EMMA17 }, { id: SHIORIKO9 }, { id: KASUMI }],
   [{ id: EMMA17 }, { id: KANATA9 }, { id: KASUMI }],
@@ -80,7 +81,12 @@ export default {
     // protFill：空き枠を埋めるための2コストを手札に抱えない（4コスの登場時に手札を捨ててサーチする）
     prefer: {
       // 2コスト（かすみ優先）を2Tから1枚手札に残す。4T・5Tに必ず使う。かすみが控え室にあればそこから出すので残さなくてよい
-      hold: { from: 2, to: 5, ids: [KASUMI], cost: 2, skipIfWaiting: [KASUMI] },
+      // 3Tから2枚目の9コスト（4Tの17-9-2用）、15エマ・17エマ（5Tの17-15-x用）も1枚ずつ残す
+      hold: [
+        { from: 2, to: 5, ids: [KASUMI], cost: 2, skipIfWaiting: [KASUMI] },
+        { from: 3, to: 4, ids: [SHIORIKO9, AI9, KANATA9], cost: 9 },
+        { from: 3, to: 5, ids: [EMMA15, EMMA17] },
+      ],
       wantLives: [JB, LOVEU, TOKI, CARA], wantMembers: [SHIORIKO9, KANATA9], fillPrefer: [EMMA15, KANATA17, KANATA9, AI9, SHIORIKO9, 'PL!N-sd2-010', 'PL!N-sd2-001'], protFill: false },
     mulliganOpt: {
       // 友人の方針：15エマ・9コスト（愛→彼方→栞子）・4コスト（璃奈→彼方→花帆）を1枚ずつ必ず残す
@@ -100,6 +106,7 @@ export default {
     turnPlan: {
       1: { board: [[4]] },
       2: { board: [[9]], lives: [[LANDING]] },
+      // 3T：15エマ（「15エマ＋4コスト」を目標にすると成績が下がったので15エマだけ）
       3: { board: [[{ id: EMMA15 }]], lives: [[JB]] },
       // 4T以降（友人の回し方）：17彼方-9栞子-2かすみ で Just Believe!!!＋Love U（10点）か Just Believe!!!＋TOKIMEKI（9点）
       // 17エマのときは 17エマ-9栞子-2かすみ か 17エマ-9彼方-2かすみ で Cara Tesoro＋Love U か Cara Tesoro＋TOKIMEKI
