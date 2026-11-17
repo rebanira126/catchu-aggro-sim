@@ -647,8 +647,12 @@ const matchSpec = (spec, def) => !!spec && (spec.id ? def.id === spec.id : def.c
 function runScript(api) {
   const { g, me } = api;
   const steps = (me.script && me.script[g.turn]) || [];
-  for (const st of steps) {
-    if (st.play) {
+  // 手順の前に起動能力を使う（先に手札を整える能力など）
+  if (steps.length) useAbilities(api);
+  for (const st0 of steps) {
+    // oneOf：書いた順に試して、最初にできたものだけ行う（例：9にこがいれば9にこ、いなければほかの9）
+    for (const st of st0.oneOf || [st0]) {
+      if (!st.play) continue;
       const idx = me.hand.findIndex(c => c.def.kind === 'M' && matchSpec(st.play, c.def));
       if (idx < 0) continue;
       let area = st.area;
@@ -658,7 +662,7 @@ function runScript(api) {
       if (st.onto && !(me.stage[area] && matchSpec(st.onto, me.stage[area].card.def))) continue;
       const slot = me.stage[area];
       if (slot && (isLocked(g, me, slot, area) || !g.canTarget(me, area))) continue;
-      if (api.play(idx, area, true)) { g.log(me, 'plan', `手順：${cardLabel(me.stage[area].card)}を出した`); useAbilities(api); }
+      if (api.play(idx, area, true)) { g.log(me, 'plan', `手順：${cardLabel(me.stage[area].card)}を出した`); useAbilities(api); break; }
     }
   }
 }
