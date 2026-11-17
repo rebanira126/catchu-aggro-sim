@@ -99,10 +99,14 @@ export default {
     onBatonOut({ g, me, newCard }) {
       if (newCard.def.cost >= 10 && inGroup(newCard.def, HASU)) { me.energy.active = Math.min(me.energy.n, me.energy.active + 2); g.log(me, 'eff', '日野下花帆：エネルギーを2枚アクティブにした'); }
     },
+    // 出す組み合わせを選ぶときに、戻ってくるエネルギーを見込む
+    batonRefund: ({ newCard }) => (newCard.def.cost >= 10 && inGroup(newCard.def, HASU) ? 2 : 0),
   },
   // 村野さやか（11）bp1-002
   'PL!HS-bp1-002': {
     note: '起動：エネルギー2と自分を控え室に置く→控え室のコスト15以下の蓮ノ空メンバーをこのエリアに登場',
+    // 控え室に大きい蓮ノ空メンバーがいれば、出したあと2エネでそのメンバーに入れ替えられる（盤面の強さに表れない価値）
+    aiBonus: ({ me }) => { const b = Math.max(0, ...me.waiting.filter(c => isMember(c) && c.def.cost <= 15 && c.def.cost >= 13 && inGroup(c.def, HASU)).map(c => memberValue(c.def))); return b ? Math.max(0, (b - 6) / 2) : 0; },
     activated: [{
       can: ({ me }) => me.energy.active >= 2,
       ai: ({ me, slot }) => me.energy.active >= 2 && me.waiting.some(c => isMember(c) && c.def.cost <= 15 && inGroup(c.def, HASU) && memberValue(c.def) > memberValue(slot.card.def) + 2),
