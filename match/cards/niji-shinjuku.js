@@ -8,6 +8,20 @@ const NIJI = '虹ヶ咲';
 const isNiji = c => inGroup(c.def, NIJI);
 const nijiLive = c => isLive(c) && isNiji(c);
 
+// 余剰ハートの赤の数：無色の要求は、赤以外の余ったハートから先に払ったとして数える
+function redExcess(me) {
+  const perf = me.perf;
+  if (!perf || !perf.pool || !perf.ok) return 0;
+  const need = [0, 0, 0, 0, 0, 0, 0];
+  for (const l of me.lives || []) l.need.forEach((x, i) => { need[i] += x; });
+  const pool = perf.pool;
+  const R = Math.max(0, (pool.c[2] || 0) - need[2]);
+  let colorNeed = 0; for (let i = 1; i <= 6; i++) colorNeed += need[i];
+  const total = pool.c.reduce((a, b) => a + b, 0) + (pool.all || 0) + (pool.gen || 0);
+  const other = Math.max(0, total - colorNeed - R);
+  return Math.max(0, R - Math.max(0, need[0] - other));
+}
+
 // オードリー：一番ブレードの多い自分の『虹ヶ咲』のメンバーが、両方のステージのほかの全員より多いか
 function audreyOk(g, me) {
   const opp = g.opp(me);
@@ -134,5 +148,18 @@ export default {
       const t = me.stage.filter(s => s && !s.active).sort((a, b) => b.card.def.blades - a.card.def.blades)[0];
       if (t && g.payEnergy(me, 1)) nijiActivate(g, me, t, '宮下 愛：');
     },
+  },
+  // Circle of Love（1点）bp8-029
+  'PL!N-bp8-029': {
+    note: 'ライブ成功時：余剰ハートの赤2つにつきスコア+1（+3まで）。その後、余剰ハートをすべて失う',
+    order: { liveSuccess: 8 },
+    liveSuccess({ g, me, live }) {
+      const red = redExcess(me);
+      const add = Math.min(3, Math.floor(red / 2));
+      if (add) { live.bonus += add; g.log(me, 'eff', `Circle of Love：スコア+${add}`); }
+      if (me.perf) { me.perf.excess = 0; me.perf.rest = null; }
+    },
+    // 見込み：ステージの赤ハートから、ライブ置き場のライブの赤の要求を引いた分（エールは数えない）
+    preview({ me, live }) { let r = 0; for (const x of me.stage) if (x) r += x.card.def.hearts[1] || 0; live.bonus += Math.min(3, Math.floor(Math.max(0, r - 2) / 2)); },
   },
 };

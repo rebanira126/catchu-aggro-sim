@@ -18,6 +18,12 @@ function liellaNames(me) {
 // strategy.prefer.millTurns のターンか（デッキの上のカードを控え室に送るために登場時効果を必ず使う）
 const millTurn = (g, me) => !!(me.prefer && me.prefer.millTurns && me.prefer.millTurns.includes(g.turn) && me.hand.length > 0);
 
+// ステージにいる名前の異なる『KALEIDOSCORE』のメンバーの数
+function kaleido(me) { const n = new Set(); for (const x of me.stage) if (x && x.card.def.unit === 'KALEIDOSCORE') for (const k of x.card.def.names) n.add(k); return n.size; }
+
+// ステージにいる、ハートを4つ以上持つ『Liella!』のメンバーの数
+function bigHearts(g, me) { let n = 0; me.stage.forEach((x, a) => { if (!x || !isLiella(x.card)) return; const h = g.heartsOf(me, x, a); if (h.h.reduce((p, q) => p + q, 0) + (h.all || 0) >= 4) n++; }); return n; }
+
 // 手札のメンバーのうち、ステージ・控え室にまだ無い名前の『Liella!』のメンバーの数
 function newHandNames(me) {
   const seen = new Set();
@@ -184,5 +190,44 @@ export default {
   'PL!SP-pb2-035': {
     note: '常時：左サイドにいるかぎりブレード+2',
     blades: ({ area }) => (area === 0 ? 2 : 0),
+  },
+  // ---------------- マルガレーテ強化の候補 ----------------
+  // 鬼塚冬毬（9）bp5-011
+  'PL!SP-bp5-011': {
+    note: '常時：左サイドで赤3・センターで黄3・右サイドで青3を得る',
+    hearts: ({ area }) => ({ c: area === 0 ? [0, 3, 0, 0, 0, 0] : area === 1 ? [0, 0, 3, 0, 0, 0] : [0, 0, 0, 0, 3, 0] }),
+  },
+  // 私のSymphony ～澁谷かのんVer.～（4点）
+  'PL!SP-sd1-026': {
+    note: 'ライブ開始時：エネルギーが9枚以上ならスコア+1',
+    liveStart({ g, me, live }) { if (me.energy.n >= 9) { live.bonus += 1; g.log(me, 'eff', '私のSymphony：スコア+1'); } },
+    preview({ me, live }) { if (me.energy.n >= 9) live.bonus += 1; },
+  },
+  // ニュートラル（6点）pb1-024
+  'PL!SP-pb1-024': {
+    note: 'ライブ開始時：ステージに名前の異なるKALEIDOSCOREのメンバーが2人以上ならスコア+1',
+    liveStart({ g, me, live }) { if (kaleido(me) >= 2) { live.bonus += 1; g.log(me, 'eff', 'ニュートラル：スコア+1'); } },
+    preview({ me, live }) { if (kaleido(me) >= 2) live.bonus += 1; },
+  },
+  // 絶対的LOVER（4点）pb2-045
+  'PL!SP-pb2-045': {
+    note: 'ライブ開始時：ステージのハートを4つ以上持つLiella!のメンバー1人につきスコア+1',
+    liveStart({ g, me, live }) { const n = bigHearts(g, me); if (n) { live.bonus += n; g.log(me, 'eff', `絶対的LOVER：スコア+${n}`); } },
+    preview({ g, me, live }) { live.bonus += bigHearts(g, me); },
+  },
+  // 常夏☆サンシャイン（6点）bp5-025
+  'PL!SP-bp5-025': {
+    note: 'ライブ成功時：[E]を好きな数払ってよい→4つにつきスコア+1',
+    liveSuccess({ g, me, live }) {
+      const k = Math.floor(me.energy.active / 4);
+      if (k && g.payEnergy(me, k * 4)) { live.bonus += k; g.log(me, 'eff', `常夏☆サンシャイン：エネルギー${k * 4}枚でスコア+${k}`); }
+    },
+    preview({ me, live }) { live.bonus += Math.floor(me.energy.active / 4); },
+  },
+  // DAISUKI FULL POWER（5点）bp4-028
+  'PL!SP-bp4-028': {
+    note: 'ライブ開始時：アクティブなエネルギーがあればスコア+1',
+    liveStart({ g, me, live }) { if (me.energy.active > 0) { live.bonus += 1; g.log(me, 'eff', 'DAISUKI FULL POWER：スコア+1'); } },
+    preview({ me, live }) { if (me.energy.active > 0) live.bonus += 1; },
   },
 };
