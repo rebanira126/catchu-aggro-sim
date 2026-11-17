@@ -99,7 +99,7 @@ export default {
         { from: 3, to: 4, ids: [SHIORIKO9, AI9, KANATA9], cost: 9 },
         { from: 3, to: 5, ids: [EMMA15, EMMA17] },
       ],
-      wantLives: [JB, LOVEU, TOKI, CARA], wantMembers: [KANATA17], fillPrefer: [EMMA15, KANATA17, KANATA9, AI9, SHIORIKO9, 'PL!N-sd2-010', 'PL!N-sd2-001'], protFill: false },
+      wantLives: [JB, LOVEU, TOKI, CARA], wantMembers: [KANATA17], wantMembersFrom: 4, fillPrefer: [EMMA15, KANATA17, KANATA9, AI9, SHIORIKO9, 'PL!N-sd2-010', 'PL!N-sd2-001'], protFill: false },
     mulliganOpt: {
       // 友人の方針：15エマ・9コスト（愛→彼方→栞子）・4コスト（璃奈→彼方→花帆）を1枚ずつ必ず残す
       // ライブは基本すべて戻す。15エマ・9コスト・4コストがそろったときだけ Landing action Yeah!! を1枚残してよい
@@ -118,8 +118,12 @@ export default {
     turnPlan: {
       1: { board: [[4]] },
       2: { board: [[9]], lives: [[LANDING]] },
-      // 3T：15エマ（「15エマ＋4コスト」を目標にすると成績が下がったので15エマだけ）
-      3: { board: [[{ id: EMMA15 }]], lives: [[JB]] },
+      // 3T：15エマ。15エマ-4-2・15エマ-2-2 も候補に入れる（余ったエネルギーで2かすみを控え室から出すため）
+      //     2Tに9彼方を出していて17エマが手札にあれば 17エマ-2（17エマを出したあとも同じ目標）
+      3: {
+        board: [[{ id: EMMA15 }], [{ id: EMMA15 }, 4, 2], [{ id: EMMA15 }, 2, 2]], lives: [[JB]],
+        alt: [{ ifStage: { id: EMMA17 }, board: [[{ id: EMMA17 }, 2]] }, { ifStage: { id: KANATA9 }, ifHand: { id: EMMA17 }, board: [[{ id: EMMA17 }, 2]] }],
+      },
       // 4T以降（友人の回し方）：17彼方-9栞子-2かすみ で Just Believe!!!＋Love U（10点）か Just Believe!!!＋TOKIMEKI（9点）
       // 17エマのときは 17エマ-9栞子-2かすみ か 17エマ-9彼方-2かすみ で Cara Tesoro＋Love U か Cara Tesoro＋TOKIMEKI
       4: { board: FINAL, lives: FINAL_LIVES },
@@ -131,6 +135,8 @@ export default {
     //     4花帆の登場時効果（デッキの上を整える）とライブ成功時効果（エールのカードを上に置く）で、4Tに使うカードを引きやすい
     //     （ひとり回しでこの形になった試合：4Tの手札に17が92%（4彼方なら83%）、4Tの点数の期待値4.9点（4.3点））
     script: {
+      // 2T：9愛が手札にあれば必ず9愛（4コスか2コスからバトンタッチ）。3Tに15エマへ乗せると2エネルギー起きる（友人の回し方）
+      2: [{ oneOf: [{ play: { id: AI9 }, onto: { cost: 4 } }, { play: { id: AI9 }, onto: { cost: 2 } }] }],
       3: [
         { ifHand: [{ id: KANATA4 }, { id: KAHO4 }], play: { id: EMMA15 }, onto: { cost: 9 } },
         { ifStage: { id: EMMA15 }, ifHand: [{ id: KANATA4 }], play: { id: KAHO4 } },

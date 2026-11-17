@@ -718,6 +718,8 @@ export function condOk(me, a) {
   if (a.ifSuccess && !hasId(me.success, a.ifSuccess)) return false;
   if (a.ifNoSuccess && hasId(me.success, a.ifNoSuccess)) return false;
   if (a.ifNoStage && me.stage.some(x => x && matchSpec(a.ifNoStage, x.card.def))) return false;
+  // ifStage：ステージにこのメンバーがいるときだけ
+  if (a.ifStage && !me.stage.some(x => x && matchSpec(a.ifStage, x.card.def))) return false;
   // ifHand：書いたカードが全部手札にあるときだけ（1つでも配列でもよい）
   if (a.ifHand && ![].concat(a.ifHand).every(sp => me.hand.some(c => matchSpec(sp, c.def)))) return false;
   return true;
