@@ -58,7 +58,10 @@ export default {
     //  4T：2コスから9にバトンタッチ（9にこ優先。5Tに17真姫へ乗る先を作る）
     //  5T：9から17真姫にバトンタッチ（Music S.T.A.R.T!!でコスト-2なので6エネ。2枚目が無ければ15ことり）、余ったエネルギーで2コス
     script: {
-      4: [{ oneOf: [{ play: { id: NIKO9 }, onto: { cost: 2 } }, { play: { cost: 9 }, onto: { cost: 2 } }] }],
+      // 3T：Music S.T.A.R.T!!でコスト-2の17真姫を9から出す（AIは15を選びがちなので手順で決める）。にこで起きた2エネで2コス
+      3: [{ play: { id: MAKI17 }, onto: { cost: 9 } }, { play: { cost: 2 } }],
+      // 4T：2コスがいなければ4コスからでもよい（9→4のバトンタッチは5エネ）
+      4: [{ oneOf: [{ play: { id: NIKO9 }, onto: { cost: 2 } }, { play: { cost: 9 }, onto: { cost: 2 } }, { play: { id: NIKO9 }, onto: { cost: 4 } }, { play: { cost: 9 }, onto: { cost: 4 } }] }],
       5: [
         { oneOf: [{ play: { id: MAKI17 }, onto: { cost: 9 } }, { play: { id: 'PL!-bp6-003' }, onto: { cost: 9 } }] },
         { play: { cost: 2 } },
