@@ -106,7 +106,8 @@ function groupCandidates(g, me, start) {
 
 function mainBody(api, opt) {
   const { g, me } = api;
-  useAbilities(api);
+  // 手順（strategy.script）があるターンは、runScript がバトンタッチ先を残して起動能力を使う
+  if (!(me.script && (me.script[g.turn] || []).length)) useAbilities(api);
   runScript(api);
   // 1枚出すごとに組み直す（登場時の効果で手札が変わるため）。出す予定の残りのカードは捨てないよう me.reserved に入れておく
   for (let k = 0; k < 4; k++) {
@@ -161,13 +162,15 @@ function abilityPotential(g, me) {
 }
 
 // 起動能力：効果側の ai(ctx) が true を返したら使う（使うと盤面が変わるので1つずつ確認）
-export function useAbilities(api, { late = false } = {}) {
+export function useAbilities(api, { late = false, keep = null } = {}) {
   const { g, me } = api;
   for (let guard = 0; guard < 8; guard++) {
     let used = false;
     for (let area = 0; area < 3 && !used; area++) {
       const s = me.stage[area];
       if (!s) continue;
+      // keep：このあとの手順でバトンタッチ先にするメンバー。自分を控え室に置く起動能力などで消えないよう、能力を使わない
+      if (keep && keep.has(s)) continue;
       g.abilities(s).forEach(({ ab }, k) => {
         if (used || !ab.ai) return;
         const ctx = { g, me, opp: g.opp(me), card: s.card, slot: s, area, late };
@@ -493,10 +496,12 @@ export function defaultSetLives(v, opt = {}) {
     const forNext = c => nextItems.some((it, k) => !used.has(k) && (it.id ? c.def.id === it.id : c.def.kind === 'M' && c.def.cost === it.cost) && used.add(k));
     // 置かないカード：この dig の keep と、ほかの dig で探しているカード（もう手札にあるキーカード）
     const keepIds = new Set([...(dig.keep || []), ...digs.flatMap(d => d.ids)]);
+    const liveSet = out.some(i => me.hand[i] && me.hand[i].def.kind === 'L');
     // 次のターンの盤面に要るカードは1枚ずつ残す
     const hold = new Set(me.hand.filter(c => forNext(c)).map(c => c.uid));
     const cand = me.hand.map((c, i) => ({ c, i }))
-      .filter(x => !out.includes(x.i) && !keepIds.has(x.c.def.id) && !hold.has(x.c.uid))
+      // ライブをするターンは、ほかのライブカードを伏せない（いっしょにライブになって失敗するため）
+      .filter(x => !out.includes(x.i) && !keepIds.has(x.c.def.id) && !hold.has(x.c.uid) && !(liveSet && x.c.def.kind === 'L'))
       .sort((a, b) => (prot.has(a.c.uid) - prot.has(b.c.uid)) || (fp(b.c) - fp(a.c)) || (handVal(a.c, me) - handVal(b.c, me)));
     const before = out.length;
     for (const x of cand) { if (out.length >= (dig.n ?? 3)) break; out.push(x.i); }
@@ -650,9 +655,19 @@ const matchSpec = (spec, def) => !!spec && (spec.id ? def.id === spec.id : def.c
 function runScript(api) {
   const { g, me } = api;
   const steps = (me.script && me.script[g.turn]) || [];
+  // このあとの手順でバトンタッチ先にするメンバー（手札に出すカードがあるものだけ）
+  const keepFrom = i => {
+    const keep = new Set();
+    for (const st0 of steps.slice(i)) for (const st of st0.oneOf || [st0]) {
+      if (!st.play || !st.onto || !me.hand.some(c => c.def.kind === 'M' && matchSpec(st.play, c.def))) continue;
+      const s = me.stage.find(x => x && matchSpec(st.onto, x.card.def));
+      if (s) { keep.add(s); break; }
+    }
+    return keep;
+  };
   // 手順の前に起動能力を使う（先に手札を整える能力など）
-  if (steps.length) useAbilities(api);
-  for (const st0 of steps) {
+  if (steps.length) useAbilities(api, { keep: keepFrom(0) });
+  for (const [i, st0] of steps.entries()) {
     // oneOf：書いた順に試して、最初にできたものだけ行う（例：9にこがいれば9にこ、いなければほかの9）
     for (const st of st0.oneOf || [st0]) {
       if (!st.play) continue;
@@ -665,7 +680,7 @@ function runScript(api) {
       if (st.onto && !(me.stage[area] && matchSpec(st.onto, me.stage[area].card.def))) continue;
       const slot = me.stage[area];
       if (slot && (isLocked(g, me, slot, area) || !g.canTarget(me, area))) continue;
-      if (api.play(idx, area, true)) { g.log(me, 'plan', `手順：${cardLabel(me.stage[area].card)}を出した`); useAbilities(api); break; }
+      if (api.play(idx, area, true)) { g.log(me, 'plan', `手順：${cardLabel(me.stage[area].card)}を出した`); useAbilities(api, { keep: keepFrom(i + 1) }); break; }
     }
   }
 }

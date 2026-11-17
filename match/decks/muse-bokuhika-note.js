@@ -66,7 +66,10 @@ export default {
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
     // 4T：2コスから9へバトンタッチ（9にこ優先、次に9海未でライブ回収）／5T：17真姫の起動のあと、9から17真姫（いなければ15ことり）へ。余ったエネルギーで2コス
     script: {
-      4: [{ oneOf: [{ play: { id: NIKO9 }, onto: { cost: 2 } }, { play: { id: 'PL!-bp6-013' }, onto: { cost: 2 } }, { play: { cost: 9 }, onto: { cost: 2 } }] }],
+      // 3T：Music S.T.A.R.T!!でコスト-2の17真姫を9から出す（AIは15を選びがちなので手順で決める）。にこで起きた2エネで2コス
+      3: [{ play: { id: MAKI17 }, onto: { cost: 9 } }, { play: { cost: 2 } }],
+      // 4T：2コスがいなければ4コスからでもよい（9→4のバトンタッチは5エネ）
+      4: [{ oneOf: [{ play: { id: NIKO9 }, onto: { cost: 2 } }, { play: { id: 'PL!-bp6-013' }, onto: { cost: 2 } }, { play: { cost: 9 }, onto: { cost: 2 } }, { play: { id: NIKO9 }, onto: { cost: 4 } }, { play: { id: 'PL!-bp6-013' }, onto: { cost: 4 } }, { play: { cost: 9 }, onto: { cost: 4 } }] }],
       5: [
         { oneOf: [{ play: { id: MAKI17 }, onto: { cost: 9 } }, { play: { id: KOTORI15 }, onto: { cost: 9 } }] },
         { play: { cost: 2 } },
