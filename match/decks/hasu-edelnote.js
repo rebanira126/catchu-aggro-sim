@@ -62,6 +62,8 @@ export default {
       3: { board: [[{ id: SAYAKA11 }, 2], [15, 2]], lives: [[RETRO]] },
       4: { board: [[15, 2], [15, 4]], lives: [[EDELIED]] },
       5: { board: [[15, 15, 2]], lives: [[EDELIED], [EDELIED, RETRO]] },
+      // 6T以降：11泉-15-15 などで Edelied×2（34要求）か Edelied＋Retrofuture
+      6: { board: [[15, 15, 11], [15, 15, 13]], lives: [[EDELIED, EDELIED], [EDELIED, RETRO], [EDELIED]] },
     },
     liveOpt: { fill: true, fillMaxCost: 4, minP: 0.4, th1: 0.3 },
   },
