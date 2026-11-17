@@ -43,7 +43,7 @@ export default {
     ["PL!SP-bp2-010", 4], // ウィーン・マルガレーテ（コスト15）
   ],
   plan: {
-    board: "左に4（四季・可可・メイで控え室を増やす）→ 左に9可可（9メイ）→ 15マルガレーテ → 15-4かのん（エネルギー+1）／15-5メイ → 15-13かのん → 13かのんから13かのん",
+    board: "左に4（四季・可可・メイで控え室を増やす）→ 左に9可可（9メイ）→ 15マルガレーテ → 15-5メイ／15-4かのん（エネルギー+1）→ 15-13かのん → 13かのんから13かのん",
     score: "0 → 3（未来予報ハレルヤ！）→ 5〜6（ビタミンSUMMER!）→ 4（Bubble Rise、またはしゃがむ）→ 10（ビタミンSUMMER!＋Bubble Rise）→ 12〜13",
     mulligan: "9コス ＞ 4コス ＞ 未来予報ハレルヤ！ ＞ 15マルガレーテ ＞ 5コス の順に確保。できるだけ名前の異なるメンバーにする",
     lives: "トマカノーテ（252KM）と同じ",
@@ -57,7 +57,8 @@ export default {
       millTurns: [1],
       hold: [
         { from: 2, to: 3, ids: [MAR15] },
-        { from: 3, to: 4, ids: [KANON4, MEI5] },
+        // 1T〜4T：5メイか4かのん（5メイ優先）を1枚は手札に残す（4Tに出して、5Tに13かのんへバトンタッチするため）
+        { from: 1, to: 4, ids: [MEI5, KANON4] },
         { from: 4, to: 6, ids: [KANON13] },
       ],
       wantLives: [VIT, BUB, HAL],
@@ -68,7 +69,7 @@ export default {
         { ids: [SHIKI4, KEKE4, MEI4, KANON4, REN4], n: 1 },
         { ids: [HAL], n: 1 },
         { ids: [MAR15], n: 1 },
-        { ids: [MEI5], n: 1 },
+        { ids: [MEI5, KANON4], n: 1 },
       ],
     },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
@@ -76,7 +77,7 @@ export default {
       1: { board: [[{ cost: 4, area: 0 }]] },
       2: { board: [[{ id: KEKE9, area: 0 }], [{ id: MEI9 }], [9]], lives: [[HAL]] },
       3: { board: [[{ id: MAR15 }]], lives: [[VIT]] },
-      4: { board: [[{ id: MAR15 }, { id: KANON4 }], [{ id: MAR15 }, { id: MEI5 }]], lives: [[BUB]] },
+      4: { board: [[{ id: MAR15 }, { id: MEI5 }], [{ id: MAR15 }, { id: KANON4 }]], lives: [[BUB]] },
       5: { board: [MID], lives: [[VIT, BUB]] },
       6: { board: [[...MID, 4], [...MID, 5]], lives: LATE_LIVES },
       7: { board: [[...MID, 4], [...MID, 5]], lives: LATE_LIVES },
@@ -89,10 +90,10 @@ export default {
       // 2T：左の4コスから9可可（左サイドでブレード+2）、次点で9メイ
       2: [{ only: true, oneOf: [{ play: { id: KEKE9 }, onto: { cost: 4 }, area: 0 }, { play: { id: KEKE9 }, onto: { cost: 4 } }, { play: { id: MEI9 }, onto: { cost: 4 } }, { play: { cost: 9 }, onto: { cost: 4 } }] }],
       3: [{ play: { id: MAR15 }, onto: { cost: 9 }, only: true }],
-      // 4T：4かのん（エネルギー+1）、次点で5メイ
-      4: [{ ifStage: { id: MAR15 }, oneOf: [{ play: { id: KANON4 } }, { play: { id: MEI5 } }] }],
-      // 5T：4かのんから13かのん（9エネルギー）、5メイから13かのん（8エネルギー）
-      5: [{ oneOf: [{ play: { id: KANON13 }, onto: { id: KANON4 } }, { play: { id: KANON13 }, onto: { id: MEI5 } }, { play: { id: KANON13 }, onto: { cost: 5 } }, { play: { id: KANON13 }, onto: { cost: 4 } }] }],
+      // 4T：5メイ、次点で4かのん（エネルギー+1）
+      4: [{ ifStage: { id: MAR15 }, oneOf: [{ play: { id: MEI5 } }, { play: { id: KANON4 } }] }],
+      // 5T：5メイから13かのん（8エネルギー）、4かのんから13かのん（9エネルギー）
+      5: [{ oneOf: [{ play: { id: KANON13 }, onto: { id: MEI5 } }, { play: { id: KANON13 }, onto: { id: KANON4 } }, { play: { id: KANON13 }, onto: { cost: 5 } }, { play: { id: KANON13 }, onto: { cost: 4 } }] }],
       6: [{ play: { id: KANON13 }, onto: { id: KANON13 } }],
       7: [{ play: { id: KANON13 }, onto: { id: KANON13 } }],
     },
