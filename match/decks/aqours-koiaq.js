@@ -5,6 +5,7 @@ const MW = 'PL!S-bp3-019';        // MIRACLE WAVE
 const KOIAQ = 'PL!S-bp7-022';     // 恋になりたいAQUARIUM
 const KOWARE = 'PL!S-bp6-024';    // コワレヤスキ
 const YOSHIKO13 = 'PL!S-bp3-006'; // 津島善子（コスト13）
+const HANAMARU11 = 'PL!S-bp7-007'; // 国木田花丸（コスト11）
 
 export default {
   id: "aqours-koiaq",
@@ -63,7 +64,12 @@ export default {
       1: [{ play: { cost: 4 }, area: 1 }],
       2: [{ play: { cost: 9 }, area: 1 }],
       3: [{ play: { id: YOSHIKO13 }, area: 1 }, { play: { cost: 2 }, area: 0 }, { play: { cost: 2 }, area: 2 }],
-      4: [{ play: { id: 'PL!S-bp7-007' }, onto: { cost: 4 } }, { play: { cost: 2 } }],
+      // 4T：4→11国木田花丸 → 善子の起動で 11→13 → 起動で寝たセンターの13善子に手札の13をバトンタッチで出し直す（0エネ・ブレードが戻る）→ 2コス
+      4: [
+        { play: { id: HANAMARU11 }, onto: { cost: 4 } },
+        { oneOf: [{ play: { id: 'PL!S-bp2-005' }, onto: { id: YOSHIKO13 }, unlock: true, ontoWait: true }, { play: { cost: 13 }, onto: { id: YOSHIKO13 }, unlock: true, ontoWait: true }] },
+        { play: { cost: 2 } },
+      ],
       5: [{ play: { cost: 15 }, onto: { cost: 13 } }, { play: { cost: 15 }, onto: { cost: 13 } }],
       6: [{ play: { cost: 9 }, onto: { cost: 2 } }],
     },
@@ -84,6 +90,8 @@ export default {
     // （盤面ハート＋ブレードハートが必要ハートとほぼ同じになり、余剰ハートが出にくい）
     liveOpt: {
       fill: true, fillMaxCost: 4, minP: 0.4, th1: 0.3,
+      // 手札交換：1・2Tは13善子（3Tに出す）、2・3Tは11国木田花丸（4Tに出す）を探す
+      digFor: [{ ids: [YOSHIKO13], turns: [1, 2], n: 3, keep: [HANAMARU11, GN], label: '13善子', skipIfStage: true }, { ids: [HANAMARU11], turns: [2, 3], n: 3, keep: [YOSHIKO13, GN, KOIAQ], label: '11国木田花丸' }],
       onlyCombos: { 'PL!S-bp3-019': [{ turn: 4, with: ['PL!S-bp7-025'] }, { turn: 5, with: ['PL!S-bp7-022'] }] },
     },
   },
