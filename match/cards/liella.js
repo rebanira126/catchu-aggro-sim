@@ -196,8 +196,10 @@ export default {
       const have = me.hand.concat(me.stage.filter(Boolean).map(x => x.card));
       // 配列で書いたものは「どれか1枚あればよい」
       const missing = wm.map(w => [].concat(w)).filter(ids => !have.some(c => ids.includes(c.def.id))).flat();
-      if (me.hand.some(c => isMember(c) && c.def.cost >= 9) && !missing.length) return;
-      if (!(willDiscard(g, me) || missing.length)) return;
+      // strategy.prefer.millTurns のターンは必ず使う（デッキの上のカードを控え室に送る）
+      const mill = me.prefer && me.prefer.millTurns && me.prefer.millTurns.includes(g.turn) && me.hand.length > 0;
+      if (!mill && me.hand.some(c => isMember(c) && c.def.cost >= 9) && !missing.length) return;
+      if (!(mill || willDiscard(g, me) || missing.length)) return;
       slot.active = false;
       discardWorst(g, me, 1);
       const base = c => isMember(c) && c.def.cost >= 9 && inGroup(c.def, 'Liella!');

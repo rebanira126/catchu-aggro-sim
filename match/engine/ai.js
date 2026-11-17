@@ -483,6 +483,20 @@ export function defaultSetLives(v, opt = {}) {
     const cand = me.hand.map((c, i) => ({ c, i }))
       .filter(x => x.c.def.kind === 'M' && !keep.has(x.c.uid) && (x.c.def.cost <= (opt.fillMaxCost ?? 99) || isToWaiting(me, x.c) || fp(x.c)))
       .sort((a, b) => (isToWaiting(me, b.c) - isToWaiting(me, a.c)) || (fp(b.c) - fp(a.c)) || (handVal(a.c, me) - handVal(b.c, me)));
+    // prefer.fillDistinct：控え室・ステージにまだ無い名前のメンバーを先に伏せる（名前の異なるメンバーの数を数える効果のため）
+    const fd = me.prefer && me.prefer.fillDistinct;
+    if (fd) {
+      const seen = new Set();
+      for (const c of me.waiting.concat(me.stage.filter(Boolean).map(s => s.card))) if (c.def.kind === 'M' && (c.def.groups || []).includes(fd)) for (const n of c.def.names) seen.add(n);
+      const isNew = c => (c.def.groups || []).includes(fd) && c.def.names.some(n => !seen.has(n));
+      const picked = [];
+      for (let k = 0; k < cand.length && out.length + picked.length < 3; k++) {
+        const j = cand.findIndex(x => !picked.includes(x) && isNew(x.c));
+        if (j < 0) break;
+        picked.push(cand[j]); for (const n of cand[j].c.def.names) seen.add(n);
+      }
+      cand.splice(0, cand.length, ...picked, ...cand.filter(x => !picked.includes(x)));
+    }
     for (const x of cand) { if (out.length >= 3) break; out.push(x.i); }
   }
   // 引きに行くカード（opt.digFor）：そのターンに手札に無ければ、ライブカード置き場を n 枚まで埋めて同じ枚数を引き直す
@@ -810,6 +824,7 @@ export function estimateContext(g, me) {
   while (kt && top < me.deck.length && top < blades && kt.has(me.deck[top].uid)) top++;
   let bottom = 0;
   while (kb && bottom < me.deck.length - top && kb.has(me.deck[me.deck.length - 1 - bottom].uid)) bottom++;
+  blades = Math.max(0, blades); // エールを減らす効果（estBlades が負）で0より少なくならない
   const fixed = me.deck.slice(0, top);
   const rest = me.deck.slice(top, me.deck.length - bottom);
   const unknown = rest.length >= blades - top ? rest : me.deck.length - top >= blades - top ? me.deck.slice(top) : me.deck.slice(top).concat(me.waiting);
