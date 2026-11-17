@@ -1,6 +1,6 @@
 // Liella!（ウィーン・マルガレーテ軸「トマカノーテ」・デッキコード 252KM）で使うカードの効果（カード番号で登録）
 import { cardLabel } from '../engine/game.js';
-import { inGroup, isLive, isMember, cardWorth, discardWorst, willDiscard, recover, takeTop, pickBest, comboMissing } from './lib.js';
+import { inGroup, isLive, isMember, cardWorth, discardWorst, willDiscard, recover, takeTop, pickBest, comboMissing, hasBladeHeart, waitOpp } from './lib.js';
 
 const LIELLA = 'Liella!';
 const isLiella = c => inGroup(c.def, LIELLA);
@@ -14,6 +14,9 @@ function liellaNames(me) {
   for (const c of cards) if (isMember(c) && isLiella(c)) for (const n of c.def.names) names.add(n);
   return names.size;
 }
+
+// strategy.prefer.millTurns のターンか（デッキの上のカードを控え室に送るために登場時効果を必ず使う）
+const millTurn = (g, me) => !!(me.prefer && me.prefer.millTurns && me.prefer.millTurns.includes(g.turn) && me.hand.length > 0);
 
 // 手札のメンバーのうち、ステージ・控え室にまだ無い名前の『Liella!』のメンバーの数
 function newHandNames(me) {
@@ -138,5 +141,48 @@ export default {
       me.knownTop = me.knownTop || new Set(); me.knownTop.add(c.uid);
       g.log(me, 'eff', `唐 可可：控え室の${cardLabel(c)}をデッキの一番上に置いた`);
     },
+  },
+  // ---------------- トマカノーテ（DUO環境・H4BWC）で使うカード ----------------
+  // 唐 可可（4）bp5-013
+  'PL!SP-bp5-013': {
+    note: '登場：手札を1枚捨ててよい→デッキの上5枚からSunny PassionのメンバーかブレードハートのあるLiella!のメンバーを1枚手札に。残りは控え室',
+    onEnter({ g, me }) {
+      if (!(millTurn(g, me) || willDiscard(g, me))) return;
+      discardWorst(g, me, 1);
+      const top = takeTop(g, me, 5);
+      const pick = pickBest(g, me, top, c => isMember(c) && (inGroup(c.def, 'Sunny Passion') || (isLiella(c) && hasBladeHeart(c.def))));
+      if (pick) { top.splice(top.indexOf(pick), 1); me.hand.push(pick); }
+      me.waiting.push(...top);
+      g.log(me, 'eff', `唐 可可：デッキの上5枚から${pick ? cardLabel(pick) + 'を手札に加えた' : '手札に加えるカードなし'}`);
+    },
+  },
+  // 米女メイ（4）bp7-018
+  'PL!SP-bp7-018': {
+    note: '登場：手札のライブを1枚捨ててよい→デッキの上5枚から1枚手札に。残りは控え室',
+    onEnter({ g, me }) {
+      const lives = me.hand.filter(isLive).sort((a, b) => cardWorth(g, me, a) - cardWorth(g, me, b));
+      if (!lives.length) return;
+      // millTurns のターンか、ライブが3枚以上あるときに使う
+      if (!(millTurn(g, me) || lives.length >= 3)) return;
+      const c = lives[0];
+      me.hand.splice(me.hand.indexOf(c), 1); me.waiting.push(c);
+      g.log(me, 'eff', `米女メイ：手札の${cardLabel(c)}を控え室に置いた`);
+      const top = takeTop(g, me, 5);
+      const pick = pickBest(g, me, top, () => true);
+      if (pick) { top.splice(top.indexOf(pick), 1); me.hand.push(pick); }
+      me.waiting.push(...top);
+      g.log(me, 'eff', `米女メイ：デッキの上5枚から${pick ? cardLabel(pick) + 'を手札に加えた' : '手札に加えるカードなし'}`);
+    },
+  },
+  // 米女メイ（9）pb2-029
+  'PL!SP-pb2-029': {
+    note: '登場／ライブ開始時：相手のステージのコスト2以下のメンバー1人をウェイト',
+    onEnter({ g, opp }) { if (opp) waitOpp(g, opp, s => s.card.def.cost <= 2, '米女メイ：'); },
+    liveStart({ g, opp }) { if (opp) waitOpp(g, opp, s => s.card.def.cost <= 2, '米女メイ：'); },
+  },
+  // 唐 可可（9）pb2-035
+  'PL!SP-pb2-035': {
+    note: '常時：左サイドにいるかぎりブレード+2',
+    blades: ({ area }) => (area === 0 ? 2 : 0),
   },
 };
