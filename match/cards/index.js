@@ -7,11 +7,12 @@ import muse from './muse.js';
 import museNote from './muse-note.js';
 import niji from './niji.js';
 import nijiHibure from './niji-hibure.js';
+import nijiShinjuku from './niji-shinjuku.js';
 import hasu from './hasu.js';
 import aqours from './aqours.js';
 import common from './common.js';
 
-export const BY_ID = Object.assign({}, liella, muse, museNote, niji, nijiHibure, hasu, aqours);
+export const BY_ID = Object.assign({}, liella, muse, museNote, niji, nijiHibure, nijiShinjuku, hasu, aqours);
 export const BY_TEXT = Object.assign({}, common);
 
 export function resolveEffect(def) {

@@ -283,6 +283,16 @@ export default {
         return me.energy.n - me.energy.active >= 1 && needsEnergy(g, me, energyPotential(g, me), { waitNiji: true });
       },
       run: ({ g, me, slot, late }) => {
+        // 1つ目の起動（[ターン1回][E]：デッキの上4枚を並べ替え）：上3枚に当たりが無く4枚目が当たりなら、先に並べ替えて当たりを上3枚に入れる
+        const isHit = c => (isLive(c) && isNiji(c)) || nijiNoBH(c);
+        if (me.deck.length >= 4 && !me.deck.slice(0, 3).some(isHit) && isHit(me.deck[3]) && me.energy.active >= 1 && g.useOnce(slot, 'PL!N-bp7-006#1')) {
+          g.runEffect(me, slot.card, 'activated', () => {
+            g.payEnergy(me, 1);
+            const hit = me.deck.splice(3, 1)[0];
+            me.deck.unshift(hit);
+            g.log(me, 'eff', `近江彼方：デッキの上4枚を並べ替え、${cardLabel(hit)}を一番上にした`);
+          }, 0);
+        }
         const milled = me.deck.splice(0, 3);
         me.waiting.push(...milled);
         const hit = milled.some(c => (isLive(c) && isNiji(c)) || nijiNoBH(c));
