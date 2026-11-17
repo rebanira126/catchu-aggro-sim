@@ -6,6 +6,9 @@ const SV = 'PL!SP-bp5-023';     // Shooting Voice!!
 const HAJI = 'PL!SP-sd2-023';   // 始まりは君の空（序盤は1点ライブとして使う）
 const CHISATO10 = 'PL!SP-bp7-003'; // 嵐 千砂都（コスト10・下にメンバーを積む）
 const KEKE13 = 'PL!SP-bp5-002';    // 唐 可可（コスト13・左サイドで起動）
+const RAMP4 = ['PL!SP-PR-006', 'PL!SP-PR-013', 'PL!SP-sd1-014']; // 4コスのランプ（手札1枚を払ってエネルギーを置く）
+const KANON4 = 'PL!SP-bp4-001';    // 澁谷かのん（コスト4・エネルギー7枚以上ならランプ）
+const THIRTEENS = [KEKE13, 'PL!SP-bp2-009']; // 13（唐可可・鬼塚夏美）
 
 export default {
   id: "liella-tower",
@@ -53,11 +56,15 @@ export default {
     // マリガン：10嵐千砂都 ＞ 4ランプ ＞ 10澁谷かのん（千砂都が無いとき）＞ 1点ライブ
     mulliganOpt: { keep: [{ ids: [CHISATO10], group: 'ten', n: 1 }, { ids: ['PL!SP-bp7-001'], group: 'ten' }, { ids: ['PL!SP-PR-006', 'PL!SP-PR-013', 'PL!SP-sd1-014', 'PL!SP-bp4-001'], n: 1 }, { ids: [LBO, GO], n: 1 }] },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
+    // 1T・3Tのランプは手札を払ってでも必ず行う（4Tに9エネで 4→13）
+    prefer: { rampTurns: [1, 3] },
     // 手順（noteの回し方より）。出せないときはいつものAIの判断に戻る
     script: {
-      1: [{ play: { cost: 4 }, area: 2 }],
+      // 1T：右サイドにランプの4（4かのんは1Tではランプできない）
+      1: [{ oneOf: [{ play: { ids: RAMP4 }, area: 2 }, { play: { cost: 4 }, area: 2 }] }],
       2: [{ play: { id: CHISATO10 }, area: 2 }],
-      3: [{ play: { cost: 4 }, area: 0 }, { play: { cost: 2 }, area: 1 }],
+      // 3T：左サイドに4（7エネなら4かのんでランプ、ほかはランプの4）、センターに2
+      3: [{ oneOf: [{ play: { id: KANON4 }, area: 0 }, { play: { ids: RAMP4 }, area: 0 }, { play: { cost: 4 }, area: 0 }] }, { play: { cost: 2 }, area: 1 }],
       4: [{ play: { id: KEKE13 }, area: 0 }],
       5: [{ play: { cost: 17 }, area: 0 }],
       6: [{ play: { cost: 20 }, area: 1 }],
@@ -69,10 +76,17 @@ export default {
       1: { board: [[{ cost: 4, area: 2 }]] },
       2: { board: [[{ id: CHISATO10, area: 2 }], [{ cost: 10, area: 2 }]], lives: [[LBO], [GO]] },
       3: { board: [[4, 2, { id: CHISATO10, area: 2 }]], lives: [[LBO], [GO]] },
-      4: { board: [[{ id: KEKE13, area: 0 }, 2, { id: CHISATO10, area: 2 }]], lives: [[SV, LBO]] },
-      5: { board: [[17, 2, { id: CHISATO10, area: 2 }]], lives: [[SV, LBO, LBO]] },
-      6: { board: [[17, 20, { id: CHISATO10, area: 2 }]], lives: [[SV, SV, LBO]] },
+      4: { board: [[{ id: KEKE13, area: 0 }, 2, { id: CHISATO10, area: 2 }]], lives: [[SV, LBO], [SV]] },
+      5: { board: [[17, 2, { id: CHISATO10, area: 2 }]], lives: [[SV, LBO, LBO], [SV, LBO], [SV]] },
+      6: { board: [[17, 20, { id: CHISATO10, area: 2 }]], lives: [[SV, SV, LBO], [SV, LBO, LBO], [SV, LBO], [SV]] },
     },
-    liveOpt: { fill: true, fillMaxCost: 4, pace: [1, 1, 10], minP: 0.4, th1: 0.3, thLast: 0.3 },
+    liveOpt: {
+      fill: true, fillMaxCost: 4, pace: [1, 1, 10], minP: 0.4, th1: 0.3, thLast: 0.3,
+      // 手札交換：1Tは10嵐千砂都（2Tに出す）、2・3Tは13（4Tに出す）を探す
+      digFor: [
+        { ids: [CHISATO10], turns: [1], n: 3, keep: [...RAMP4, KANON4, ...THIRTEENS], label: '10嵐千砂都', skipIfStage: true },
+        { ids: THIRTEENS, turns: [2, 3], n: 3, keep: [KANON4, ...RAMP4, SV, LBO], label: '13' },
+      ],
+    },
   },
 };

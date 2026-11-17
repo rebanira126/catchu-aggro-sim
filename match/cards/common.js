@@ -76,7 +76,8 @@ export default {
   },
   [T.rampDiscard]: {
     note: '登場：手札1枚を捨ててよい→エネルギーを1枚ウェイトで置く',
-    onEnter: ({ g, me }) => { if (me.energyDeck > 0 && willDiscard(g, me)) { discardWorst(g, me, 1); g.addEnergyByEffect(me); } },
+    // strategy.prefer.rampTurns のターンは、手札を1枚払ってでも必ずエネルギーを置く
+    onEnter: ({ g, me }) => { const must = me.prefer && me.prefer.rampTurns && me.prefer.rampTurns.includes(g.turn) && me.hand.length > 0; if (me.energyDeck > 0 && (must || willDiscard(g, me))) { discardWorst(g, me, 1); g.addEnergyByEffect(me); } },
     aiBonus: ({ g, me }) => (g.turn <= 4 && me.energyDeck > 0 ? 1.5 : 0),
   },
 };
