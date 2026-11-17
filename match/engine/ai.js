@@ -480,16 +480,19 @@ export function defaultSetLives(v, opt = {}) {
   }
   // 引きに行くカード（opt.digFor）：そのターンに手札に無ければ、ライブカード置き場を n 枚まで埋めて同じ枚数を引き直す
   // digFor: { ids: [探すカード], turns: [1, 2], n: 3, keep: [置かないカード] }
-  const dig = opt.digFor;
+  // digFor は1つでも配列でもよい。配列なら、手札に無い探すカードがある最初のものを使う
+  const digs = opt.digFor ? [].concat(opt.digFor) : [];
+  const dig = digs.find(d => (d.turns || []).includes(g.turn) && !me.hand.some(c => d.ids.includes(c.def.id)) && !(d.skipIfStage && me.stage.some(s => s && d.ids.includes(s.card.def.id))));
   // 伏せたいカード（strategy.prefer.fillPrefer）を先に置く
   const fp = c => (me.prefer && me.prefer.fillPrefer && me.prefer.fillPrefer.includes(c.def.id) ? 1 : 0);
-  if (dig && (dig.turns || []).includes(g.turn) && !me.hand.some(c => dig.ids.includes(c.def.id)) && out.length < (dig.n ?? 3)) {
+  if (dig && out.length < (dig.n ?? 3)) {
     const prot = protectedCards(g, me, opt);
     const next = turnTarget(me, g.turn + 1);
     const nextItems = next && next.board ? next.board[0].map(x => (typeof x === 'number' ? { cost: x } : x)) : [];
     const used = new Set();
     const forNext = c => nextItems.some((it, k) => !used.has(k) && (it.id ? c.def.id === it.id : c.def.kind === 'M' && c.def.cost === it.cost) && used.add(k));
-    const keepIds = new Set(dig.keep || []);
+    // 置かないカード：この dig の keep と、ほかの dig で探しているカード（もう手札にあるキーカード）
+    const keepIds = new Set([...(dig.keep || []), ...digs.flatMap(d => d.ids)]);
     // 次のターンの盤面に要るカードは1枚ずつ残す
     const hold = new Set(me.hand.filter(c => forNext(c)).map(c => c.uid));
     const cand = me.hand.map((c, i) => ({ c, i }))
