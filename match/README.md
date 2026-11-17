@@ -43,6 +43,7 @@ noteの回し方をデッキファイルに書き写すための項目です。�
 | `turnPlan` | ターンごとの目標の盤面（コストか `{ id, cost, area }`）と、置きたいライブの組み合わせ | `{ 4: { board: [[13, 13, 2]], lives: [[GN, MW]] } }` |
 | `script` | そのターンに最初に出すカード（番号かコスト、エリア、バトンタッチ元）。出せなければ飛ばす | `{ 3: [{ play: { id: '…' }, area: 1 }] }` |
 | `lock` | 指定のターンの間、バトンタッチしないメンバー | `[{ id: '…', area: 1, fromTurn: 3, toTurn: 4 }]` |
+| `prefer.wantMembersFrom` | このターンより前は、メンバー回収で `wantMembers` を拾わない | `4` |
 | `prefer.toWaiting` | 控え室に送っておきたいカード（踏み倒し・入れ替えの対象）。マリガンで残し、1Tから送る | `['PL!HS-bp6-007']` |
 | `prefer.mill` | 山札を削りたいデッキ | `true` |
 | `prefer.fillPrefer` | ライブ置き場の空き枠に優先して伏せる（控え室に置いておきたい）カード | 非ブレ虹ヶ咲の15エマ・17彼方など |
@@ -60,7 +61,7 @@ noteの回し方をデッキファイルに書き写すための項目です。�
 | 手順のカードの指定 | `id`（1種類）／`ids`（どれか）／`minCost`（このコスト以上）／`cost`（ちょうど） | `{ play: { ids: CERES15 }, onto: { cost: 13 } }` |
 | 手順の `unlock` / `ontoWait` | `lock` を無視してバトンタッチする／バトンタッチ元がウェイト状態（起動能力を使ったあと）のときだけ行う | `{ play: { cost: 13 }, onto: { id: YOSHIKO13 }, unlock: true, ontoWait: true }` |
 | 手順・目標の条件 `ifSuccess` / `ifNoSuccess` / `ifNoStage` | 成功ライブ置き場にこのカードがある／無い、ステージにこのメンバーがいないときだけ | `{ ifNoStage: { id: MAKI17 }, ifSuccess: MS, play: { id: MAKI17 }, onto: { cost: 9 } }` |
-| `turnPlan[n].alt` | 条件に合うときは、そのターンの盤面・ライブの目標を差し替える | `alt: [{ ifNoSuccess: MS, board: [[9, 2]], lives: [[MS]] }]` |
+| `turnPlan[n].alt` | 条件に合うときは、そのターンの盤面・ライブの目標を差し替える（条件：ifSuccess・ifNoSuccess・ifStage・ifNoStage・ifHand） | `alt: [{ ifNoSuccess: MS, board: [[9, 2]], lives: [[MS]] }]` |
 | `prefer.noRecoverTurns` | このターンは2コスのライブ回収（自分を控え室に置く）を使わない | `[4]` |
 | `liveOpt.digFor` | 探すカードがそのターンに手札に無ければ、ライブカード置き場を n 枚まで埋めて引き直す（`keep` のカードは置かない。次のターンの盤面に要るカードも残す。配列で複数書ける。`skipIfStage` でステージにいれば探さない） | `{ ids: [EMMA15], turns: [1, 2], n: 3, keep: [JB] }` |
 | `liveOpt.statMin` | 盤面スタッツ（ステージのハートとブレードの合計）がこの値より少ないターンはライブをしない（温存） | `{ 3: 15 }` |

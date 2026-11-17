@@ -510,7 +510,10 @@ function rinaWants(g, me) {
 // このターンの目標の盤面にかすみがあるか
 function kasumiWanted(g, me) {
   const tgt = turnTarget(me, g.turn);
-  return !!(tgt && tgt.board && tgt.board.some(b => b.some(x => x && x.id === 'PL!N-bp1-002')));
+  if (!tgt || !tgt.board) return false;
+  // 目標の盤面にかすみがある、または2コストがあって手札に2コストのメンバーが無い
+  const no2 = !me.hand.some(c => isMember(c) && c.def.cost === 2);
+  return tgt.board.some(b => b.some(x => x && (x.id === 'PL!N-bp1-002' || (no2 && (x === 2 || (x.cost === 2 && !x.id))))));
 }
 
 // かすみを控え室から出すエリア：空いているエリア（このターンに登場したメンバーのいるエリアは選べない）
