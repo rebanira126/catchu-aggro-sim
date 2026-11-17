@@ -51,10 +51,12 @@ noteの回し方をデッキファイルに書き写すための項目です。�
 | `prefer.wantMembers` | 2コスト（メンバー回収）で優先して拾うメンバー（手札・ステージに無く、控え室にあれば拾う） | `[SHIORIKO9, KANATA9]` |
 | `prefer.wantLives` | 2コストなどでライブを拾うとき優先するライブ（手札に無ければ、ほかのライブがあっても拾う） | `[JB]` |
 | `prefer.unit` / `prefer.bigLive` | 優先するユニット、2Tから1枚残す大きいライブの点数 | `{ unit: 'CatChu!', bigLive: 6 }` |
+| `liveOpt.minScore` | そのターン以降、この点数に届かないライブの組み合わせは置かない（しゃがむ） | `{ 4: 8 }` |
 | `liveOpt.pace` | ライブの点数の進行（成功の回数ごとの目標点） | `[1, 4, 7]` |
 | `liveOpt.planMinP` | ターンの目標のライブの組み合わせは、成功の見込みがこの値以上なら置く（minP より低くしたいとき） | `0.35` |
 | `script` の `oneOf` | 書いた順に試して、最初にできた手順だけ行う（例：9にこがいれば9にこ、いなければほかの9） | `{ oneOf: [{ play: { id: NIKO9 }, onto: { cost: 2 } }, { play: { cost: 9 }, onto: { cost: 2 } }] }` |
 | `script` の `ifStage` / `ifWaiting` | ステージ／控え室にこのカードがあるときだけ、その手順を行う（`oneOf` の中の1つにも書ける） | `{ ifStage: { minCost: 13 }, play: { cost: 9 }, onto: { cost: 2 } }` |
+| `script` の `ifHand` | 書いたカードが全部手札にあるときだけ、その手順を行う | `{ ifHand: [{ id: '4彼方' }, { id: '4花帆' }], play: { id: '4花帆' } }` |
 | 手順のカードの指定 | `id`（1種類）／`ids`（どれか）／`minCost`（このコスト以上）／`cost`（ちょうど） | `{ play: { ids: CERES15 }, onto: { cost: 13 } }` |
 | 手順の `unlock` / `ontoWait` | `lock` を無視してバトンタッチする／バトンタッチ元がウェイト状態（起動能力を使ったあと）のときだけ行う | `{ play: { cost: 13 }, onto: { id: YOSHIKO13 }, unlock: true, ontoWait: true }` |
 | 手順・目標の条件 `ifSuccess` / `ifNoSuccess` / `ifNoStage` | 成功ライブ置き場にこのカードがある／無い、ステージにこのメンバーがいないときだけ | `{ ifNoStage: { id: MAKI17 }, ifSuccess: MS, play: { id: MAKI17 }, onto: { cost: 9 } }` |

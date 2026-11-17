@@ -126,6 +126,15 @@ export default {
       5: { board: LATE, lives: LATE_LIVES },
       6: { board: LATE, lives: LATE_LIVES },
     },
+    // 3T：4彼方と4花帆が両方手札にあるときは、9から15エマを出したあと4花帆を使う（友人の回し方）
+    //     4花帆の登場時効果（デッキの上を整える）とライブ成功時効果（エールのカードを上に置く）で、4Tに使うカードを引きやすい
+    //     （ひとり回しでこの形になった試合：4Tの手札に17が92%（4彼方なら83%）、4Tの点数の期待値4.9点（4.3点））
+    script: {
+      3: [
+        { ifHand: [{ id: KANATA4 }, { id: KAHO4 }], play: { id: EMMA15 }, onto: { cost: 9 } },
+        { ifStage: { id: EMMA15 }, ifHand: [{ id: KANATA4 }], play: { id: KAHO4 } },
+      ],
+    },
     liveOpt: {
       // 1・2Tに15エマが手札に無ければ、ライブカード置き場に3枚置いて3枚引き直す（Just Believe!!!は置かない）
       digFor: { ids: [EMMA15], turns: [1, 2], n: 3, keep: [JB], label: '15エマ' },
