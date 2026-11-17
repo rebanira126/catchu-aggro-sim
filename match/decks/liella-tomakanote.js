@@ -53,7 +53,8 @@ export default {
       fillDistinct: 'Liella!', protFill: false, protTurns: 0,
       hold: [
         { from: 2, to: 3, ids: [MAR15] },
-        { from: 3, to: 4, ids: [MEI5] },
+        // 2T〜4T：5メイを1枚は手札に残す（4Tに出して、5Tに13かのんへバトンタッチするため。1Tは未来予報ハレルヤ！のために伏せる候補に残す）
+        { from: 2, to: 4, ids: [MEI5] },
         { from: 4, to: 6, ids: [KANON13] },
       ],
       wantLives: [VIT, BUB, HAL],
