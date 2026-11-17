@@ -229,13 +229,17 @@ function planNeed(g, me, card) {
 
 // 次の2ターンの目標のライブ（各ターンの最初の候補）に入っているライブで、手札にまだ足りていないもの
 function planLiveNeed(g, me, card) {
-  for (const t of [g.turn + 1, g.turn + 2]) {
+  // このターンから2ターン先までの目標のライブの組み合わせ（turnPlan の lives。候補すべて）で、手札の枚数が足りないライブ
+  // （拾う・サーチするときは優先し、捨てるときは残す）
+  for (const t of [g.turn, g.turn + 1, g.turn + 2]) {
     const tgt = turnTarget(me, t);
-    if (!tgt || !tgt.lives || !tgt.lives[0]) continue;
-    const want = tgt.lives[0].filter(x => x === card.def.id).length;
-    if (!want) continue;
-    const have = me.hand.filter(c => c !== card && c.def.id === card.def.id).length;
-    if (have < want) return true;
+    if (!tgt || !tgt.lives) continue;
+    for (const combo of tgt.lives) {
+      const want = combo.filter(x => x === card.def.id).length;
+      if (!want) continue;
+      const have = me.hand.filter(c => c !== card && c.def.id === card.def.id).length;
+      if (have < want) return true;
+    }
   }
   return false;
 }

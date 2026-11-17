@@ -1,6 +1,6 @@
 // μ's のカード効果（カード番号で登録）
 import { cardLabel } from '../engine/game.js';
-import { inGroup, isLive, isMember, discardWorst, willDiscard, recover, waitOpp, allInGroup, searchBigOnEnter, scry, hasBladeHeart, cardWorth, anyColorHeart, oppYetToPerform } from './lib.js';
+import { comboMissing, inGroup, isLive, isMember, discardWorst, willDiscard, recover, waitOpp, allInGroup, searchBigOnEnter, scry, hasBladeHeart, cardWorth, anyColorHeart, oppYetToPerform } from './lib.js';
 
 const MUSE = "μ's";
 const isMuse = c => inGroup(c.def, MUSE);
@@ -164,7 +164,10 @@ export default {
         for (let k = 0; k < 5; k++) { const c = g.topCard(me); if (c) top.push(c); }
         const ok = top.length === 5 && top.every(c => hasColor(c, col));
         if (ok) {
-          const pick = top.filter(isMuse).sort((a, b) => cardWorth(g, me, b) - cardWorth(g, me, a))[0];
+          // 目標のライブの組み合わせ（このターンか次のターン）に足りないライブがあれば、それを優先して拾う
+          const miss = comboMissing(g, me, { next: true, upTo: 2 });
+          const pick = top.find(c => isMuse(c) && isLive(c) && miss.has(c.def.id))
+            || top.filter(isMuse).sort((a, b) => cardWorth(g, me, b) - cardWorth(g, me, a))[0];
           if (pick) { top.splice(top.indexOf(pick), 1); me.hand.push(pick); }
           slot.mods.push({ blades: 3, untilLiveEnd: true });
         }
