@@ -1,5 +1,13 @@
 // CatChu!：ファンミ第三幕 Day2 Bブロック Top4
 // レシピは出典の入賞レシピ（デッキコード）そのまま。回し方は plan に書いたnoteの内容を目安にしている。
+// 4T以降の目標のライブ（11かのんのライブ成功時効果：エネルギー6枚でライブの合計スコア+1）
+//  4T：新ディストーション＋START!!（6＋1＋1＝8点、11かのんで9点）か、旧ディストーション2枚＋11かのん（4＋4＋1＝9点）
+//  5T・6T：新ディストーション＋旧ディストーション＋11かのん（7＋4＋1＝12点）
+const DIST_NEW = 'PL!SP-pb2-048'; // ディストーション（6点）
+const DIST_OLD = 'PL!SP-pb1-023'; // ディストーション（3点）
+const START = 'PL!SP-bp7-023';    // START!! True dreams
+const LATE_LIVES = [[DIST_NEW, DIST_OLD]];
+
 export default {
   id: "catchu-ybrd2",
   type: "CatChu!",
@@ -27,9 +35,9 @@ export default {
   ],
   plan: {
     board: "2-2 → 5-2-2 → 11-2-2（バトンタッチ）→ 11-5-2 / 13",
-    score: "1 → 4 → 7 → 8（1-4-7が理想）",
+    score: "1 → 4 → 7（1-4-7が理想）→ 4T 8〜9 → 5T・6T 12",
     mulligan: "5コス（すみれ／メイ）を最優先、次に2コス恋。どちらかがあればSTART!! True dreams・3点ディストーション・2コスメイも残す（どちらも無ければほかは残さない）",
-    lives: "1T：START!! True dreams（1点）／2T：ディストーション（3点＋1）／3T：ディストーション（6点＋1）／4T以降は打点が伸びにくい",
+    lives: "1T：START!! True dreams（1点）／2T：ディストーション（3点＋1）／3T：ディストーション（6点＋1）／4T：新ディストーション＋START!!（8点）か旧ディストーション2枚＋11かのんのライブ成功時効果（9点）／5T・6T：新ディストーション＋旧ディストーション＋11かのん（12点）",
     key: "11澁谷かのん、11米女メイ、13平安名すみれ（CatChu!名称の人数でディストーションが強化）",
     refs: ["https://note.com/happy_sloth5502/n/n9041888e2147", "https://note.com/brave_fairy8464/n/n4ce2ef4e0c96", "https://note.com/poke_lovelive/n/nbfe1b972d27f"],
   },
@@ -55,6 +63,11 @@ export default {
       ],
     },
     mainOpt: { playPen: 0.3, unitBonus: { unit: 'CatChu!', w: 0.8 }, topK: 60 },
+    turnPlan: {
+      4: { lives: [[DIST_NEW, START], [DIST_OLD, DIST_OLD]] },
+      5: { lives: LATE_LIVES },
+      6: { lives: LATE_LIVES },
+    },
     liveOpt: { fill: true, pace: [1, 4, 7], minP: 0.5, th1: 0.3, thLast: 0.15 },
   },
 };
