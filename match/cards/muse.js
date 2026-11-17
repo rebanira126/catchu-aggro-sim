@@ -95,6 +95,8 @@ export default {
     onBatonOut({ g, me, newCard }) {
       if (newCard.def.cost >= 15 && isMuse(newCard)) { me.energy.active = Math.min(me.energy.n, me.energy.active + 2); g.log(me, 'eff', '矢澤にこ：エネルギーを2枚アクティブにした'); }
     },
+    // 出す組み合わせを選ぶときに、戻ってくるエネルギーを見込む
+    batonRefund: ({ newCard }) => (newCard.def.cost >= 15 && isMuse(newCard) ? 2 : 0),
   },
   // 絢瀬絵里（9）pb2-029：ステージがμ'sだけなら、相手の元々ブレード2以下のメンバー1人をウェイト
   'PL!-pb2-029': {

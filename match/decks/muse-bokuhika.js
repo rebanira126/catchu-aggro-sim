@@ -5,6 +5,7 @@ const ARASHI = 'PL!-pb2-038';    // 嵐のなかの恋だから
 const BOKUHIKA = 'PL!-pb2-039';  // 僕たちはひとつの光
 const NIKO9 = 'PL!-pb2-009';     // 矢澤にこ（コスト9）
 const ERI4 = 'PL!-bp5-002';      // 絢瀬絵里（コスト4）
+const MAKI17 = 'PL!-bp6-006';    // 西木野真姫（コスト17）
 
 export default {
   id: "muse-bokuhika",
@@ -47,14 +48,18 @@ export default {
   // ・マリガン：Music S.T.A.R.T!!、9矢澤にこ、4コス（絢瀬絵里を優先して1枚）
   // ・空いた枠にはコスト4以下のメンバーを伏せて引き直す
   strategy: {
+    // 5Tの17真姫-17真姫-2（僕光）のため、3Tから2枚目の17真姫と、9（にこ優先。5Tに17真姫へ乗る先）を手札に残す
+    prefer: { hold: [{ from: 3, to: 5, ids: [MAKI17] }, { from: 3, to: 4, ids: [NIKO9], cost: 9 }] },
     mulliganOpt: { keep: [{ ids: [MS], n: 1 }, { ids: [NIKO9], n: 1 }, { ids: [ERI4], group: 'c4', n: 1 }, { cost: 4, group: 'c4' }] },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
     turnPlan: {
       1: { board: [[4]] },
-      2: { board: [[9]], lives: [[MS]] },
-      3: { board: [[17, 2]], lives: [[ARASHI]] },
-      4: { board: [[17, 9]], lives: [[ARASHI, MS]] },
-      5: { board: [[17, 17, 2]], lives: [[BOKUHIKA]] },
+      // 2T：9にこ（Music S.T.A.R.T!!の色を1人で満たす。3Tに17真姫へバトンタッチすると2エネ起きる）
+      2: { board: [[{ id: NIKO9 }], [9]], lives: [[MS]] },
+      // 3T：Music S.T.A.R.T!!でコスト-2の17真姫を9にこから出し（6エネ）、にこで起きた2エネで2コス
+      3: { board: [[{ id: MAKI17 }, 2], [17, 2]], lives: [[ARASHI]] },
+      4: { board: [[{ id: MAKI17 }, 9], [17, 9]], lives: [[ARASHI, MS]] },
+      5: { board: [[{ id: MAKI17 }, { id: MAKI17 }, 2], [17, 17, 2], [{ id: MAKI17 }, 15, 2]], lives: [[BOKUHIKA]] },
     },
     liveOpt: { fill: true, fillMaxCost: 4, minP: 0.4, th1: 0.3 },
   },

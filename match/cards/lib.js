@@ -145,17 +145,35 @@ export const allInGroup = (me, grp) => me.stage.every(s => !s || inGroup(s.card.
 export const hasName = (def, n) => (def.names || []).some(x => x.replace(/\s/g, '') === n.replace(/\s/g, ''));
 
 // 「このメンバーをウェイトにし、手札を1枚控え室に置いてもよい：デッキの上から5枚見て、コスト min 以上の『グループ』のメンバーを1枚手札に」
+// 次の2ターンの目標の盤面（turnPlan の1つ目の候補）にある、コスト min 以上のメンバーで、手札にもステージにも無いものがあるか
+export function planBigMissing(g, me, min) {
+  for (const d of [1, 2]) {
+    const tgt = turnTarget(me, g.turn + d);
+    if (!tgt || !tgt.board) continue;
+    for (const x of tgt.board[0]) {
+      const it = typeof x === 'number' ? { cost: x } : x;
+      if ((it.cost ?? 99) < min && !it.id) continue;
+      const m = c => (it.id ? c.def.id === it.id : isMember(c) && c.def.cost === it.cost);
+      if (it.id && !(me.hand.concat(me.deck).some(m))) continue;
+      if (!me.hand.some(m) && !me.stage.some(s => s && m(s.card))) return true;
+    }
+  }
+  return false;
+}
+
 export function searchBigOnEnter(group, min = 9, label = '') {
   return {
     note: `登場：自分をウェイトにし手札1枚を捨ててよい→デッキの上5枚からコスト${min}以上の${group}メンバーを1枚手札に`,
+    // 手札に大きいメンバーが無いとき、または次の2ターンの目標の盤面の大きいメンバーが手札・ステージに無いときに探す
     onEnter({ g, me, slot }) {
-      if (me.hand.some(c => isMember(c) && c.def.cost >= min)) return;
+      const want = planBigMissing(g, me, min);
+      if (me.hand.some(c => isMember(c) && c.def.cost >= min) && !want) return;
       if (!willDiscard(g, me)) return;
       slot.active = false;
       discardWorst(g, me, 1);
       lookTake(g, me, 5, c => isMember(c) && c.def.cost >= min && inGroup(c.def, group), label);
     },
-    aiBonus({ me }) { return me.hand.some(c => isMember(c) && c.def.cost >= min) ? 0 : 1.5; },
+    aiBonus({ g, me }) { return me.hand.some(c => isMember(c) && c.def.cost >= min) && !planBigMissing(g, me, min) ? 0 : 1.5; },
   };
 }
 
