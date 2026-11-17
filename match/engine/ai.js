@@ -650,7 +650,8 @@ export function isLocked(g, me, slot, area) {
   return lk.some(l => g.turn >= (l.fromTurn ?? 1) && g.turn <= (l.toTurn ?? 99) && slot.card.def.id === l.id && (l.area == null || l.area === area));
 }
 
-const matchSpec = (spec, def) => !!spec && (spec.id ? def.id === spec.id : def.cost === spec.cost);
+// 手順のカードの指定：id／ids（どれか）／minCost（このコスト以上）／cost（ちょうど）
+const matchSpec = (spec, def) => !!spec && (spec.id ? def.id === spec.id : spec.ids ? spec.ids.includes(def.id) : spec.minCost != null ? def.kind === 'M' && def.cost >= spec.minCost : def.cost === spec.cost);
 
 function runScript(api) {
   const { g, me } = api;
@@ -671,8 +672,11 @@ function runScript(api) {
     // oneOf：書いた順に試して、最初にできたものだけ行う（例：9にこがいれば9にこ、いなければほかの9）
     // ifStage：ステージにこのメンバーがいるときだけ行う（例：15がいるときだけ9へバトンタッチ）
     if (st0.ifStage && !me.stage.some(x => x && matchSpec(st0.ifStage, x.card.def))) continue;
+    // ifWaiting：控え室にこのカードがあるときだけ行う（例：控え室に15セラスがいるときだけ11さやか）
+    if (st0.ifWaiting && !me.waiting.some(c => matchSpec(st0.ifWaiting, c.def))) continue;
     for (const st of st0.oneOf || [st0]) {
       if (!st.play) continue;
+      if (st !== st0 && st.ifWaiting && !me.waiting.some(c => matchSpec(st.ifWaiting, c.def))) continue;
       const idx = me.hand.findIndex(c => c.def.kind === 'M' && matchSpec(st.play, c.def));
       if (idx < 0) continue;
       let area = st.area;

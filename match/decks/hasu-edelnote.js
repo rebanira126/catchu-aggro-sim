@@ -8,6 +8,10 @@ const IZUMI2 = 'PL!HS-pb1-016';  // 桂城 泉（コスト2）
 const CERES4 = 'PL!HS-sd1-007';  // セラス 柳田 リリエンフェルト（コスト4）
 const SAYAKA11 = 'PL!HS-bp1-002'; // 村野さやか（コスト11）
 const KAHO9 = 'PL!HS-sd1-001';    // 日野下花帆（コスト9）
+const IZUMI13 = 'PL!HS-sd1-008';  // 桂城 泉（コスト13）
+const IZUMI4_LOOK5 = 'PL!HS-bp5-008'; // 桂城 泉（コスト4・5枚見て9コス以上を探す）
+const MAKI2 = 'PL!-pb1-024';     // 西木野真姫（コスト2・自分を控え室に置いてライブ回収）
+const CERES15 = ['PL!HS-bp6-007', 'PL!HS-PR-032']; // セラス（コスト15）。Edeliedのハートを受けられるEdel Note
 const NINES = [KAHO9, 'PL!HS-bp5-016', 'PL!HS-cl1-004']; // 9コス（花帆・泉・吟子）
 
 export default {
@@ -40,50 +44,72 @@ export default {
     ["PL!SP-sd1-003", 1], // 嵐 千砂都（コスト15）
   ],
   plan: {
-    board: "2-2 → 2-7（または4）→ 11-2（11さやかで15セラスを踏み倒し）/ 13-2 → 2-15-7 / 7-15 → 2-15-15",
+    board: "4 → 9 → 13（11さやかなら15）＋Retrofutureで4 → 13/15-9（-2） → 15-15＋Retrofutureで4泉",
     score: "1 → 1〜2 → 4〜5 → 8〜9 → 11 → 11〜15",
-    mulligan: "2コス桂城泉・セラス、11村野さやか、Retrofuture／Edelied を優先",
-    lives: "1T：Landing action Yeah!! など1点／3T：Retrofuture（4点・9コス以上のEdelがいれば控えから4コス登場か紫軽減）／4T以降：Edelied（7点・ブレードと紫ハート付与）",
+    mulligan: "9コスは必ず1枚。9＋4コス、9＋Retrofuture はセットで残す（9が無ければ5ルックの4泉以外は戻す）",
+    lives: "1・2T：Landing action Yeah!!（1点）／3T：Retrofuture（4点・控え室の4を登場）／4T：Edelied＋Landing action Yeah!!（8〜9点）／5T：Edelied＋Retrofuture（11点）",
     key: "15セラス（相手メンバーをウェイト＝妨害）、11村野さやか（3Tに15コスを踏み倒し）、13桂城泉",
-    refs: ["https://note.com/taki087/n/n76c6a1479109", "https://note.com/umi_kuku/n/ndbfeb1cadc39", "https://note.com/poke_lovelive/n/nbfe1b972d27f"],
+    refs: ["https://note.com/0201_10/n/na9d208cbb3e3", "https://note.com/0201_10/n/n7b759de4cb39", "https://note.com/poke_lovelive/n/nbfe1b972d27f"],
   },
-  // プレイ方針（noteの回し方より）
-  // ・マリガン：2桂城泉、セラス（4）、11村野さやか、Retrofuture か Edelied
+  // プレイ方針（みりおんさん「Edel Note徹底解説」の進行より）
+  // 1T 4 → 2T 9 → 3T 13（11さやかがいれば15）＋Retrofutureで控え室の4を登場 → 4T 13/15＋9（＋2）
+  // → 5T 15セラス2面＋Retrofutureで4泉を登場（Edelied＋Retrofutureで11点）
   strategy: {
-    // 3Tの11さやかを手札に残す
-    // 15セラスは控え室に置いておき、11村野さやかの起動で踏み倒す（PR-032は登場時にスコア6以上のライブを回収）
-    prefer: { toWaiting: ['PL!HS-bp6-007', 'PL!HS-PR-032'], hold: [{ from: 1, to: 5, ids: [SAYAKA11] }, { from: 3, to: 4, ids: [KAHO9] }] },
-    mulliganOpt: { keep: [{ ids: [IZUMI2], n: 2 }, { ids: [CERES4], n: 1 }, { ids: [SAYAKA11], n: 1 }, { ids: [KAHO9], n: 1, group: 'c9' }, { cost: 9, group: 'c9' }, { ids: [RETRO, EDELIED], n: 1 }, { ids: [LANDING, KAGUYA], n: 1 }] },
+    // 11さやかは3Tと5Tに使う。15セラスは控え室に置いておき、11さやかの起動で踏み倒す
+    prefer: {
+      toWaiting: ['PL!HS-bp6-007'],
+      hold: [{ from: 1, to: 5, ids: [SAYAKA11] }, { from: 1, to: 3, ids: [IZUMI13] }, { from: 3, to: 5, cost: 15 }, { from: 3, to: 4, cost: 9 }, { from: 1, to: 4, ids: [MAKI2] }],
+    },
+    // マリガン：9コスは必ず1枚。9＋4コス、9＋Retrofuture はセットで残す（4コスは5ルックの泉を優先）。11さやかも残す
+    mulliganOpt: {
+      keep: [
+        { ids: [KAHO9], n: 1, group: 'c9' }, { cost: 9, group: 'c9' },
+        { ids: [IZUMI4_LOOK5], n: 1, group: 'c4' }, { cost: 4, group: 'c4' },
+        { ids: [RETRO], n: 1 },
+        { ids: [SAYAKA11], n: 1 },
+      ],
+    },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
-    // 1T 4 → 2T 9日野下花帆 → 3T 11村野さやか（花帆からのバトンタッチでエネルギー2枚アクティブ → さやかの起動で控え室の15セラスを登場）
     script: {
       // 1T：4コス（2Tに9へバトンタッチする先）
       1: [{ play: { cost: 4 } }],
-      // 2T：4コスから9（花帆優先）へバトンタッチ
+      // 2T：4コスから9（花帆優先）へ
       2: [{ oneOf: [{ play: { id: KAHO9 }, onto: { cost: 4 } }, { play: { cost: 9 }, onto: { cost: 4 } }] }],
-      // 4T：2コスか4コスから9（花帆優先）へバトンタッチ
-      4: [{ ifStage: { cost: 15 }, oneOf: [{ play: { id: KAHO9 }, onto: { cost: 4 } }, { play: { id: KAHO9 }, onto: { cost: 2 } }, { play: { cost: 9 }, onto: { cost: 4 } }, { play: { cost: 9 }, onto: { cost: 2 } }] }],
-      // 5T：9から15（手札の15を直接なら6エネ）か、11さやか（起動で控え室の15に入れ替わる）
-      5: [{ ifStage: { cost: 15 }, oneOf: [{ play: { cost: 15 }, onto: { cost: 9 } }, { play: { id: SAYAKA11 }, onto: { cost: 9 } }] }, { play: { cost: 2 } }],
+      // 3T：9から11さやか（控え室に15がいるとき。起動で15に入れ替わる）か13泉。空いたエリアはRetrofutureの登場先に残す
+      3: [{ oneOf: [
+        { ifWaiting: { ids: CERES15 }, play: { id: SAYAKA11 }, onto: { cost: 9 } },
+        { play: { id: IZUMI13 }, onto: { cost: 9 } },
+        { play: { cost: 13 }, onto: { cost: 9 } },
+      ] }],
+      // 4T：13/15がいれば、4か2から9（花帆優先）へ。空いたエリアに2コスのライブ回収（2真姫）を出して、5TのEdelied＋Retrofutureをそろえる
+      4: [
+        { ifStage: { minCost: 13 }, oneOf: [{ play: { id: KAHO9 }, onto: { cost: 4 } }, { play: { id: KAHO9 }, onto: { cost: 2 } }, { play: { cost: 9 }, onto: { cost: 4 } }, { play: { cost: 9 }, onto: { cost: 2 } }] },
+        { oneOf: [{ play: { id: MAKI2 } }, { play: { cost: 2 } }] },
+      ],
+      // 5T：13から15（2エネ）、9から15（6エネ）か11さやか（控え室の15に入れ替わる）。空いたエリアはRetrofutureで4泉
+      5: [
+        { oneOf: [{ play: { ids: CERES15 }, onto: { cost: 13 } }, { play: { cost: 15 }, onto: { cost: 13 } }] },
+        { oneOf: [{ play: { ids: CERES15 }, onto: { cost: 9 } }, { ifWaiting: { ids: CERES15 }, play: { id: SAYAKA11 }, onto: { cost: 9 } }, { play: { cost: 15 }, onto: { cost: 9 } }] },
+      ],
     },
     turnPlan: {
-      1: { board: [[4], [2, 2]], lives: [[LANDING], [KAGUYA]] },
-      // 2T：9コス（花帆ならさやかへのバトンタッチで2エネ起きる）。どの9でも、3Tに11さやか（2エネ）＋さやかの起動（2エネ）で15セラスまで届く
-      2: { board: [[{ id: KAHO9 }], [9], [2, 4]], lives: [[LANDING], [KAGUYA]] },
-      3: { board: [[{ id: SAYAKA11 }, 2], [15, 2]], lives: [[RETRO]] },
-      // 4T：15-9-2（9花帆は5Tに11さやかへバトンタッチして2エネ起こす）。Landing action Yeah!!＋Edeliedで8〜9点
-      4: { board: [[15, { id: KAHO9 }, 2], [15, 9, 2], [15, 2], [15, 4]], lives: [[EDELIED, LANDING], [EDELIED]] },
-      // 5T：9花帆→11さやか（花帆で2エネ起きる）→さやかの起動で控え室の15セラス。15-15-2で Edelied＋Retrofuture の11点
-      5: { board: [[15, 15, 2]], lives: [[EDELIED, RETRO], [EDELIED]] },
-      // 6T以降：11泉-15-15 などで Edelied×2（34要求）か Edelied＋Retrofuture
-      6: { board: [[15, 15, 11], [15, 15, 13]], lives: [[EDELIED, EDELIED], [EDELIED, RETRO], [EDELIED]] },
+      1: { board: [[4]], lives: [[LANDING]] },
+      // 2T：9花帆なら Landing action Yeah!! を空き巣で
+      2: { board: [[{ id: KAHO9 }], [9]], lives: [[LANDING]] },
+      // 3T：13＋Retrofutureで4を登場（4点）。11さやかなら15
+      3: { board: [[{ id: IZUMI13 }], [13], [15], [15, 2]], lives: [[RETRO]] },
+      // 4T：13/15＋9（＋2）で Edelied＋Landing action Yeah!!（8〜9点）
+      4: { board: [[13, { id: KAHO9 }, 4], [15, { id: KAHO9 }], [13, 9, 2], [15, 9]], lives: [[EDELIED, LANDING], [EDELIED]] },
+      // 5T：15セラス2面＋Retrofutureで4泉。Edelied＋Retrofuture（11点）
+      5: { board: [[15, 15]], lives: [[EDELIED, RETRO], [EDELIED]] },
+      6: { board: [[15, 15, 4], [15, 15]], lives: [[EDELIED, RETRO], [EDELIED, EDELIED], [EDELIED]] },
     },
-    // ライブセットフェイズの手札交換：1Tは9（2Tに出す）、1・2Tは11さやか（3Tに出す）が手札に無ければ引き直す
+    // ライブセットフェイズの手札交換：1Tは9（2Tに出す）が手札に無ければ引き直す
     liveOpt: {
       fill: true, fillMaxCost: 4, minP: 0.4, th1: 0.3,
       digFor: [
-        { ids: NINES, turns: [1], n: 3, keep: [SAYAKA11], label: '9コス', skipIfStage: true },
-        { ids: [SAYAKA11], turns: [1, 2], n: 3, keep: NINES, label: '11さやか' },
+        { ids: NINES, turns: [1], n: 3, keep: [SAYAKA11, RETRO, IZUMI13], label: '9コス', skipIfStage: true },
+        { ids: [RETRO], turns: [1, 2], n: 3, keep: [...NINES, SAYAKA11, IZUMI13], label: 'Retrofuture' },
       ],
     },
   },
