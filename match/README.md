@@ -58,6 +58,7 @@ noteの回し方をデッキファイルに書き写すための項目です。�
 | `liveOpt.planMinP` | ターンの目標のライブの組み合わせは、成功の見込みがこの値以上なら置く（minP より低くしたいとき） | `0.35` |
 | `script` の `oneOf` | 書いた順に試して、最初にできた手順だけ行う（例：9にこがいれば9にこ、いなければほかの9） | `{ oneOf: [{ play: { id: NIKO9 }, onto: { cost: 2 } }, { play: { cost: 9 }, onto: { cost: 2 } }] }` |
 | `script` の `ifStage` / `ifWaiting` | ステージ／控え室にこのカードがあるときだけ、その手順を行う（`oneOf` の中の1つにも書ける） | `{ ifStage: { minCost: 13 }, play: { cost: 9 }, onto: { cost: 2 } }` |
+| `script` の `only` | その手順でカードを出せたターンは、ほかのカードを出さない（出せなかったときはいつもどおりAIが決める） | `{ play: { cost: 4 }, area: 0, only: true }` |
 | `script` の `ifHand` | 書いたカードが全部手札にあるときだけ、その手順を行う | `{ ifHand: [{ id: '4彼方' }, { id: '4花帆' }], play: { id: '4花帆' } }` |
 | 手順のカードの指定 | `id`（1種類）／`ids`（どれか）／`minCost`（このコスト以上）／`cost`（ちょうど） | `{ play: { ids: CERES15 }, onto: { cost: 13 } }` |
 | 手順の `unlock` / `ontoWait` | `lock` を無視してバトンタッチする／バトンタッチ元がウェイト状態（起動能力を使ったあと）のときだけ行う | `{ play: { cost: 13 }, onto: { id: YOSHIKO13 }, unlock: true, ontoWait: true }` |

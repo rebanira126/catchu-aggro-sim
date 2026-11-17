@@ -82,12 +82,13 @@ export default {
       7: { board: [[...MID, 4], [...MID, 5]], lives: LATE_LIVES },
     },
     lock: [{ id: MAR15, fromTurn: 4 }],
+    // 1T〜3T は4-9-15進行を必ず守る（only：出せたらそのターンはほかのカードを出さない。手札に無いときだけAIに任せる）
     script: {
       // 1T：4コス（四季・可可・メイを優先）を左サイドに
-      1: [{ oneOf: [{ play: { id: SHIKI4 }, area: 0 }, { play: { id: KEKE4 }, area: 0 }, { play: { id: MEI4 }, area: 0 }, { play: { cost: 4 }, area: 0 }] }],
+      1: [{ only: true, oneOf: [{ play: { id: SHIKI4 }, area: 0 }, { play: { id: KEKE4 }, area: 0 }, { play: { id: MEI4 }, area: 0 }, { play: { cost: 4 }, area: 0 }] }],
       // 2T：左の4コスから9可可（左サイドでブレード+2）、次点で9メイ
-      2: [{ oneOf: [{ play: { id: KEKE9 }, onto: { cost: 4 }, area: 0 }, { play: { id: KEKE9 }, onto: { cost: 4 } }, { play: { id: MEI9 }, onto: { cost: 4 } }, { play: { cost: 9 }, onto: { cost: 4 } }] }],
-      3: [{ play: { id: MAR15 }, onto: { cost: 9 } }],
+      2: [{ only: true, oneOf: [{ play: { id: KEKE9 }, onto: { cost: 4 }, area: 0 }, { play: { id: KEKE9 }, onto: { cost: 4 } }, { play: { id: MEI9 }, onto: { cost: 4 } }, { play: { cost: 9 }, onto: { cost: 4 } }] }],
+      3: [{ play: { id: MAR15 }, onto: { cost: 9 }, only: true }],
       // 4T：4かのん（エネルギー+1）、次点で5メイ
       4: [{ ifStage: { id: MAR15 }, oneOf: [{ play: { id: KANON4 } }, { play: { id: MEI5 } }] }],
       // 5T：4かのんから13かのん（9エネルギー）、5メイから13かのん（8エネルギー）

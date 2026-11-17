@@ -21,10 +21,29 @@ let saved = [];
 const builtinByType = new Map();
 for (const d of BUILTIN_DECKS) if (!builtinByType.has(d.type)) builtinByType.set(d.type, d);
 
+// 保存したデッキの回し方（strategy）は、元にした組み込みデッキのものを使う。
+// 元のデッキが記録されていないときは、同じデッキタイプの組み込みデッキのうちレシピが一番近いもの
+function overlap(a, b) {
+  const m = new Map(a.map(([id, n]) => [id, n]));
+  let k = 0;
+  for (const [id, n] of b) k += Math.min(n, m.get(id) || 0);
+  return k;
+}
+function baseFor(s) {
+  if (s.baseId) { const d = BUILTIN_DECKS.find(x => x.id === s.baseId); if (d) return d; }
+  let best = null, bk = -1;
+  for (const d of BUILTIN_DECKS) {
+    if (d.type !== s.type) continue;
+    const k = overlap(d.list, s.list || []);
+    if (k > bk) { bk = k; best = d; }
+  }
+  return best;
+}
+
 function entries() {
   const b = BUILTIN_DECKS.map(d => ({ key: 'b:' + d.id, builtin: true, type: d.type, name: d.name, lastPlaced: d.lastPlaced, source: d.source, list: d.list, plan: d.plan, strategy: d.strategy }));
   const u = saved.map(s => {
-    const base = builtinByType.get(s.type);
+    const base = baseFor(s);
     return { key: 'u:' + s.id, builtin: false, id: s.id, type: s.type, name: s.name, lastPlaced: s.lastPlaced || '－', source: s.source || '', list: s.list, plan: base ? base.plan : null, strategy: base ? base.strategy : {} };
   });
   return b.concat(u);
@@ -360,7 +379,9 @@ async function saveDeck(asNew) {
   if (!d.type || !d.name) { $('editMsg').textContent = 'デッキタイプと構築名を入れてください。'; return; }
   if (!d.list.length) { $('editMsg').textContent = 'レシピが空です。'; return; }
   const id = !asNew && editing && !editing.builtin ? editing.id : undefined;
-  const item = await store.save({ ...d, id });
+  // 元にした組み込みデッキ（回し方を引き継ぐ）
+  const baseId = editing ? (editing.builtin ? editing.key.slice(2) : (saved.find(x => x.id === editing.id) || {}).baseId) : undefined;
+  const item = await store.save({ ...d, id, ...(baseId ? { baseId } : {}) });
   saved = await store.list();
   editing = byKey('u:' + item.id);
   renderDeckList(); openDeck(editing); renderMatchForm(); renderSoloForm();

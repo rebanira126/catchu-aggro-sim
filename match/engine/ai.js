@@ -108,9 +108,10 @@ function mainBody(api, opt) {
   const { g, me } = api;
   // 手順（strategy.script）があるターンは、runScript がバトンタッチ先を残して起動能力を使う
   if (!(me.script && (me.script[g.turn] || []).length)) useAbilities(api);
-  runScript(api);
+  // 手順に only（このカードだけ出す）があり、それが出せたターンは、ほかのカードは出さない
+  const onlyDone = runScript(api);
   // 1枚出すごとに組み直す（登場時の効果で手札が変わるため）。出す予定の残りのカードは捨てないよう me.reserved に入れておく
-  for (let k = 0; k < 4; k++) {
+  for (let k = 0; k < (onlyDone ? 0 : 4); k++) {
     const plan = bestPlays(g, me, opt);
     if (!plan.length) break;
     let step = firstStep(g, me, plan);
@@ -686,6 +687,7 @@ function runScript(api) {
   };
   // 手順の前に起動能力を使う（先に手札を整える能力など）
   if (steps.length) useAbilities(api, { keep: keepFrom(0) });
+  let onlyDone = false;
   for (const [i, st0] of steps.entries()) {
     // oneOf：書いた順に試して、最初にできたものだけ行う（例：9にこがいれば9にこ、いなければほかの9）
     // ifStage：ステージにこのメンバーがいるときだけ行う（例：15がいるときだけ9へバトンタッチ）
@@ -707,9 +709,15 @@ function runScript(api) {
       // unlock：lock（固定するメンバー）を無視してバトンタッチする／ontoWait：バトンタッチ元がウェイト状態（起動能力を使ったあと）のときだけ
       if (slot && ((!st.unlock && isLocked(g, me, slot, area)) || !g.canTarget(me, area))) continue;
       if (st.ontoWait && (!slot || slot.active)) continue;
-      if (api.play(idx, area, true)) { g.log(me, 'plan', `手順：${cardLabel(me.stage[area].card)}を出した`); useAbilities(api, { keep: keepFrom(i + 1) }); break; }
+      if (api.play(idx, area, true)) {
+        g.log(me, 'plan', `手順：${cardLabel(me.stage[area].card)}を出した${st0.only || st.only ? '（このターンはこれだけ）' : ''}`);
+        if (st0.only || st.only) onlyDone = true;
+        useAbilities(api, { keep: keepFrom(i + 1) });
+        break;
+      }
     }
   }
+  return onlyDone;
 }
 
 // ---------------- ターンごとの目標（strategy.turnPlan） ----------------
