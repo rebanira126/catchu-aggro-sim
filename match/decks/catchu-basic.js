@@ -1,5 +1,13 @@
 // CatChu!：基本形（花帆作）
 // レシピは出典の入賞レシピ（デッキコード）そのまま。回し方は plan に書いたnoteの内容を目安にしている。
+// 4T以降の目標のライブ（11かのんのライブ成功時効果：エネルギー6枚でライブの合計スコア+1）
+//  4T：新ディストーション＋START!!（6＋1＋1＝8点、11かのんで9点）か、旧ディストーション2枚＋11かのん（4＋4＋1＝9点）
+//  5T・6T：新ディストーション＋旧ディストーション＋11かのん（7＋4＋1＝12点）
+const DIST_NEW = 'PL!SP-pb2-048'; // ディストーション（6点）
+const DIST_OLD = 'PL!SP-pb1-023'; // ディストーション（3点）
+const START = 'PL!SP-bp7-023';    // START!! True dreams
+const LATE_LIVES = [[DIST_NEW, DIST_OLD]];
+
 export default {
   id: "catchu-basic",
   type: "CatChu!",
@@ -29,9 +37,9 @@ export default {
   ],
   plan: {
     board: "2-2 → 5-2-2 → 11-2-2",
-    score: "1 → 4 → 7（3ターン勝利優先）",
+    score: "1 → 4 → 7（3ターン勝利優先）→ 4T 8〜9 → 5T・6T 12",
     mulligan: "5コス（すみれ／メイ）を最優先、次に2コス恋。どちらかがあればSTART!! True dreams・3点ディストーション・2コスメイも残す（どちらも無ければほかは残さない）",
-    lives: "1T：2コスト2枚＋Chance Day／START!!、2T：5コスト＋ディストーション（pb1-023）、3T：11コストにバトンタッチ＋ディストーション（pb2-048）",
+    lives: "1T：2コスト2枚＋Chance Day／START!!、2T：5コスト＋ディストーション（pb1-023）、3T：11コストにバトンタッチ＋ディストーション（pb2-048）／4T：新ディストーション＋START!!（8点）か旧ディストーション2枚＋11かのんのライブ成功時効果（9点）／5T・6T：新ディストーション＋旧ディストーション＋11かのん（12点）",
     key: "自作の基本形（このプロジェクトで作成）",
     refs: [],
   },
@@ -57,6 +65,11 @@ export default {
       ],
     },
     mainOpt: { playPen: 0.3, unitBonus: { unit: 'CatChu!', w: 0.8 }, topK: 60 },
+    turnPlan: {
+      4: { lives: [[DIST_NEW, START], [DIST_OLD, DIST_OLD]] },
+      5: { lives: LATE_LIVES },
+      6: { lives: LATE_LIVES },
+    },
     liveOpt: { fill: true, pace: [1, 4, 7], minP: 0.5, th1: 0.3, thLast: 0.15 },
   },
 };
