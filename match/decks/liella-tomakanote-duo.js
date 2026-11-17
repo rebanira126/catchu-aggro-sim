@@ -57,8 +57,8 @@ export default {
       millTurns: [1],
       hold: [
         { from: 2, to: 3, ids: [MAR15] },
-        // 1T〜4T：5メイか4かのん（5メイ優先）を1枚は手札に残す（4Tに出して、5Tに13かのんへバトンタッチするため）
-        { from: 1, to: 4, ids: [MEI5, KANON4] },
+        // 2T〜4T：5メイか4かのん（5メイ優先）を1枚は手札に残す（4Tに出して、5Tに13かのんへバトンタッチするため。1Tは未来予報ハレルヤ！のために伏せる候補に残す）
+        { from: 2, to: 4, ids: [MEI5, KANON4] },
         { from: 4, to: 6, ids: [KANON13] },
       ],
       wantLives: [VIT, BUB, HAL],
