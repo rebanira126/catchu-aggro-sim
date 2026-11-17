@@ -54,6 +54,16 @@ export default {
     // マリガン：キーカード（Music S.T.A.R.T!!・9にこ・17真姫）と、4コス（絵里優先。9にこや17真姫を探せる）を1枚ずつ残す
     mulliganOpt: { keep: [{ ids: [MS], n: 1 }, { ids: [NIKO9], n: 1 }, { ids: [MAKI17], n: 1 }, { ids: [ERI4], group: 'c4', n: 1 }, { cost: 4, group: 'c4' }] },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
+    // 手順（noteより）。17真姫の起動は手順の前に使う。出せないときはいつものAIの判断に戻る
+    //  4T：2コスから9にバトンタッチ（9にこ優先。5Tに17真姫へ乗る先を作る）
+    //  5T：9から17真姫にバトンタッチ（Music S.T.A.R.T!!でコスト-2なので6エネ。2枚目が無ければ15ことり）、余ったエネルギーで2コス
+    script: {
+      4: [{ oneOf: [{ play: { id: NIKO9 }, onto: { cost: 2 } }, { play: { cost: 9 }, onto: { cost: 2 } }] }],
+      5: [
+        { oneOf: [{ play: { id: MAKI17 }, onto: { cost: 9 } }, { play: { id: 'PL!-bp6-003' }, onto: { cost: 9 } }] },
+        { play: { cost: 2 } },
+      ],
+    },
     turnPlan: {
       1: { board: [[4]] },
       // 2T：9にこ（Music S.T.A.R.T!!の色を1人で満たす。3Tに17真姫へバトンタッチすると2エネ起きる）
