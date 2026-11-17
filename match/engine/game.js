@@ -539,6 +539,7 @@ export class Game {
     perf.ok = res.ok;
     // 余剰ハート：必要ハートを満たしたあとに残ったハートの数
     perf.excess = res.ok ? poolTotal(res.rest) : 0;
+    perf.rest = res.ok ? res.rest : null; // 余剰ハートの中身（色ごと。Circle of Love が見る）
     this.log(P, 'cheer', `エール${blades}枚（ドローのアイコン${draws}枚・スコアのアイコン${perf.scoreIcons}枚）→ ${res.ok ? '成功' : '失敗'}`);
     if (!res.ok) {
       P.waiting.push(...P.liveZone);
