@@ -5,6 +5,7 @@ const MW = 'PL!S-bp3-019';        // MIRACLE WAVE
 const KOIAQ = 'PL!S-bp7-022';     // 恋になりたいAQUARIUM
 const KOWARE = 'PL!S-bp6-024';    // コワレヤスキ
 const YOSHIKO13 = 'PL!S-bp3-006'; // 津島善子（コスト13）
+const HANAMARU11 = 'PL!S-bp7-007'; // 国木田花丸（コスト11）
 
 export default {
   id: "aqours-koiaq",
@@ -51,7 +52,7 @@ export default {
   strategy: {
     // 13（渡辺 曜・松浦果南）は控え室に置いておき、13津島善子の起動で 11→13 に入れ替えて登場させる（登場時の効果も使える）
     // 4国木田花丸も控え室に置いておく：3Tに13善子の起動で 2→4 に入れ替えて登場（控え室から登場するとデッキの上3枚から1枚手札に）
-    prefer: { toWaiting: ['PL!S-bp2-005', 'PL!S-bp5-003', 'PL!S-bp6-016'] },
+    prefer: { toWaiting: ['PL!S-bp2-005', 'PL!S-bp5-003', 'PL!S-bp6-016'], hold: [{ from: 2, to: 4, ids: [HANAMARU11] }] }, // 4Tの11国木田花丸は手札に残す
     // マリガン：1Tの4コス（優木あんじゅを優先）、9コス（高海千歌・徒町小鈴）、Guilty Night, Guilty Kiss!
     mulliganOpt: { keep: [{ ids: ['PL!-bp5-222'], group: 'c4', n: 1 }, { cost: 4, group: 'c4' }, { ids: ['PL!S-bp7-001', 'PL!HS-pb1-013'], n: 1 }, { ids: [GN], n: 1 }] },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1, planWeight: 6 },
@@ -63,7 +64,12 @@ export default {
       1: [{ play: { cost: 4 }, area: 1 }],
       2: [{ play: { cost: 9 }, area: 1 }],
       3: [{ play: { id: YOSHIKO13 }, area: 1 }, { play: { cost: 2 }, area: 0 }, { play: { cost: 2 }, area: 2 }],
-      4: [{ play: { id: 'PL!S-bp7-007' }, onto: { cost: 4 } }, { play: { cost: 2 } }],
+      // 4T：4→11国木田花丸 → 善子の起動で 11→13 → 起動で寝たセンターの13善子に手札の13をバトンタッチで出し直す（0エネ・ブレードが戻る）→ 2コス
+      4: [
+        { play: { id: HANAMARU11 }, onto: { cost: 4 } },
+        { oneOf: [{ play: { id: 'PL!S-bp2-005' }, onto: { id: YOSHIKO13 }, area: 1, unlock: true, ontoWait: true }, { play: { cost: 13 }, onto: { id: YOSHIKO13 }, area: 1, unlock: true, ontoWait: true }] },
+        { play: { cost: 2 } },
+      ],
       5: [{ play: { cost: 15 }, onto: { cost: 13 } }, { play: { cost: 15 }, onto: { cost: 13 } }],
       6: [{ play: { cost: 9 }, onto: { cost: 2 } }],
     },
@@ -74,7 +80,8 @@ export default {
       // 13善子はセンターで起動するので、1Tの4コス → 2Tの9 → 3Tの13善子 をセンターでつなぐ
       1: { board: [[{ cost: 4, area: 1 }]] },
       2: { board: [[{ cost: 9, area: 1 }]], lives: [[GN]] },
-      3: { board: [[{ id: YOSHIKO13, area: 1 }, 4], [{ id: YOSHIKO13, area: 1 }, 2]], lives: [[GN]] },
+      // 3T：センターに13善子、横に2（善子の起動で2→4）。2コスを先に書いて、2Tの手札交換で2コスを残す
+      3: { board: [[{ id: YOSHIKO13, area: 1 }, 2], [{ id: YOSHIKO13, area: 1 }, 4]], lives: [[GN]] },
       // 4T：4→11国木田花丸、13善子の起動で 11→13（控え室の13）に入れ替えて 13-13-2
       4: { board: [[{ id: YOSHIKO13, area: 1 }, 13, 2], [{ id: YOSHIKO13, area: 1 }, { id: 'PL!S-bp7-007' }, 2]], lives: [[GN, MW]] },
       5: { board: [[15, 15, 2], [15, 15, 4]], lives: [[KOIAQ, MW], [KOIAQ], [KOWARE]] },
@@ -84,6 +91,8 @@ export default {
     // （盤面ハート＋ブレードハートが必要ハートとほぼ同じになり、余剰ハートが出にくい）
     liveOpt: {
       fill: true, fillMaxCost: 4, minP: 0.4, th1: 0.3,
+      // 手札交換：1・2Tは13善子（3Tに出す）、2・3Tは11国木田花丸（4Tに出す）を探す
+      digFor: [{ ids: [YOSHIKO13], turns: [1, 2], n: 3, keep: [HANAMARU11, GN], label: '13善子', skipIfStage: true }, { ids: [HANAMARU11], turns: [2, 3], n: 3, keep: [YOSHIKO13, GN, KOIAQ], label: '11国木田花丸', skipIfStage: true }],
       onlyCombos: { 'PL!S-bp3-019': [{ turn: 4, with: ['PL!S-bp7-025'] }, { turn: 5, with: ['PL!S-bp7-022'] }] },
     },
   },

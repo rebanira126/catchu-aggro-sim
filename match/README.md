@@ -56,6 +56,8 @@ noteの回し方をデッキファイルに書き写すための項目です。�
 | `script` の `oneOf` | 書いた順に試して、最初にできた手順だけ行う（例：9にこがいれば9にこ、いなければほかの9） | `{ oneOf: [{ play: { id: NIKO9 }, onto: { cost: 2 } }, { play: { cost: 9 }, onto: { cost: 2 } }] }` |
 | `script` の `ifStage` / `ifWaiting` | ステージ／控え室にこのカードがあるときだけ、その手順を行う（`oneOf` の中の1つにも書ける） | `{ ifStage: { minCost: 13 }, play: { cost: 9 }, onto: { cost: 2 } }` |
 | 手順のカードの指定 | `id`（1種類）／`ids`（どれか）／`minCost`（このコスト以上）／`cost`（ちょうど） | `{ play: { ids: CERES15 }, onto: { cost: 13 } }` |
+| 手順の `unlock` / `ontoWait` | `lock` を無視してバトンタッチする／バトンタッチ元がウェイト状態（起動能力を使ったあと）のときだけ行う | `{ play: { cost: 13 }, onto: { id: YOSHIKO13 }, unlock: true, ontoWait: true }` |
+| `prefer.noRecoverTurns` | このターンは2コスのライブ回収（自分を控え室に置く）を使わない | `[4]` |
 | `liveOpt.digFor` | 探すカードがそのターンに手札に無ければ、ライブカード置き場を n 枚まで埋めて引き直す（`keep` のカードは置かない。次のターンの盤面に要るカードも残す。配列で複数書ける。`skipIfStage` でステージにいれば探さない） | `{ ids: [EMMA15], turns: [1, 2], n: 3, keep: [JB] }` |
 | `liveOpt.statMin` | 盤面スタッツ（ステージのハートとブレードの合計）がこの値より少ないターンはライブをしない（温存） | `{ 3: 15 }` |
 | `liveOpt.bladeMargin` | エールでブレードハートの無いカードがこの枚数めくれても成功する見込みで選ぶ（エールの枚数から引いて計算） | `{ 5: 6 }` |

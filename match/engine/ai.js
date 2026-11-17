@@ -496,12 +496,11 @@ export function defaultSetLives(v, opt = {}) {
     const forNext = c => nextItems.some((it, k) => !used.has(k) && (it.id ? c.def.id === it.id : c.def.kind === 'M' && c.def.cost === it.cost) && used.add(k));
     // 置かないカード：この dig の keep と、ほかの dig で探しているカード（もう手札にあるキーカード）
     const keepIds = new Set([...(dig.keep || []), ...digs.flatMap(d => d.ids)]);
-    const liveSet = out.some(i => me.hand[i] && me.hand[i].def.kind === 'L');
     // 次のターンの盤面に要るカードは1枚ずつ残す
     const hold = new Set(me.hand.filter(c => forNext(c)).map(c => c.uid));
     const cand = me.hand.map((c, i) => ({ c, i }))
-      // ライブをするターンは、ほかのライブカードを伏せない（いっしょにライブになって失敗するため）
-      .filter(x => !out.includes(x.i) && !keepIds.has(x.c.def.id) && !hold.has(x.c.uid) && !(liveSet && x.c.def.kind === 'L'))
+      // ライブカードは伏せない（伏せるとライブになり、失敗して控え室へ行く。ライブをするターンはいっしょに失敗する）
+      .filter(x => !out.includes(x.i) && !keepIds.has(x.c.def.id) && !hold.has(x.c.uid) && x.c.def.kind !== 'L')
       .sort((a, b) => (prot.has(a.c.uid) - prot.has(b.c.uid)) || (fp(b.c) - fp(a.c)) || (handVal(a.c, me) - handVal(b.c, me)));
     const before = out.length;
     for (const x of cand) { if (out.length >= (dig.n ?? 3)) break; out.push(x.i); }
@@ -660,7 +659,8 @@ function runScript(api) {
   const keepFrom = i => {
     const keep = new Set();
     for (const st0 of steps.slice(i)) for (const st of st0.oneOf || [st0]) {
-      if (!st.play || !st.onto || !me.hand.some(c => c.def.kind === 'M' && matchSpec(st.play, c.def))) continue;
+      // ontoWait（起動能力を使ったあとにバトンタッチする）の相手は、能力を使ってほしいので残さない
+      if (!st.play || !st.onto || st.ontoWait || !me.hand.some(c => c.def.kind === 'M' && matchSpec(st.play, c.def))) continue;
       const s = me.stage.find(x => x && matchSpec(st.onto, x.card.def));
       if (s) { keep.add(s); break; }
     }
@@ -685,7 +685,9 @@ function runScript(api) {
       if (area < 0) continue;
       if (st.onto && !(me.stage[area] && matchSpec(st.onto, me.stage[area].card.def))) continue;
       const slot = me.stage[area];
-      if (slot && (isLocked(g, me, slot, area) || !g.canTarget(me, area))) continue;
+      // unlock：lock（固定するメンバー）を無視してバトンタッチする／ontoWait：バトンタッチ元がウェイト状態（起動能力を使ったあと）のときだけ
+      if (slot && ((!st.unlock && isLocked(g, me, slot, area)) || !g.canTarget(me, area))) continue;
+      if (st.ontoWait && (!slot || slot.active)) continue;
       if (api.play(idx, area, true)) { g.log(me, 'plan', `手順：${cardLabel(me.stage[area].card)}を出した`); useAbilities(api, { keep: keepFrom(i + 1) }); break; }
     }
   }
