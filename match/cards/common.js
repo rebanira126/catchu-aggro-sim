@@ -4,7 +4,7 @@ import { comboMissing, isLive, isMember, recover, sacrificeSelf, discardWorst, w
 
 // デッキの主力のライブ（strategy.prefer.wantLives の番号）に当たるかを調べる関数。指定が無ければ null
 // 目標の組み合わせに足りないライブが控え室にあるか
-const comboReady = (g, me) => { const m = comboMissing(g, me); return m.size > 0 && me.waiting.some(c => isLive(c) && m.has(c.def.id)); };
+const comboReady = (g, me) => { const m = comboMissing(g, me, { upTo: 2 }); return m.size > 0 && me.waiting.some(c => isLive(c) && m.has(c.def.id)); };
 const wanted = me => (me.prefer && me.prefer.wantLives ? c => isLive(c) && me.prefer.wantLives.includes(c.def.id) : null);
 
 export const T = {
@@ -27,7 +27,7 @@ export default {
       ai: ({ g, me }) => (me.hand.filter(isLive).length === 0 && me.waiting.some(isLive)) || (wanted(me) && !me.hand.some(wanted(me)) && me.waiting.some(wanted(me))) || comboReady(g, me),
       run: ({ g, me, slot, area }) => {
         sacrificeSelf(g, me, slot, area);
-        const miss = comboMissing(g, me);
+        const miss = comboMissing(g, me, { upTo: 2 });
         (miss.size && recover(g, me, c => isLive(c) && miss.has(c.def.id))) || (wanted(me) && recover(g, me, wanted(me))) || recover(g, me, isLive);
       },
     }],

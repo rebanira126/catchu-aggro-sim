@@ -1,6 +1,6 @@
 // 蓮ノ空のカード効果（カード番号で登録）
 import { cardLabel } from '../engine/game.js';
-import { inGroup, inUnit, isLive, isMember, discardWorst, willDiscard, recover, waitOpp, waitOppN, searchBigOnEnter, scry, sacrificeSelf, cardWorth, oppYetToPerform } from './lib.js';
+import { comboMissing, inGroup, inUnit, isLive, isMember, discardWorst, willDiscard, recover, waitOpp, waitOppN, searchBigOnEnter, scry, sacrificeSelf, cardWorth, oppYetToPerform } from './lib.js';
 import { memberValue } from '../engine/ai.js';
 
 const HASU = '蓮ノ空';
@@ -19,7 +19,11 @@ export default {
       if (!me.stage.some(s => s && s.card.def.cost >= 9 && isEdel(s.card.def))) return;
       if (!g.payEnergy(me, 2)) return;
       const empty = me.stage.findIndex(s => !s);
-      const cand = me.waiting.filter(c => isMember(c) && c.def.cost <= 4 && isEdel(c.def)).sort((a, b) => memberValue(b.def) - memberValue(a.def))[0];
+      // 次のターンの目標のライブが控え室にあれば、回収できる4泉（cl1-008）を優先して出す
+      const miss = comboMissing(g, me, { onlyNext: true, upTo: 2 });
+      const recov = miss.size && me.waiting.some(c => isLive(c) && miss.has(c.def.id));
+      const cand = me.waiting.filter(c => isMember(c) && c.def.cost <= 4 && isEdel(c.def))
+        .sort((a, b) => (recov ? (b.def.id === 'PL!HS-cl1-008') - (a.def.id === 'PL!HS-cl1-008') : 0) || memberValue(b.def) - memberValue(a.def))[0];
       if (empty >= 0 && cand) {
         me.waiting.splice(me.waiting.indexOf(cand), 1);
         g.putMember(me, cand, empty, { from: 'waiting' });
@@ -61,10 +65,18 @@ export default {
   'PL!HS-bp5-008': searchBigOnEnter(HASU, 9, '桂城 泉：'),
   // 桂城 泉（4）cl1-008：自分を控え室に置き、控え室の蓮ノ空のカードを1枚手札に
   'PL!HS-cl1-008': {
-    note: '起動：自分を控え室に置く→控え室の蓮ノ空のカードを1枚手札に（手札にライブが無いときにライブを拾う）',
+    note: '起動：自分を控え室に置く→控え室の蓮ノ空のカードを1枚手札に（目標のライブの組み合わせに足りないライブか、手札にライブが無いときにライブを拾う）',
     activated: [{
-      ai: ({ me }) => !me.hand.some(isLive) && me.waiting.some(c => isLive(c) && inGroup(c.def, HASU)),
-      run({ g, me, slot, area }) { sacrificeSelf(g, me, slot, area); recover(g, me, c => inGroup(c.def, HASU), '桂城 泉：'); },
+      ai: ({ g, me }) => {
+        const miss = comboMissing(g, me, { upTo: 2 });
+        if (me.waiting.some(c => isLive(c) && inGroup(c.def, HASU) && miss.has(c.def.id))) return true;
+        return !me.hand.some(isLive) && me.waiting.some(c => isLive(c) && inGroup(c.def, HASU));
+      },
+      run({ g, me, slot, area }) {
+        sacrificeSelf(g, me, slot, area);
+        const miss = comboMissing(g, me, { upTo: 2 });
+        (miss.size && recover(g, me, c => isLive(c) && inGroup(c.def, HASU) && miss.has(c.def.id), '桂城 泉：')) || recover(g, me, c => inGroup(c.def, HASU), '桂城 泉：');
+      },
     }],
   },
   // 桂城 泉（4）pb1-024：デッキの上2枚を整える
