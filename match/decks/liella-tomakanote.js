@@ -79,10 +79,12 @@ export default {
     },
     // 4T以降：15マルガレーテにはバトンタッチしない（相手の必要ハート+1を残す）
     lock: [{ id: MAR15, fromTurn: 4 }],
+    // 1T〜3T は4-9-15進行を必ず守る（only：出せたらそのターンはほかのカードを出さない。手札に無いときだけAIに任せる）
     script: {
-      // 2T：4コスから9コスへ／3T：9コスから15マルガレーテへ／4T：5メイを空いた枠へ
-      2: [{ play: { cost: 9 }, onto: { cost: 4 } }],
-      3: [{ play: { id: MAR15 }, onto: { cost: 9 } }],
+      // 1T：4コス1枚／2T：4コスから9コスへ／3T：9コスから15マルガレーテへ／4T：5メイを空いた枠へ
+      1: [{ play: { cost: 4 }, only: true }],
+      2: [{ play: { cost: 9 }, onto: { cost: 4 }, only: true }],
+      3: [{ play: { id: MAR15 }, onto: { cost: 9 }, only: true }],
       4: [{ ifStage: { id: MAR15 }, play: { id: MEI5 } }],
       // 5T：5メイから13かのん（登場時効果でマルガレーテのエール-8を無効にし、ライブか13かのんを回収）
       5: [{ oneOf: [{ play: { id: KANON13 }, onto: { id: MEI5 } }, { play: { id: KANON13 }, onto: { cost: 5 } }, { play: { id: KANON13 }, onto: { cost: 4 } }] }],
