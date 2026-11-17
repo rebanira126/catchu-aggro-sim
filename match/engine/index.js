@@ -26,8 +26,11 @@ export function playOne({ db, effects, a, b, seed, first, trace = false, maxTurn
 // デッキの「ターンごとの点数の見込み」：ひとり回しを何回かして、各ターンに何点で成功したか（失敗・ライブなしは none）を数える
 // 同じデッキは一度だけ調べる（キャッシュ）
 const profileCache = new Map();
+export const profileKey = deck => (deck.id || deck.name) + '#' + JSON.stringify(deck.list);
+// 先に別の所で調べた見込みを入れておく（複数のコアで回すとき、各ワーカーで同じものを調べ直さないため）
+export function primeProfile(deck, prof) { profileCache.set(profileKey(deck), prof); }
 export function soloProfile({ db, effects, deck, n = 120, turns = 10 }) {
-  const key = (deck.id || deck.name) + '#' + JSON.stringify(deck.list);
+  const key = profileKey(deck);
   if (profileCache.has(key)) return profileCache.get(key);
   const prof = Array.from({ length: turns + 1 }, () => ({ n: 0, none: 0, scores: {} }));
   for (let s = 1; s <= n; s++) {
@@ -43,10 +46,11 @@ export function soloProfile({ db, effects, deck, n = 120, turns = 10 }) {
 }
 
 // 集計器。step(k) を何度も呼んで少しずつ回せる（画面を止めないため）
-export function makeMatchRunner({ db, effects, a, b, seedBase = 1, firstMode = 'half', maxTurns = 12 }) {
+// startIndex：何試合目から回すか（複数のコアで分けて回すとき。種と先攻・後攻は試合の番号で決まるので、分けても同じ結果になる）
+export function makeMatchRunner({ db, effects, a, b, seedBase = 1, firstMode = 'half', maxTurns = 12, startIndex = 0 }) {
   const acc = { n: 0, win: 0, loss: 0, draw: 0, unres: 0, endTurn: 0,
     asFirst: { n: 0, win: 0 }, asSecond: { n: 0, win: 0 } };
-  let k = 0;
+  let k = startIndex;
   return {
     step(count) {
       for (let i = 0; i < count; i++, k++) {
@@ -91,9 +95,9 @@ export function playSolo({ db, effects, deck, seed, turns = 6, trace = false }) 
   return g;
 }
 
-export function makeSoloRunner({ db, effects, deck, seedBase = 1, turns = 6 }) {
+export function makeSoloRunner({ db, effects, deck, seedBase = 1, turns = 6, startIndex = 0 }) {
   const acc = { n: 0, turns: Array.from({ length: turns }, () => ({ tried: 0, ok: 0, scoreSum: 0, scores: {} })) };
-  let k = 0;
+  let k = startIndex;
   return {
     step(count) {
       for (let i = 0; i < count; i++, k++) {

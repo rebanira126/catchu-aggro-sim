@@ -16,8 +16,18 @@
 | `decks/` | 組み込みの環境デッキ。1デッキ1ファイルで、レシピ・回し方の目安（plan）・プレイ方針の上書き（strategy）を持つ |
 | `store/` | 保存デッキの窓口。今は LocalStorage。DBに移すときは同じ形のクラスを作って差し替える |
 | `data/` | カードデータ（`rabuka_cards.json` をそのまま使う）、前回取り込んだカード番号（`known-ids.json`）、ポイント制限 |
-| `tools/` | 新弾レポート（`report.mjs`）、旧CatChu!シミュレーターとの比較（`compare-old.mjs`） |
+| `tools/` | 新弾レポート（`report.mjs`）、旧CatChu!シミュレーターとの比較（`compare-old.mjs`）、ひとり回し（`solo.mjs`）、1デッキと全デッキの対戦（`vs.mjs`）、総当たり（`matrix.mjs`） |
 | `test/` | 動作確認（`node match/test/smoke.mjs`） |
+
+## 複数のコアで回す
+試合は1試合ずつ独立していて、乱数の種と先攻・後攻は「何試合目か」で決まるので、試合を分けて別々のコアで回しても、1つで回したときと全く同じ結果になります。
+
+- **画面**：対戦・ひとり回しは Web Worker（`engine/sim-worker.js`・`engine/pool-browser.js`）で回します。使うワーカーの数は「コア数−1」（最低1）。ワーカーが使えないとき（`file://` で開いたときなど）は画面のスレッドで回します
+- **ツール**：`tools/vs.mjs`・`tools/matrix.mjs` は worker_threads（`engine/sim-worker-node.js`・`engine/pool-node.js`）で回します。使うコアの数は既定で「コア数−1」、環境変数 `SIM_THREADS` で指定できます
+  - `node match/tools/vs.mjs liella-tomakanote 400`：1つのデッキとほかの全デッキ（1組400試合）。3つ目の引数に入れ替え案のモジュール（`export default deck => deck`）を渡せます
+  - `node match/tools/matrix.mjs 400 out.json`：総当たり
+- 相手の点数の見込み（ひとり回し120回）は一度だけ調べて、各ワーカーに配ります（`profA`・`profB`）
+- 仕事の形とまとめ方は `engine/jobs.js`
 
 ## カードデータの更新（新弾のとき）
 1. 新しい `rabuka_cards.json` で `data/rabuka_cards.json` を置き換える（変換は不要）
