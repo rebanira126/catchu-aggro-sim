@@ -242,16 +242,20 @@ function planLiveNeed(g, me, card) {
 
 // このターン（next なら次のターンも）の目標のライブの組み合わせ（turnPlan の lives）を、手札にあと1枚でそろえられるときの、その足りないライブの番号
 // 例：目標が [JB, LoveU] で手札に JB だけある → LoveU の番号
-export function comboMissing(g, me, { next = false } = {}) {
+export function comboMissing(g, me, { next = false, upTo = 1, onlyNext = false } = {}) {
+  // onlyNext：次のターンの目標だけを見る（ライブ中に、次のターンの準備をするとき）
+  // upTo：足りない枚数がこれ以下の組み合わせも数える（2なら「2枚とも足りない」組み合わせのライブも返す）。足りない枚数が少ない組み合わせを優先する
   const out = new Set();
-  for (const t of next ? [g.turn, g.turn + 1] : [g.turn]) {
+  for (const t of onlyNext ? [g.turn + 1] : next ? [g.turn, g.turn + 1] : [g.turn]) {
     const tgt = turnTarget(me, t);
     if (!tgt || !tgt.lives) continue;
-    for (const combo of tgt.lives) {
-      const hand = me.hand.filter(isLive).map(c => c.def.id);
-      const miss = [];
-      for (const id of combo) { const k = hand.indexOf(id); if (k >= 0) hand.splice(k, 1); else miss.push(id); }
-      if (miss.length === 1) out.add(miss[0]);
+    for (let k = 1; k <= upTo && !out.size; k++) {
+      for (const combo of tgt.lives) {
+        const hand = me.hand.filter(isLive).map(c => c.def.id);
+        const miss = [];
+        for (const id of combo) { const j = hand.indexOf(id); if (j >= 0) hand.splice(j, 1); else miss.push(id); }
+        if (miss.length === k) miss.forEach(id => out.add(id));
+      }
     }
     if (out.size) break;
   }

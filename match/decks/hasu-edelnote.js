@@ -58,6 +58,8 @@ export default {
     // 11さやかは3Tと5Tに使う。15セラスは控え室に置いておき、11さやかの起動で踏み倒す
     prefer: {
       toWaiting: ['PL!HS-bp6-007'],
+      // 5TのEdelied＋Retrofutureのため、2枚を手札に抱える（捨てない・回収で優先）
+      wantLives: [EDELIED, RETRO],
       hold: [{ from: 1, to: 5, ids: [SAYAKA11] }, { from: 1, to: 3, ids: [IZUMI13] }, { from: 3, to: 5, cost: 15 }, { from: 3, to: 4, cost: 9 }, { from: 1, to: 4, ids: [MAKI2] }],
     },
     // マリガン：9コスは必ず1枚。9＋4コス、9＋Retrofuture はセットで残す（4コスは5ルックの泉を優先）。11さやかも残す
