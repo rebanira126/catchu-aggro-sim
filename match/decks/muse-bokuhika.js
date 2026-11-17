@@ -59,10 +59,23 @@ export default {
     //  5T：9から17真姫にバトンタッチ（Music S.T.A.R.T!!でコスト-2なので6エネ。2枚目が無ければ15ことり）、余ったエネルギーで2コス
     script: {
       // 3T：Music S.T.A.R.T!!でコスト-2の17真姫を9から出す（AIは15を選びがちなので手順で決める）。にこで起きた2エネで2コス
+      //     （Music S.T.A.R.T!!が成功していなければ17真姫は出せないので、9-2のまま Music S.T.A.R.T!! をもう一度打つ）
       3: [{ play: { id: MAKI17 }, onto: { cost: 9 } }, { play: { cost: 2 } }],
-      // 4T：2コスがいなければ4コスからでもよい（9→4のバトンタッチは5エネ）
-      4: [{ oneOf: [{ play: { id: NIKO9 }, onto: { cost: 2 } }, { play: { cost: 9 }, onto: { cost: 2 } }, { play: { id: NIKO9 }, onto: { cost: 4 } }, { play: { cost: 9 }, onto: { cost: 4 } }] }],
+      // 4T：17真姫がいれば2コスか4コスから9へ（9→2は7エネ）。
+      //     いなければ（1ターン遅れの流れ）、3TのMusic S.T.A.R.T!!でコスト-2の17真姫を9から出し、にこで起きた2エネで2コス
+      4: [
+        { ifStage: { id: MAKI17 }, oneOf: [{ play: { id: NIKO9 }, onto: { cost: 2 } }, { play: { cost: 9 }, onto: { cost: 2 } }, { play: { id: NIKO9 }, onto: { cost: 4 } }, { play: { cost: 9 }, onto: { cost: 4 } }] },
+        { ifNoStage: { id: MAKI17 }, ifSuccess: MS, play: { id: MAKI17 }, onto: { cost: 9 } },
+        { play: { cost: 2 } },
+      ],
+      // 5T：9から17真姫（いなければ15ことり）。余ったエネルギーで2コス（ライブ回収）
+      //     1ターン遅れの流れでは、9が無いので2コスから9へ
       5: [
+        { oneOf: [{ play: { id: MAKI17 }, onto: { cost: 9 } }, { play: { id: 'PL!-bp6-003' }, onto: { cost: 9 } }, { play: { id: NIKO9 }, onto: { cost: 2 } }, { play: { cost: 9 }, onto: { cost: 2 } }] },
+        { play: { cost: 2 } },
+      ],
+      // 6T（1ターン遅れの流れ）：9から17真姫、余りで2コス
+      6: [
         { oneOf: [{ play: { id: MAKI17 }, onto: { cost: 9 } }, { play: { id: 'PL!-bp6-003' }, onto: { cost: 9 } }] },
         { play: { cost: 2 } },
       ],
@@ -72,9 +85,12 @@ export default {
       // 2T：9にこ（Music S.T.A.R.T!!の色を1人で満たす。3Tに17真姫へバトンタッチすると2エネ起きる）
       2: { board: [[{ id: NIKO9 }], [9]], lives: [[MS]] },
       // 3T：Music S.T.A.R.T!!でコスト-2の17真姫を9にこから出し（6エネ）、にこで起きた2エネで2コス
-      3: { board: [[{ id: MAKI17 }, 2], [17, 2]], lives: [[ARASHI]] },
+      //     Music S.T.A.R.T!!が成功していなければ、9-2で Music S.T.A.R.T!! をもう一度（1ターン遅れの流れ）
+      3: { board: [[{ id: MAKI17 }, 2], [17, 2]], lives: [[ARASHI]],
+        alt: [{ ifNoSuccess: MS, board: [[{ id: NIKO9 }, 2], [9, 2]], lives: [[MS], [ARASHI]] }] },
       4: { board: [[{ id: MAKI17 }, 9], [17, 9]], lives: [[ARASHI, MS]] },
       5: { board: [[{ id: MAKI17 }, { id: MAKI17 }, 2], [17, 17, 2], [{ id: MAKI17 }, 15, 2]], lives: [[BOKUHIKA]] },
+      6: { board: [[{ id: MAKI17 }, { id: MAKI17 }, 2], [17, 17, 2]], lives: [[BOKUHIKA], [ARASHI, MS]] },
     },
     // ライブセットフェイズの手札交換：キーカードが手札に無ければ、ライブカード置き場を3枚まで埋めて引き直す
     //  1T：9にこ（2Tに出す）／Music S.T.A.R.T!!（2Tに打つ）　1・2T：17真姫（3Tに出す）。キーカードとMusic S.T.A.R.T!!は置かない
