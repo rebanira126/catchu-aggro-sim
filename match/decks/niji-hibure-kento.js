@@ -34,7 +34,8 @@ const LATE_LIVES = (() => {
   for (const a of AXES) for (const b of OTHERS) for (const c of OTHERS) add([a, b, c]);
   return out;
 })();
-const FINAL_LIVES = [[JB, LOVEU], [JB, TOKI], [CARA, LOVEU], [CARA, TOKI]];
+// Just Believe!!!＋Landing action Yeah!!（8点）でもよい（友人の回し方）
+const FINAL_LIVES = [[JB, LOVEU], [JB, TOKI], [CARA, LOVEU], [CARA, TOKI], [JB, LANDING]];
 
 export default {
   id: "niji-hibure-kento",
@@ -88,7 +89,7 @@ export default {
   strategy: {
     // fillPrefer：ライブフェイズで伏せて控え室に送りたいカード（ブレードハートを持たないメンバー。15エマで戻してエネルギーにする）
     // wantLives：2コストや栞子・歩夢で拾うライブ（4T以降の組み合わせで使うライブ）
-    // wantMembers：2コスト（メンバー回収）で拾うメンバー（4Tの盤面の9コスト）
+    // wantMembers：2コスト（メンバー回収）で拾うメンバー。17彼方が手札・ステージに無ければ拾う（友人の回し方：起動で4エネルギー起こせ、6枚控え室に送れる）
     // protFill：空き枠を埋めるための2コストを手札に抱えない（4コスの登場時に手札を捨ててサーチする）
     prefer: {
       // 2コスト（かすみ優先）を2Tから1枚手札に残す。4T・5Tに必ず使う。かすみが控え室にあればそこから出すので残さなくてよい
@@ -98,7 +99,7 @@ export default {
         { from: 3, to: 4, ids: [SHIORIKO9, AI9, KANATA9], cost: 9 },
         { from: 3, to: 5, ids: [EMMA15, EMMA17] },
       ],
-      wantLives: [JB, LOVEU, TOKI, CARA], wantMembers: [SHIORIKO9, KANATA9], fillPrefer: [EMMA15, KANATA17, KANATA9, AI9, SHIORIKO9, 'PL!N-sd2-010', 'PL!N-sd2-001'], protFill: false },
+      wantLives: [JB, LOVEU, TOKI, CARA], wantMembers: [KANATA17], fillPrefer: [EMMA15, KANATA17, KANATA9, AI9, SHIORIKO9, 'PL!N-sd2-010', 'PL!N-sd2-001'], protFill: false },
     mulliganOpt: {
       // 友人の方針：15エマ・9コスト（愛→彼方→栞子）・4コスト（璃奈→彼方→花帆）を1枚ずつ必ず残す
       // ライブは基本すべて戻す。15エマ・9コスト・4コストがそろったときだけ Landing action Yeah!! を1枚残してよい
