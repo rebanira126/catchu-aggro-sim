@@ -251,7 +251,8 @@ export default {
   'PL!SP-pb2-001': {
     note: '登場：手札1枚を捨ててよい→デッキの上5枚からコスト4以下のLiella!メンバーを1枚、空いているエリアに登場させるか手札に',
     onEnter({ g, me }) {
-      if (!willDiscard(g, me)) return;
+      // 空いているエリアがあれば、手札を1枚払ってでもメンバーを1人増やす（盤面が1人増えるのは手札1枚より大きい）
+      if (!(willDiscard(g, me) || (me.stage.some(s => !s) && me.hand.length >= 2))) return;
       discardWorst(g, me, 1);
       const top = takeTop(g, me, 5);
       const pick = pickBest(g, me, top, c => isMember(c) && c.def.cost <= 4 && inGroup(c.def, 'Liella!'));

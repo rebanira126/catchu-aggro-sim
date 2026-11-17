@@ -65,7 +65,7 @@ export default {
       2: [{ play: { id: CHISATO10 }, area: 2 }],
       // 3T：左サイドに4（7エネなら4かのんでランプ、ほかはランプの4）、センターに2
       3: [{ oneOf: [{ play: { id: KANON4 }, area: 0 }, { play: { ids: RAMP4 }, area: 0 }, { play: { cost: 4 }, area: 0 }] }, { play: { cost: 2 }, area: 1 }],
-      4: [{ play: { id: KEKE13 }, area: 0 }],
+      4: [{ oneOf: [{ play: { id: KEKE13 }, area: 0 }, { play: { ids: THIRTEENS }, area: 0 }] }],
       5: [{ play: { cost: 17 }, area: 0 }],
       6: [{ play: { cost: 20 }, area: 1 }],
     },
