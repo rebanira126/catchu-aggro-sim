@@ -181,6 +181,9 @@ export class Game {
   liveNeed(P, card) {
     const need = card.def.need.slice();
     for (const { ef } of this.zoneStatics(P, 'needMod')) ef.needMod({ g: this, me: P, card, need });
+    // 相手のステージのメンバーの常時能力（oppNeedMod：相手のライブの必要ハートを変える）
+    const O = this.opp(P);
+    if (O) O.stage.forEach((s, area) => { const ef = s && this.effect(s.card); if (ef && ef.oppNeedMod) ef.oppNeedMod({ g: this, me: O, opp: P, card, need, slot: s, area }); });
     for (let i = 0; i < need.length; i++) need[i] = Math.max(0, need[i]);
     return need;
   }
@@ -225,6 +228,8 @@ export class Game {
     P.stage.forEach((s, area) => {
       if (!s) return;
       const ef = this.effect(s.card);
+      // 「【ライブ開始時】能力を無効にする」効果（mods の noLiveStart）を受けたメンバーは、ライブ開始時能力を使わない
+      if (hook === 'liveStart' && s.mods.some(m => m.noLiveStart)) return;
       if (ef && ef[hook]) list.push({ ef, ctx: { g: this, me: P, opp, card: s.card, slot: s, area, lives: P.lives, ...extra } });
     });
     for (const live of P.lives.slice()) {
