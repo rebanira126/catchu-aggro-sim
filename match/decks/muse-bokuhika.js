@@ -49,8 +49,10 @@ export default {
   // ・空いた枠にはコスト4以下のメンバーを伏せて引き直す
   strategy: {
     // 5Tの17真姫-17真姫-2（僕光）のため、3Tから2枚目の17真姫と、9（にこ優先。5Tに17真姫へ乗る先）を手札に残す
-    prefer: { hold: [{ from: 3, to: 5, ids: [MAKI17] }, { from: 3, to: 4, ids: [NIKO9], cost: 9 }] },
-    mulliganOpt: { keep: [{ ids: [MS], n: 1 }, { ids: [NIKO9], n: 1 }, { ids: [ERI4], group: 'c4', n: 1 }, { cost: 4, group: 'c4' }] },
+    // 3Tに17真姫のあとに出す2コスも、1Tから手札に残す
+    prefer: { hold: [{ from: 3, to: 5, ids: [MAKI17] }, { from: 3, to: 4, ids: [NIKO9], cost: 9 }, { from: 1, to: 3, cost: 2 }] },
+    // マリガン：キーカード（Music S.T.A.R.T!!・9にこ・17真姫）と、4コス（絵里優先。9にこや17真姫を探せる）を1枚ずつ残す
+    mulliganOpt: { keep: [{ ids: [MS], n: 1 }, { ids: [NIKO9], n: 1 }, { ids: [MAKI17], n: 1 }, { ids: [ERI4], group: 'c4', n: 1 }, { cost: 4, group: 'c4' }] },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
     // 手順（noteより）。17真姫の起動は手順の前に使う。出せないときはいつものAIの判断に戻る
     //  4T：2コスから9にバトンタッチ（9にこ優先。5Tに17真姫へ乗る先を作る）
@@ -71,6 +73,15 @@ export default {
       4: { board: [[{ id: MAKI17 }, 9], [17, 9]], lives: [[ARASHI, MS]] },
       5: { board: [[{ id: MAKI17 }, { id: MAKI17 }, 2], [17, 17, 2], [{ id: MAKI17 }, 15, 2]], lives: [[BOKUHIKA]] },
     },
-    liveOpt: { fill: true, fillMaxCost: 4, minP: 0.4, th1: 0.3 },
+    // ライブセットフェイズの手札交換：キーカードが手札に無ければ、ライブカード置き場を3枚まで埋めて引き直す
+    //  1T：9にこ（2Tに出す）／Music S.T.A.R.T!!（2Tに打つ）　1・2T：17真姫（3Tに出す）。キーカードとMusic S.T.A.R.T!!は置かない
+    liveOpt: {
+      fill: true, fillMaxCost: 4, minP: 0.4, th1: 0.3,
+      digFor: [
+        { ids: [NIKO9], turns: [1], n: 3, keep: [MS, MAKI17], label: '9にこ', skipIfStage: true },
+        { ids: [MS], turns: [1], n: 3, keep: [NIKO9, MAKI17], label: 'Music S.T.A.R.T!!' },
+        { ids: [MAKI17], turns: [1, 2], n: 3, keep: [NIKO9, MS], label: '17真姫', skipIfStage: true },
+      ],
+    },
   },
 };
