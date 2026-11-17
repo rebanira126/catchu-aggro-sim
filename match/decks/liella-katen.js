@@ -40,7 +40,7 @@ export default {
   plan: {
     board: "4 → 9 → 15かのん-4-2 → 17-9（-2）→ 17-17",
     score: "1 → 1〜 → 4〜（しゃがみも多い）→ 8〜10 → 14〜",
-    mulligan: "2コス（恋・マルガレーテ）、4コス若菜四季（9コス以上サーチ）、1点ライブ",
+    mulligan: "1点ライブ2枚、4コス（若菜四季優先）、9コス、2コス（恋・マルガレーテ）1枚",
     lives: "1T・2T：Let's be ONE／始まりは君の空（1点）を置く／3T：しゃがむことが多い／4T：17若菜四季＋9コスで Shooting Voice!!＋始まりは君の空（10点〜）／5T：14点〜",
     key: "17若菜四季（エールの非ブレLiella!メンバー2枚ごとに+1、最大+2）、15澁谷かのん、4すみれ・夏美（ブレハなしで色ハート）、4夏美pb2-009（ウェイト妨害）",
     refs: ["https://note.com/ryo_25_51/n/n6915083b37cc", "https://note.com/724chu/n/n445f9bffa257", "https://note.com/poke_lovelive/n/nbfe1b972d27f"],
@@ -52,8 +52,8 @@ export default {
   // ・ライブ：成功2枚までは1点ライブで進め（始まりは君の空・Shooting Voice!! は成功2枚から強い）、そのあとは大きく取りに行く
   // ・空いた枠にはコスト4以下のメンバーを伏せて引き直す
   strategy: {
-    // マリガン：コスト2（葉月 恋・ウィーン・マルガレーテ）を2枚、4若菜四季、1点ライブ
-    mulliganOpt: { keep: [{ ids: ['PL!SP-pb2-016', 'PL!SP-pb1-021'], n: 2 }, { ids: ['PL!SP-bp5-008'], n: 1 }, { ids: [LBO, HAJI], n: 1 }] },
+    // マリガン：1点ライブを2枚（序盤のライブを切らさない）、1Tの4（若菜四季を優先）、2Tの9、コスト2（葉月 恋・マルガレーテ）を1枚
+    mulliganOpt: { keep: [{ ids: ['PL!SP-pb2-016', 'PL!SP-pb1-021'], n: 1 }, { ids: [SHIKI4], n: 1, group: 'c4' }, { cost: 4, group: 'c4' }, { ids: NINES, n: 1 }, { ids: [LBO, HAJI], n: 2 }] },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
     // 9・15かのん・17四季は使うターンまで手札に残す
     prefer: { hold: [{ from: 1, to: 2, ids: NINES }, { from: 1, to: 3, ids: [KANON15] }, { from: 2, to: 5, ids: [SHIKI17] }, { from: 3, to: 4, ids: NINES }] },
