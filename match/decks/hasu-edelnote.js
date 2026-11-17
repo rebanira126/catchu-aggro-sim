@@ -8,6 +8,7 @@ const IZUMI2 = 'PL!HS-pb1-016';  // 桂城 泉（コスト2）
 const CERES4 = 'PL!HS-sd1-007';  // セラス 柳田 リリエンフェルト（コスト4）
 const SAYAKA11 = 'PL!HS-bp1-002'; // 村野さやか（コスト11）
 const KAHO9 = 'PL!HS-sd1-001';    // 日野下花帆（コスト9）
+const NINES = [KAHO9, 'PL!HS-bp5-016', 'PL!HS-cl1-004']; // 9コス（花帆・泉・吟子）
 
 export default {
   id: "hasu-edelnote",
@@ -51,20 +52,39 @@ export default {
   strategy: {
     // 3Tの11さやかを手札に残す
     // 15セラスは控え室に置いておき、11村野さやかの起動で踏み倒す（PR-032は登場時にスコア6以上のライブを回収）
-    prefer: { toWaiting: ['PL!HS-bp6-007', 'PL!HS-PR-032'], hold: [{ from: 1, to: 3, ids: [SAYAKA11] }] },
-    mulliganOpt: { keep: [{ ids: [IZUMI2], n: 2 }, { ids: [CERES4], n: 1 }, { ids: [SAYAKA11], n: 1 }, { ids: [KAHO9], n: 1 }, { ids: [RETRO, EDELIED], n: 1 }, { ids: [LANDING, KAGUYA], n: 1 }] },
+    prefer: { toWaiting: ['PL!HS-bp6-007', 'PL!HS-PR-032'], hold: [{ from: 1, to: 5, ids: [SAYAKA11] }, { from: 3, to: 4, ids: [KAHO9] }] },
+    mulliganOpt: { keep: [{ ids: [IZUMI2], n: 2 }, { ids: [CERES4], n: 1 }, { ids: [SAYAKA11], n: 1 }, { ids: [KAHO9], n: 1, group: 'c9' }, { cost: 9, group: 'c9' }, { ids: [RETRO, EDELIED], n: 1 }, { ids: [LANDING, KAGUYA], n: 1 }] },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
     // 1T 4 → 2T 9日野下花帆 → 3T 11村野さやか（花帆からのバトンタッチでエネルギー2枚アクティブ → さやかの起動で控え室の15セラスを登場）
+    script: {
+      // 1T：4コス（2Tに9へバトンタッチする先）
+      1: [{ play: { cost: 4 } }],
+      // 2T：4コスから9（花帆優先）へバトンタッチ
+      2: [{ oneOf: [{ play: { id: KAHO9 }, onto: { cost: 4 } }, { play: { cost: 9 }, onto: { cost: 4 } }] }],
+      // 4T：2コスか4コスから9（花帆優先）へバトンタッチ
+      4: [{ ifStage: { cost: 15 }, oneOf: [{ play: { id: KAHO9 }, onto: { cost: 4 } }, { play: { id: KAHO9 }, onto: { cost: 2 } }, { play: { cost: 9 }, onto: { cost: 4 } }, { play: { cost: 9 }, onto: { cost: 2 } }] }],
+      // 5T：9から15（手札の15を直接なら6エネ）か、11さやか（起動で控え室の15に入れ替わる）
+      5: [{ ifStage: { cost: 15 }, oneOf: [{ play: { cost: 15 }, onto: { cost: 9 } }, { play: { id: SAYAKA11 }, onto: { cost: 9 } }] }, { play: { cost: 2 } }],
+    },
     turnPlan: {
       1: { board: [[4], [2, 2]], lives: [[LANDING], [KAGUYA]] },
       // 2T：9コス（花帆ならさやかへのバトンタッチで2エネ起きる）。どの9でも、3Tに11さやか（2エネ）＋さやかの起動（2エネ）で15セラスまで届く
       2: { board: [[{ id: KAHO9 }], [9], [2, 4]], lives: [[LANDING], [KAGUYA]] },
       3: { board: [[{ id: SAYAKA11 }, 2], [15, 2]], lives: [[RETRO]] },
-      4: { board: [[15, 2], [15, 4]], lives: [[EDELIED]] },
-      5: { board: [[15, 15, 2]], lives: [[EDELIED], [EDELIED, RETRO]] },
+      // 4T：15-9-2（9花帆は5Tに11さやかへバトンタッチして2エネ起こす）。Landing action Yeah!!＋Edeliedで8〜9点
+      4: { board: [[15, { id: KAHO9 }, 2], [15, 9, 2], [15, 2], [15, 4]], lives: [[EDELIED, LANDING], [EDELIED]] },
+      // 5T：9花帆→11さやか（花帆で2エネ起きる）→さやかの起動で控え室の15セラス。15-15-2で Edelied＋Retrofuture の11点
+      5: { board: [[15, 15, 2]], lives: [[EDELIED, RETRO], [EDELIED]] },
       // 6T以降：11泉-15-15 などで Edelied×2（34要求）か Edelied＋Retrofuture
       6: { board: [[15, 15, 11], [15, 15, 13]], lives: [[EDELIED, EDELIED], [EDELIED, RETRO], [EDELIED]] },
     },
-    liveOpt: { fill: true, fillMaxCost: 4, minP: 0.4, th1: 0.3 },
+    // ライブセットフェイズの手札交換：1Tは9（2Tに出す）、1・2Tは11さやか（3Tに出す）が手札に無ければ引き直す
+    liveOpt: {
+      fill: true, fillMaxCost: 4, minP: 0.4, th1: 0.3,
+      digFor: [
+        { ids: NINES, turns: [1], n: 3, keep: [SAYAKA11], label: '9コス', skipIfStage: true },
+        { ids: [SAYAKA11], turns: [1, 2], n: 3, keep: NINES, label: '11さやか' },
+      ],
+    },
   },
 };

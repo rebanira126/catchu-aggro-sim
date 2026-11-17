@@ -669,6 +669,8 @@ function runScript(api) {
   if (steps.length) useAbilities(api, { keep: keepFrom(0) });
   for (const [i, st0] of steps.entries()) {
     // oneOf：書いた順に試して、最初にできたものだけ行う（例：9にこがいれば9にこ、いなければほかの9）
+    // ifStage：ステージにこのメンバーがいるときだけ行う（例：15がいるときだけ9へバトンタッチ）
+    if (st0.ifStage && !me.stage.some(x => x && matchSpec(st0.ifStage, x.card.def))) continue;
     for (const st of st0.oneOf || [st0]) {
       if (!st.play) continue;
       const idx = me.hand.findIndex(c => c.def.kind === 'M' && matchSpec(st.play, c.def));
