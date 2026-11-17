@@ -50,7 +50,8 @@ export default {
   // ・ライブ置き場の空き枠にコスト4以下のメンバーを伏せて引き直す
   strategy: {
     // 13（渡辺 曜・松浦果南）は控え室に置いておき、13津島善子の起動で 11→13 に入れ替えて登場させる（登場時の効果も使える）
-    prefer: { toWaiting: ['PL!S-bp2-005', 'PL!S-bp5-003'] },
+    // 4国木田花丸も控え室に置いておく：3Tに13善子の起動で 2→4 に入れ替えて登場（控え室から登場するとデッキの上3枚から1枚手札に）
+    prefer: { toWaiting: ['PL!S-bp2-005', 'PL!S-bp5-003', 'PL!S-bp6-016'] },
     // マリガン：1Tの4コス（優木あんじゅを優先）、9コス（高海千歌・徒町小鈴）、Guilty Night, Guilty Kiss!
     mulliganOpt: { keep: [{ ids: ['PL!-bp5-222'], group: 'c4', n: 1 }, { cost: 4, group: 'c4' }, { ids: ['PL!S-bp7-001', 'PL!HS-pb1-013'], n: 1 }, { ids: [GN], n: 1 }] },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1, planWeight: 6 },

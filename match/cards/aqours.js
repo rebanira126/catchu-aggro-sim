@@ -152,7 +152,16 @@ export default {
     activated: [{
       once: 1,
       can: ({ area, slot, me }) => area === 1 && slot.active && me.hand.length >= 1,
-      ai: ({ g, me, area, slot }) => area === 1 && slot.active && !!swapTarget(g, me, slot) && willDiscard(g, me),
+      // 4T以降は 11→13 の入れ替えに取っておく（先に 2→4 で使うと、11国木田花丸を出したあとに使えない）。メインの最後なら何にでも使う
+      ai: ({ g, me, area, slot, late }) => {
+        // 手札を1枚捨てるのはこのデッキの進行の要なので、手札が3枚以上あれば捨てる価値の低いカードを払う
+        if (!(area === 1 && slot.active && (willDiscard(g, me) || me.hand.length >= 3))) return false;
+        const t = swapTarget(g, me, slot);
+        if (!t) return false;
+        if (late || g.turn <= 3 || t.up.def.cost >= 13) return true;
+        // 手札に11があり、この後に出せそうなら待つ
+        return !me.hand.some(c => isMember(c) && c.def.cost === 11 && isAq(c));
+      },
       run({ g, me, slot }) {
         const t = swapTarget(g, me, slot);
         if (!t) return false;
