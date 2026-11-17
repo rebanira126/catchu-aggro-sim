@@ -674,6 +674,7 @@ function runScript(api) {
     if (st0.ifStage && !me.stage.some(x => x && matchSpec(st0.ifStage, x.card.def))) continue;
     // ifWaiting：控え室にこのカードがあるときだけ行う（例：控え室に15セラスがいるときだけ11さやか）
     if (st0.ifWaiting && !me.waiting.some(c => matchSpec(st0.ifWaiting, c.def))) continue;
+    if (!condOk(me, st0)) continue;
     for (const st of st0.oneOf || [st0]) {
       if (!st.play) continue;
       if (st !== st0 && st.ifWaiting && !me.waiting.some(c => matchSpec(st.ifWaiting, c.def))) continue;
@@ -701,7 +702,19 @@ function runScript(api) {
 export function turnTarget(me, turn) {
   const tp = me && me.turnPlan;
   if (!tp) return null;
-  return tp[turn] || null;
+  const t = tp[turn] || null;
+  // alt：条件に合うときは、その盤面・ライブの目標に差し替える（例：2TのMusic S.T.A.R.T!!が成功していないとき）
+  if (t && t.alt) for (const a of t.alt) if (condOk(me, a)) return { ...t, ...a, alt: undefined };
+  return t;
+}
+
+// 手順・目標の条件：ifSuccess / ifNoSuccess（成功ライブ置き場にこのカードがある／無い）、ifNoStage（ステージにいない）
+const hasId = (cards, ids) => cards.some(c => [].concat(ids).includes(c.def.id));
+export function condOk(me, a) {
+  if (a.ifSuccess && !hasId(me.success, a.ifSuccess)) return false;
+  if (a.ifNoSuccess && hasId(me.success, a.ifNoSuccess)) return false;
+  if (a.ifNoStage && me.stage.some(x => x && matchSpec(a.ifNoStage, x.card.def))) return false;
+  return true;
 }
 
 // 盤面がどれだけ目標に近いか（0〜1）。候補のうち一番近いもので測る
