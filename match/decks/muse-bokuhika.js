@@ -100,6 +100,8 @@ export default {
         { ids: [NIKO9], turns: [1], n: 3, keep: [MS, MAKI17], label: '9にこ', skipIfStage: true },
         { ids: [MS], turns: [1], n: 3, keep: [NIKO9, MAKI17], label: 'Music S.T.A.R.T!!' },
         { ids: [MAKI17], turns: [1, 2], n: 3, keep: [NIKO9, MS], label: '17真姫', skipIfStage: true },
+        // 2Tは3Tに打つ嵐のなかの恋だからを探す
+        { ids: [ARASHI], turns: [2], n: 3, keep: [MAKI17, NIKO9, MS], label: '嵐のなかの恋だから' },
         // 3・4Tは5Tに使う2枚目の17真姫と、4Tに出す9を探す
         { ids: [MAKI17], turns: [3, 4], n: 3, keep: [NIKO9, BOKUHIKA, 'PL!-bp6-013'], label: '2枚目の17真姫' },
         { ids: [NIKO9, 'PL!-bp6-013'], turns: [3], n: 3, keep: [MAKI17, BOKUHIKA], label: '9（4Tに出す）' },
