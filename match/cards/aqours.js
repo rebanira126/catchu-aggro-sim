@@ -107,10 +107,19 @@ export default {
   'PL!S-bp7-001': {
     note: '登場：手札1枚を捨ててよい→控え室のコスト10以上のメンバーを1枚手札に。「桜内梨子」か「渡辺 曜」ならブレード+2',
     onEnter({ g, me, slot }) {
-      if (!me.waiting.some(c => isMember(c) && c.def.cost >= 10) || !willDiscard(g, me)) return;
-      discardWorst(g, me, 1);
-      const c = recover(g, me, x => isMember(x) && x.def.cost >= 10, '高海千歌：');
-      if (c && (hasName(c.def, '桜内梨子') || hasName(c.def, '渡辺 曜'))) slot.mods.push({ blades: 2, untilLiveEnd: true });
+      const yr = c => isMember(c) && c.def.cost >= 10 && (hasName(c.def, '桜内梨子') || hasName(c.def, '渡辺 曜'));
+      // 控え室に曜・梨子がいなくても、手札の曜・梨子を払ってそのまま拾い直せばブレード+2（noteの「捨てて拾って」）
+      const loop = !me.waiting.some(yr) && me.hand.find(yr);
+      if (loop) {
+        me.hand.splice(me.hand.indexOf(loop), 1); me.waiting.push(loop);
+        g.log(me, 'eff', `高海千歌：手札の${cardLabel(loop)}を控え室に置いた`);
+      } else {
+        if (!me.waiting.some(c => isMember(c) && c.def.cost >= 10) || !willDiscard(g, me)) return;
+        discardWorst(g, me, 1);
+      }
+      // 曜・梨子を優先して拾う（ブレード+2）
+      const c = (me.waiting.some(yr) && recover(g, me, yr, '高海千歌：')) || recover(g, me, x => isMember(x) && x.def.cost >= 10, '高海千歌：');
+      if (c && yr(c)) slot.mods.push({ blades: 2, untilLiveEnd: true });
     },
   },
   // 国木田花丸（11）bp7-007
