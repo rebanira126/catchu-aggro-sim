@@ -303,6 +303,9 @@ export class Game {
   putMember(P, card, area, { baton = false, from = 'hand', second = null } = {}) {
     const prev = P.stage[area];
     const slot = { card, active: true, under: [], enteredTurn: this.turn, mods: [] };
+    // このターンに自分のステージにメンバーが登場した回数（「メンバーが3回登場したとき」などが見る）
+    if (!P.entries || P.entries.turn !== this.turn) P.entries = { turn: this.turn, n: 0 };
+    P.entries.n++;
     this.log(P, 'play', `${AREAS[area]}に${cardLabel(card)}を${baton ? 'バトンタッチで' : ''}登場`);
     if (prev) {
       // バトンタッチ、または重複メンバー処理（10.4）：前のメンバーは控え室へ

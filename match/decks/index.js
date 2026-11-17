@@ -9,5 +9,6 @@ import d5 from './catchu-basic.js';
 import d6 from './liella-katen.js';
 import d7 from './liella-tower.js';
 import d8 from './niji-hibure-kento.js';
+import d10 from './niji-hibure.js';
 
-export const BUILTIN_DECKS = [d0, d9, d1, d2, d3, d4, d5, d6, d7, d8];
+export const BUILTIN_DECKS = [d0, d9, d1, d2, d3, d4, d5, d6, d7, d8, d10];
