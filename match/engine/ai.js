@@ -3,6 +3,16 @@
 import { emptyPool, addHearts, addBladeHeart, meetAll, needTotal, poolTotal } from './hearts.js';
 import { AREAS, cardLabel } from './game.js';
 
+export const UTIL_LIVE = 6, UTIL_ENERGY = 4;
+const RE_LIVE_REC = /控え室から.{0,20}ライブカードを.{0,6}手札に加える/;
+const RE_ENERGY = /エネルギーを.{0,6}アクティブにする|エネルギーデッキから.{0,20}置く/;
+export function utilityOf(def) {
+  if (!def || def.kind !== 'M') return { live: false, energy: false };
+  if (!def._util) def._util = { live: RE_LIVE_REC.test(def.text || ''), energy: RE_ENERGY.test(def.text || '') };
+  return def._util;
+}
+
+
 // メンバー1人の「強さ」の目安：ハートの数＋ブレードの数（ブレードはエールの枚数）
 // デッキごとの「優先したいメンバー」（strategy.prefer）：{ unit, ids, w }。手札の評価・マリガン・入れ替えで少し高く見る
 export function preferBonus(me, def) {
@@ -260,7 +270,10 @@ export function bestPlays(g, me, opt = {}) {
   const bonusOf = c => c.plan.reduce((sum, st) => {
     const card = me.hand.find(x => x.uid === st.uid);
     const ef = card && g.effect(card);
-    return sum + (ef && ef.aiBonus ? ef.aiBonus({ g, me, card, area: st.area }) || 0 : 0);
+    // ライブ回収・エネルギー回復を持つメンバーを出す価値（このゲームではとても強い効果。opt.utilWeight で調整）
+    const u = card ? utilityOf(card.def) : null;
+    const ub = u ? (opt.utilWeight ?? 1) * ((u.live && me.waiting.some(c => c.def.kind === 'L') ? 1 : 0) + (u.energy ? 0.5 : 0)) : 0;
+    return sum + ub + (ef && ef.aiBonus ? ef.aiBonus({ g, me, card, area: st.area }) || 0 : 0);
   }, 0);
   const useLive = opt.liveAware !== false && lives.length > 0;
   const top = cands.slice(0, opt.topK ?? 30);

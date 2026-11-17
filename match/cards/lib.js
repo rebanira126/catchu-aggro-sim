@@ -1,6 +1,6 @@
 // カード効果を書くときの共通の道具（判断のしかたも含む）
 import { cardLabel } from '../engine/game.js';
-import { memberValue, protectedCards, preferBonus, turnTarget } from '../engine/ai.js';
+import { memberValue, protectedCards, preferBonus, turnTarget, utilityOf, UTIL_LIVE, UTIL_ENERGY } from '../engine/ai.js';
 
 export const inGroup = (def, g) => def.groups.includes(g);
 export const inUnit = (def, u) => def.unit === u;
@@ -30,6 +30,7 @@ export function takeTop(g, me, n) {
 
 // ---------------- 判断の目安 ----------------
 // カード1枚の「手札に持っておきたさ」。捨てるときは低いものから、拾うときは高いものから選ぶ
+// ライブ回収・エネルギー回復（このゲームではとても強い効果）を持つメンバーか（カードの文章から判定）
 export function cardWorth(g, me, card) {
   const inHand = me.hand.includes(card);
   // 控え室に置いておきたいカード（strategy.prefer.toWaiting）：手札では一番いらない札として扱う
@@ -51,7 +52,10 @@ export function cardWorth(g, me, card) {
   // バトンタッチで減る分も考えた、次のターンに出すのに必要なエネルギー
   const onStage = Math.max(0, ...me.stage.filter(Boolean).map(s => s.card.def.cost));
   const c = Math.max(0, card.def.cost - onStage);
-  const v = memberValue(card.def) + preferBonus(me, card.def) + planNeed(g, me, card) * 4;
+  // ライブ回収・エネルギー回復を持つメンバーは、手札で持っておく価値を高く見る（捨てにくく、サーチで選ばれやすい）
+  const u = utilityOf(card.def);
+  const ub = (u.live && me.waiting.some(isLive) ? UTIL_LIVE : u.live ? UTIL_LIVE / 2 : 0) + (u.energy ? UTIL_ENERGY : 0);
+  const v = memberValue(card.def) + preferBonus(me, card.def) + planNeed(g, me, card) * 4 + ub;
   if (c <= e + 1) return 4 + v / 4;
   if (c <= e + 4) return 3 + v / 8;
   return 1;
