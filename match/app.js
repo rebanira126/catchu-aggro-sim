@@ -2,10 +2,12 @@
 import { EFFECTS, effectStatus } from './cards/index.js';
 import { buildDb } from './engine/carddb.js';
 import { BUILTIN_DECKS } from './decks/index.js';
-import { playOne, playSolo, makeMatchRunner, makeSoloRunner } from './engine/index.js';
+import { playOne, playSolo } from './engine/index.js';
 import { parseRecipe, recipeText, checkDeck } from './engine/recipe.js';
 import { POINTS, POINT_LIMIT } from './data/points.js';
 import { createDeckStore } from './store/deck-store.js';
+import { createPool } from './engine/pool-browser.js';
+import { plainDeck } from './engine/jobs.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -13,6 +15,7 @@ const pct = (a, b) => (b ? (a / b * 100).toFixed(1) : '0.0');
 const sleep = () => new Promise(r => setTimeout(r, 0));
 
 let DB = null;
+let POOL = null; // 複数のコアで試合を回す（Web Worker）
 let KNOWN = null; // data/known-ids.json（前回取り込んだカード番号）
 const { store, label: storeLabel } = createDeckStore();
 let saved = [];
@@ -107,8 +110,9 @@ function updateEstimate() {
   const n = +$('nGames').value;
   const k = selectedOpps().length;
   const pairs = matchState.mode === 'rr' ? (k * (k - 1)) / 2 : k;
-  // 1試合あたり約3ミリ秒（実測）で見積もり
-  const sec = Math.round(pairs * n * 0.003);
+  // 1試合あたり約60ミリ秒（2026-11 にnodeで実測）で見積もり。複数のコアで回すときはその数で割る
+  const cores = POOL ? POOL.size : 1;
+  const sec = Math.round(pairs * n * 0.06 / cores);
   $('estimate').textContent = `見積もり：${pairs}組 × ${n.toLocaleString()}回 ＝ 約${sec < 60 ? sec + '秒' : Math.round(sec / 60) + '分'}`;
 }
 
@@ -126,14 +130,7 @@ $('oppList').addEventListener('change', updateEstimate);
 $('nGames').addEventListener('change', updateEstimate);
 
 async function runPair(a, b, n, onProg) {
-  const r = makeMatchRunner({ db: DB, effects: EFFECTS, a, b, firstMode: matchState.first, seedBase: 1 });
-  let done = 0;
-  while (done < n) {
-    const k = Math.min(20, n - done);
-    r.step(k); done += k; onProg(k);
-    await sleep();
-  }
-  return r.result();
+  return POOL.run({ kind: 'match', a: plainDeck(a), b: plainDeck(b), firstMode: matchState.first, seedBase: 1, n }, onProg);
 }
 
 $('matchForm').addEventListener('submit', async e => {
@@ -161,7 +158,7 @@ $('matchForm').addEventListener('submit', async e => {
     }
     matchState.last = { mode: matchState.mode, results, opps };
     if (matchState.mode === 'env') renderEnvResult(results); else renderRRResult(results, opps);
-    $('matchMsg').textContent = `計算が終わりました（1組 ${n.toLocaleString()}回）`;
+    $('matchMsg').textContent = `計算が終わりました（1組 ${n.toLocaleString()}回・${(await POOL.usingWorkers()) ? POOL.size + 'コアで計算' : '1コアで計算'}）`;
   } catch (err) {
     $('matchMsg').textContent = '計算中にエラーが起きました：' + err.message;
   } finally {
@@ -267,10 +264,8 @@ $('soloForm').addEventListener('submit', async e => {
   const deck = byKey($('soloBuild').value);
   if (!deck) return;
   const n = +$('soloN').value;
-  const r = makeSoloRunner({ db: DB, effects: EFFECTS, deck, turns: 6 });
   let done = 0;
-  while (done < n) { const k = Math.min(25, n - done); r.step(k); done += k; $('soloBar').style.width = (done / n * 100) + '%'; await sleep(); }
-  const acc = r.result();
+  const acc = await POOL.run({ kind: 'solo', deck: plainDeck(deck), turns: 6, seedBase: 1, n }, k => { done += k; $('soloBar').style.width = (done / n * 100) + '%'; });
   const tg = targets(deck.plan);
   $('soloTable').innerHTML = `<table><thead><tr><th scope="col">ターン</th><th scope="col">目標の点数</th><th scope="col" class="n">ライブ成功率</th><th scope="col" class="n">成功時の平均点</th><th scope="col" class="n">目標に届いた割合</th><th scope="col">判定</th></tr></thead><tbody>${acc.turns.map((T, i) => {
     const target = tg[i] || '-';
@@ -416,7 +411,9 @@ $('xferDo').addEventListener('click', async () => {
 // ---------------- 起動 ----------------
 (async function init() {
   try {
-    DB = buildDb(await fetch('./data/rabuka_cards.json').then(r => r.json()));
+    const raw = await fetch('./data/rabuka_cards.json').then(r => r.json());
+    DB = buildDb(raw);
+    POOL = createPool({ raw, db: DB, effects: EFFECTS });
     KNOWN = await fetch('./data/known-ids.json').then(r => (r.ok ? r.json() : null)).catch(() => null);
     renderReport();
   } catch (e) {
