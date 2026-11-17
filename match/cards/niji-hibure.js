@@ -206,7 +206,10 @@ export default {
     onEnter({ g, me }) {
       const waitE = me.energy.n - me.energy.active;
       // 戻す枚数：ウェイトのエネルギーの数まで（それ以上は戻しても得がない。ただしデッキに非ブレを増やすため最低2枚）
-      const cand = me.waiting.filter(noBH).sort((a, b) => cardWorth(g, me, a) - cardWorth(g, me, b));
+      // 控え室から使うカード（2かすみ：控え室から登場）は1枚は控え室に残す
+      const stay = new Set();
+      for (const c of me.waiting) { const ef = g.effect(c); if (ef && ef.fromWaiting && ![...stay].some(u => me.waiting.find(w => w.uid === u).def.id === c.def.id)) stay.add(c.uid); }
+      const cand = me.waiting.filter(c => noBH(c) && !stay.has(c.uid)).sort((a, b) => cardWorth(g, me, a) - cardWorth(g, me, b));
       const n = Math.min(4, cand.length, Math.max(waitE, 2));
       const put = cand.slice(0, n);
       for (const c of put) { me.waiting.splice(me.waiting.indexOf(c), 1); me.deck.push(c); }
@@ -458,7 +461,8 @@ export default {
     },
     fromWaiting: {
       // メインフェイズの終わりに、空いているエリアがあってエネルギーが余っていれば出す
-      ai: ({ g, me, late }) => late && me.energy.active >= 2 && me.hand.length >= 1 && kasumiArea(g, me) >= 0 && willDiscard(g, me),
+      // 目標の盤面にかすみがあるターンは、手札を1枚捨ててでも出す
+      ai: ({ g, me, late }) => me.energy.active >= 2 && me.hand.length >= 1 && kasumiArea(g, me) >= 0 && (late ? (kasumiWanted(g, me) || willDiscard(g, me)) : kasumiWanted(g, me) && me.stage.some(s => s && s.card.def.cost >= 17)),
       run: ({ g, me, card }) => {
         const area = kasumiArea(g, me);
         if (area < 0 || !g.payEnergy(me, 2)) return false;
@@ -501,6 +505,12 @@ function rinaWants(g, me) {
   const nextE = me.energy.n + 1;
   const top = Math.max(0, ...me.stage.filter(Boolean).map(s => s.card.def.cost), 4);
   return !me.hand.some(c => isMember(c) && c.def.cost >= 9 && c.def.cost - top <= nextE);
+}
+
+// このターンの目標の盤面にかすみがあるか
+function kasumiWanted(g, me) {
+  const tgt = turnTarget(me, g.turn);
+  return !!(tgt && tgt.board && tgt.board.some(b => b.some(x => x && x.id === 'PL!N-bp1-002')));
 }
 
 // かすみを控え室から出すエリア：空いているエリア（このターンに登場したメンバーのいるエリアは選べない）

@@ -408,6 +408,9 @@ export function defaultSetLives(v, opt = {}) {
   const margin = opt.bladeMargin && opt.bladeMargin[Math.min(g.turn, Math.max(...Object.keys(opt.bladeMargin).map(Number)))];
   if (est && margin) est = { ...est, blades: Math.max(0, est.blades - margin) };
   let best = null;
+  // そのターン以降は、この点数に届かない組み合わせは置かない（opt.minScore：{ ターン: 最低点 }。書いたターンより後も同じ点）
+  const msKeys = opt.minScore ? Object.keys(opt.minScore).map(Number).filter(t => t <= g.turn) : [];
+  const minScore = msKeys.length ? opt.minScore[Math.max(...msKeys)] : null;
   // 相手の点数の見込みがあるとき（対戦）は、相手と比べた勝ち負けで選ぶ
   const oppD = opt.oppAware === false ? null : oppDistribution(g, me);
   let bestU = null;
@@ -416,6 +419,7 @@ export function defaultSetLives(v, opt = {}) {
     const p = successRate(g, me, pick.map(x => x.c), est, samples, st);
     const score = pick.reduce((s, x) => s + previewScore(g, me, x.c), 0) + (st.adj || 0);
     if (g.trace) g.listLog(me, 'est', pick.map(x => x.c), t => `ライブの候補 ${t}：成功の見込み${Math.round(p * 100)}%・成功時の点数${score.toFixed(1)}点${planLives(g, me, pick.map(x => x.c.def.id)) ? '（このターンの目標の組み合わせ）' : ''}`);
+    if (minScore != null && score < minScore) continue;
     if (oppD) {
       const ids = pick.map(x => x.c.def.id);
       let u = liveUtility(g, me, oppD, p, score);
@@ -708,12 +712,14 @@ export function turnTarget(me, turn) {
   return t;
 }
 
-// 手順・目標の条件：ifSuccess / ifNoSuccess（成功ライブ置き場にこのカードがある／無い）、ifNoStage（ステージにいない）
+// 手順・目標の条件：ifSuccess / ifNoSuccess（成功ライブ置き場にこのカードがある／無い）、ifNoStage（ステージにいない）、ifHand（手札にある）
 const hasId = (cards, ids) => cards.some(c => [].concat(ids).includes(c.def.id));
 export function condOk(me, a) {
   if (a.ifSuccess && !hasId(me.success, a.ifSuccess)) return false;
   if (a.ifNoSuccess && hasId(me.success, a.ifNoSuccess)) return false;
   if (a.ifNoStage && me.stage.some(x => x && matchSpec(a.ifNoStage, x.card.def))) return false;
+  // ifHand：書いたカードが全部手札にあるときだけ（1つでも配列でもよい）
+  if (a.ifHand && ![].concat(a.ifHand).every(sp => me.hand.some(c => matchSpec(sp, c.def)))) return false;
   return true;
 }
 
