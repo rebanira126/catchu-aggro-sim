@@ -92,7 +92,7 @@ export default {
     liveOpt: {
       fill: true, fillMaxCost: 4, minP: 0.4, th1: 0.3,
       // 手札交換：1・2Tは13善子（3Tに出す）、2・3Tは11国木田花丸（4Tに出す）を探す
-      digFor: [{ ids: [YOSHIKO13], turns: [1, 2], n: 3, keep: [HANAMARU11, GN], label: '13善子', skipIfStage: true }, { ids: [HANAMARU11], turns: [2, 3], n: 3, keep: [YOSHIKO13, GN, KOIAQ], label: '11国木田花丸' }],
+      digFor: [{ ids: [YOSHIKO13], turns: [1, 2], n: 3, keep: [HANAMARU11, GN], label: '13善子', skipIfStage: true }, { ids: [HANAMARU11], turns: [2, 3], n: 3, keep: [YOSHIKO13, GN, KOIAQ], label: '11国木田花丸', skipIfStage: true }],
       onlyCombos: { 'PL!S-bp3-019': [{ turn: 4, with: ['PL!S-bp7-025'] }, { turn: 5, with: ['PL!S-bp7-022'] }] },
     },
   },
