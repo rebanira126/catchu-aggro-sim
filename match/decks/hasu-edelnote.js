@@ -49,15 +49,17 @@ export default {
   // プレイ方針（noteの回し方より）
   // ・マリガン：2桂城泉、セラス（4）、11村野さやか、Retrofuture か Edelied
   strategy: {
+    // 3Tの11さやかを手札に残す
     // 15セラスは控え室に置いておき、11村野さやかの起動で踏み倒す（PR-032は登場時にスコア6以上のライブを回収）
-    prefer: { toWaiting: ['PL!HS-bp6-007', 'PL!HS-PR-032'] },
+    prefer: { toWaiting: ['PL!HS-bp6-007', 'PL!HS-PR-032'], hold: [{ from: 1, to: 3, ids: [SAYAKA11] }] },
     mulliganOpt: { keep: [{ ids: [IZUMI2], n: 2 }, { ids: [CERES4], n: 1 }, { ids: [SAYAKA11], n: 1 }, { ids: [KAHO9], n: 1 }, { ids: [RETRO, EDELIED], n: 1 }, { ids: [LANDING, KAGUYA], n: 1 }] },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
     // 1T 4 → 2T 9日野下花帆 → 3T 11村野さやか（花帆からのバトンタッチでエネルギー2枚アクティブ → さやかの起動で控え室の15セラスを登場）
     turnPlan: {
       1: { board: [[4], [2, 2]], lives: [[LANDING], [KAGUYA]] },
-      2: { board: [[{ id: KAHO9 }], [2, 4]], lives: [[LANDING], [KAGUYA]] },
-      3: { board: [[15, 2], [{ id: SAYAKA11 }, 2]], lives: [[RETRO]] },
+      // 2T：9コス（花帆ならさやかへのバトンタッチで2エネ起きる）。どの9でも、3Tに11さやか（2エネ）＋さやかの起動（2エネ）で15セラスまで届く
+      2: { board: [[{ id: KAHO9 }], [9], [2, 4]], lives: [[LANDING], [KAGUYA]] },
+      3: { board: [[{ id: SAYAKA11 }, 2], [15, 2]], lives: [[RETRO]] },
       4: { board: [[15, 2], [15, 4]], lives: [[EDELIED]] },
       5: { board: [[15, 15, 2]], lives: [[EDELIED], [EDELIED, RETRO]] },
     },
