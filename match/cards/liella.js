@@ -191,11 +191,21 @@ export default {
   'PL!SP-bp5-008': {
     note: '登場：自分をウェイトにし手札1枚を捨ててよい→デッキの上5枚からコスト9以上のLiella!メンバーを1枚手札に',
     onEnter({ g, me, slot }) {
-      if (me.hand.some(c => isMember(c) && c.def.cost >= 9)) return;
-      if (!willDiscard(g, me)) return;
+      // デッキの主力のメンバー（strategy.prefer.wantMembers）で、手札にもステージにも無いものがあれば探す
+      const wm = (me.prefer && me.prefer.wantMembers) || [];
+      const have = me.hand.concat(me.stage.filter(Boolean).map(x => x.card));
+      // 配列で書いたものは「どれか1枚あればよい」
+      const missing = wm.map(w => [].concat(w)).filter(ids => !have.some(c => ids.includes(c.def.id))).flat();
+      if (me.hand.some(c => isMember(c) && c.def.cost >= 9) && !missing.length) return;
+      if (!(willDiscard(g, me) || missing.length)) return;
       slot.active = false;
       discardWorst(g, me, 1);
-      lookTake(g, me, 5, c => isMember(c) && c.def.cost >= 9 && inGroup(c.def, 'Liella!'), '若菜四季：');
+      const base = c => isMember(c) && c.def.cost >= 9 && inGroup(c.def, 'Liella!');
+      const top = takeTop(g, me, 5);
+      const pick = top.find(c => base(c) && missing.includes(c.def.id)) || pickBest(g, me, top, base);
+      if (pick) { top.splice(top.indexOf(pick), 1); me.hand.push(pick); }
+      me.waiting.push(...top);
+      g.log(me, 'eff', `若菜四季：デッキの上5枚から${pick ? cardLabel(pick) + 'を手札に加えた' : '手札に加えるカードなし'}`);
     },
     aiBonus({ me }) { return me.hand.some(c => isMember(c) && c.def.cost >= 9) ? 0 : 1.5; },
   },

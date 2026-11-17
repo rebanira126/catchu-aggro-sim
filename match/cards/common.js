@@ -38,7 +38,7 @@ export default {
     activated: [{
       ai: ({ me, slot }) => {
         // デッキの盤面に要るメンバー（strategy.prefer.wantMembers）が手札・ステージに無く、控え室にあるとき
-        const wm = me.prefer && me.prefer.wantMembers;
+        const wm = me.prefer && me.prefer.wantMembers && me.prefer.wantMembers.flat();
         if (wm && !wm.includes(slot.card.def.id) && !me.hand.concat(me.stage.filter(Boolean).map(s => s.card)).some(c => wm.includes(c.def.id)) && me.waiting.some(c => wm.includes(c.def.id))) return true;
         const e = me.energy.active;
         if (me.hand.some(c => isMember(c) && c.def.cost <= e)) return false;
@@ -46,7 +46,7 @@ export default {
       },
       run: ({ g, me, slot, area }) => {
         sacrificeSelf(g, me, slot, area);
-        const wm = me.prefer && me.prefer.wantMembers;
+        const wm = me.prefer && me.prefer.wantMembers && me.prefer.wantMembers.flat();
         (wm && recover(g, me, c => isMember(c) && wm.includes(c.def.id))) || recover(g, me, isMember);
       },
     }],
