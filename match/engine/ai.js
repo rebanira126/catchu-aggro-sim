@@ -659,7 +659,8 @@ function runScript(api) {
   const keepFrom = i => {
     const keep = new Set();
     for (const st0 of steps.slice(i)) for (const st of st0.oneOf || [st0]) {
-      if (!st.play || !st.onto || !me.hand.some(c => c.def.kind === 'M' && matchSpec(st.play, c.def))) continue;
+      // ontoWait（起動能力を使ったあとにバトンタッチする）の相手は、能力を使ってほしいので残さない
+      if (!st.play || !st.onto || st.ontoWait || !me.hand.some(c => c.def.kind === 'M' && matchSpec(st.play, c.def))) continue;
       const s = me.stage.find(x => x && matchSpec(st.onto, x.card.def));
       if (s) { keep.add(s); break; }
     }
