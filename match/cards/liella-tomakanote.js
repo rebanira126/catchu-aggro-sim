@@ -24,6 +24,12 @@ function kaleido(me) { const n = new Set(); for (const x of me.stage) if (x && x
 // ステージにいる、ハートを4つ以上持つ『Liella!』のメンバーの数
 function bigHearts(g, me) { let n = 0; me.stage.forEach((x, a) => { if (!x || !isLiella(x.card)) return; const h = g.heartsOf(me, x, a); if (h.h.reduce((p, q) => p + q, 0) + (h.all || 0) >= 4) n++; }); return n; }
 
+// 自分のセンターの『Liella!』のメンバーのコストが、相手のセンターのメンバーより高いか（相手のセンターが空いているときは比べられないので満たさない）
+function centerHigher(me, opp) {
+  const c = me.stage[1], o = opp && opp.stage && opp.stage[1];
+  return !!(c && o && isLiella(c.card) && c.card.def.cost > o.card.def.cost);
+}
+
 // 手札のメンバーのうち、ステージ・控え室にまだ無い名前の『Liella!』のメンバーの数
 function newHandNames(me) {
   const seen = new Set();
@@ -229,5 +235,19 @@ export default {
     note: 'ライブ開始時：アクティブなエネルギーがあればスコア+1',
     liveStart({ g, me, live }) { if (me.energy.active > 0) { live.bonus += 1; g.log(me, 'eff', 'DAISUKI FULL POWER：スコア+1'); } },
     preview({ me, live }) { if (me.energy.active > 0) live.bonus += 1; },
+  },
+  // ノンフィクション!!（6点）bp4-024
+  'PL!SP-bp4-024': {
+    note: 'ライブ開始時：自分のセンターのLiella!メンバーのコストが相手のセンターのメンバーより高ければスコア+1。左サイドのLiella!メンバーが赤ハート3つ以上なら、そのメンバーはブレード+2',
+    liveStart({ g, me, live }) {
+      if (centerHigher(me, g.opp(me))) { live.bonus += 1; g.log(me, 'eff', 'ノンフィクション!!：スコア+1'); }
+      const L = me.stage[0];
+      if (L && isLiella(L.card) && g.heartsOf(me, L, 0).h[1] >= 3) { L.mods.push({ blades: 2, untilLiveEnd: true }); g.log(me, 'eff', `ノンフィクション!!：${cardLabel(L.card)}がブレード+2`); }
+    },
+    preview({ g, me, live }) {
+      if (centerHigher(me, g.opp(me))) live.bonus += 1;
+      const L = me.stage[0];
+      if (L && L.active && isLiella(L.card) && g.heartsOf(me, L, 0).h[1] >= 3) live.cheer = (live.cheer || 0) + 2;
+    },
   },
 };
