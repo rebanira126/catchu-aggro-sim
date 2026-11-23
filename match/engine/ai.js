@@ -144,8 +144,8 @@ function firstStep(g, me, plan) {
     if (!c) return false;
     let cost = g.costOf(me, c);
     const s = me.stage[st.area];
-    if (s && cost > 0) cost = Math.max(0, cost - s.card.def.cost);
-    if (st.area2 != null && me.stage[st.area2]) cost = Math.max(0, cost - me.stage[st.area2].card.def.cost);
+    if (s && cost > 0) cost = Math.max(0, cost - g.batonReduce(me, s, c));
+    if (st.area2 != null && me.stage[st.area2]) cost = Math.max(0, cost - g.batonReduce(me, me.stage[st.area2], c));
     return cost <= me.energy.active;
   };
   return plan.filter(ok).sort((a, b) => rank(a) - rank(b))[0] || null;
@@ -221,7 +221,8 @@ export function bestPlays(g, me, opt = {}) {
           for (let a2 = 0; a2 < 3; a2++) {
             const s2 = stage[a2];
             if (a2 === a || !s2 || s2.locked || (s2.slot && (!g.canTarget(me, a2) || isLocked(g, me, s2.slot, a2)))) continue;
-            const cost2 = Math.max(0, g.costOf(me, c) - s.def.cost - s2.def.cost);
+            const red = x => (x.slot ? g.batonReduce(me, x.slot, c) : x.def.cost);
+            const cost2 = Math.max(0, g.costOf(me, c) - red(s) - red(s2));
             if (cost2 > left) continue;
             const ns2 = stage.slice(); ns2[a] = { def: c.def, locked: true, card: c }; ns2[a2] = null;
             const key2 = ns2.map(x => (x ? x.def.id : '-')).join('|') + '#' + (left - cost2);
@@ -233,7 +234,7 @@ export function bestPlays(g, me, opt = {}) {
           }
         }
         let cost = g.costOf(me, c);
-        if (s && cost > 0) cost = Math.max(0, cost - s.def.cost);
+        if (s && cost > 0) cost = Math.max(0, cost - (s.slot ? g.batonReduce(me, s.slot, c) : s.def.cost));
         // 足りない分は起動能力で起こす（起こせるのはウェイトのエネルギーの数まで）
         const usePot = Math.max(0, cost - left);
         if (usePot > Math.min(pot, me.energy.n - left)) continue;
@@ -644,6 +645,12 @@ function protectedCards0(g, me, opt = {}) {
       .sort((a, b) => (rank(a.def) - rank(b.def)) || (memberValue(b.def) - memberValue(a.def)))[0];
     if (c) keep.add(c.uid);
   }
+  // 必ず1枚持っておくライブ（strategy.prefer.keepLive：ids。前に書いたものほど優先）
+  const kl = me.prefer && me.prefer.keepLive;
+  if (kl) {
+    const L = me.hand.filter(c => c.def.kind === 'L' && kl.includes(c.def.id)).sort((a, b) => kl.indexOf(a.def.id) - kl.indexOf(b.def.id));
+    if (L[0]) keep.add(L[0].uid);
+  }
   // 決めの大きいライブ（strategy.prefer.bigLive 点以上）は2ターン目から1枚残す
   const bl = me.prefer && me.prefer.bigLive;
   if (bl && g.turn >= 2) {
@@ -823,6 +830,9 @@ export function estimateContext(g, me) {
     // このターンにまだ起動能力で足せるブレードの見込み（効果側の estBlades）
     const ef = g.effect(s.card);
     if (s.active && ef && ef.estBlades) blades += ef.estBlades({ g, me, slot: s, area }) || 0;
+    // ライブ開始時に得る見込みのハート（効果側の estHearts：{c: [桃..紫]}）
+    const eh = ef && ef.estHearts && ef.estHearts({ g, me, slot: s, area });
+    if (eh && eh.c) addHearts(pool, eh.c);
   });
   // デッキの中身は分かるが順番は分からないので、残りデッキ（＋控え室）からランダムに引いて試す
   // ただし、効果でデッキの上に置いたカード（me.knownTop）はエールで必ずめくれ、
@@ -847,7 +857,8 @@ export function successRate(g, me, cards, est0, samples, stats = null) {
   const needs = cards.map(card => {
     const ef = g.effect(card);
     const live = { card, need: g.liveNeed(me, card), bonus: 0, cheer: 0 };
-    if (ef && ef.preview) ef.preview({ g, me, opp: g.opp(me), card, live });
+    // pick：一緒に置くライブ（組み合わせで効果が変わるカード用）
+    if (ef && ef.preview) ef.preview({ g, me, opp: g.opp(me), card, live, pick: cards });
     if (ef && ef.successAdjust) adjusters.push({ ef, card });
     extra += live.cheer;
     return live.need;

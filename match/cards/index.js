@@ -7,6 +7,7 @@ import liellaTomakanote from './liella-tomakanote.js';
 import liellaKintaro from './liella-kintaro.js';
 import muse from './muse.js';
 import museNote from './muse-note.js';
+import musePrintemps from './muse-printemps.js';
 import niji from './niji.js';
 import nijiHibure from './niji-hibure.js';
 import nijiShinjuku from './niji-shinjuku.js';
@@ -14,7 +15,7 @@ import hasu from './hasu.js';
 import aqours from './aqours.js';
 import common from './common.js';
 
-export const BY_ID = Object.assign({}, liella, liellaTomakanote, liellaKintaro, muse, museNote, niji, nijiHibure, nijiShinjuku, hasu, aqours);
+export const BY_ID = Object.assign({}, liella, liellaTomakanote, liellaKintaro, muse, museNote, musePrintemps, niji, nijiHibure, nijiShinjuku, hasu, aqours);
 export const BY_TEXT = Object.assign({}, common);
 
 export function resolveEffect(def) {
