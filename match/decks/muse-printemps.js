@@ -47,18 +47,20 @@ export default {
     refs: ['https://note.com/liucha1122/n/n343727b5d05c'],
   },
   strategy: {
-    prefer: { wantLives: [WAO, HELLO, LM], keepLive: [WAO] },
+    prefer: { wantLives: [WAO, HELLO, LM], keepLive: [WAO, { id: SAYO, to: 2 }] }, // WAO-WAOと、2Tまでは小夜啼鳥恋詩を1枚ずつ残す
     mulliganOpt: {
       keep: [
         { ids: [KOTORI4], n: 1 },
         { ids: [HONOKA7], n: 1 },
+        { ids: [KOTORI13N], n: 1 }, // 新13ことりは1Tからキープ（3Tに出す）
         { ids: [WAO], n: 1 },
       ],
     },
     mainOpt: { playPen: 0.3, topK: 60 },
     turnPlan: {
       1: { board: [[4], [2, 2]], lives: [[SAYO]] },
-      2: { board: [[4, 7], [7, 2, 2], [4, 2, 2]], lives: [[SAYO]] },
+      // 2T：7穂乃果＋2コスト（小夜啼鳥恋詩の5ハートに届く盤面）。1Tの手札交換で2コストを残す
+      2: { board: [[7, 2, 2], [7, 2], [4, 2, 2], [4, 7]], lives: [[SAYO]] },
       3: { board: [[13, 7], [13, 4], [13, 2, 2]], lives: [[WAO]] },
       4: { board: [[15, 13, 7], [13, 13, 7], [15, 13, 2]], lives: [[WAO, HELLO], [WAO, SAYO], [WAO]] },
       5: { board: [[17, 13, 7], [15, 13, 7]], lives: [[LM, WAO], [WAO, HELLO], [LM, HELLO]] },
@@ -82,6 +84,16 @@ export default {
         { oneOf: [{ play: { id: HONOKA7 }, onto: { ids: ['PL!-pb2-008', 'PL!-bp4-017', 'PL!-pb1-019', HONOKA2] } }, { play: { id: HONOKA7 }, onto: { cost: 2 } }] },
       ],
     },
-    liveOpt: { fill: true, pace: [2, 6, 10], minP: 0.45, th1: 0.3, thLast: 0.15 },
+    // 1〜3Tは、ライブカード置き場に伏せて引き直して探す（4ことりは残す）
+    //  優先：新13ことり（1〜2T）→ 7穂乃果（1〜2T）→ 小夜啼鳥恋詩（1T・2Tのライブ用）→ WAO-WAO（1〜3T）
+    liveOpt: {
+      fill: true, pace: [2, 6, 10], minP: 0.45, th1: 0.3, thLast: 0.15,
+      digFor: [
+        { ids: [KOTORI13N], turns: [1, 2], n: 3, keep: [HONOKA7, KOTORI4], label: '新13ことり' },
+        { ids: [HONOKA7], turns: [1, 2], n: 3, keep: [KOTORI13N, KOTORI4], label: '7穂乃果' },
+        { ids: [SAYO], turns: [1], n: 3, keep: [KOTORI13N, HONOKA7, KOTORI4], label: '小夜啼鳥恋詩' },
+        { ids: [WAO], turns: [1, 2, 3], n: 3, keep: [KOTORI13N, HONOKA7, KOTORI4], label: 'WAO-WAO' },
+      ],
+    },
   },
 };
