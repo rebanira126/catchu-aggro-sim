@@ -727,6 +727,7 @@ function protectedCards0(g, me, opt = {}) {
 // script: { 4: [{ play: { id | cost }, area, onto: { id | cost } }, ...] }
 //  そのターンのメインフェイズの最初に、書いた順に出す。手札に無い・エネルギーが足りないなどで出せない手順は飛ばす（いつものAIの判断に戻る）
 //  area を書かないときは onto（バトンタッチ元）に合うエリア、それも無ければ空いているエリア
+//  { activate: { id }, k } と書くと、そのメンバーの起動能力（k 番目）を使う
 // lock: [{ id, area, fromTurn, toTurn }]  そのターンの間、そのエリアのそのメンバーにはバトンタッチしない
 export function isLocked(g, me, slot, area) {
   const lk = me.lock;
@@ -762,6 +763,12 @@ function runScript(api) {
     if (st0.ifWaiting && !me.waiting.some(c => matchSpec(st0.ifWaiting, c.def))) continue;
     if (!condOk(me, st0)) continue;
     for (const st of st0.oneOf || [st0]) {
+      // activate：ステージのこのメンバーの起動能力を使う（例：ウェイトにしてからバトンタッチする手順の前に）
+      if (st.activate) {
+        const area = me.stage.findIndex(x => x && matchSpec(st.activate, x.card.def));
+        if (area >= 0 && api.activate(area, st.k ?? 0)) { g.log(me, 'plan', `手順：${cardLabel(me.stage[area].card)}の起動能力を使った`); break; }
+        continue;
+      }
       if (!st.play) continue;
       if (st !== st0 && st.ifWaiting && !me.waiting.some(c => matchSpec(st.ifWaiting, c.def))) continue;
       const idx = me.hand.findIndex(c => c.def.kind === 'M' && matchSpec(st.play, c.def));
