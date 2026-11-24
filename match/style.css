@@ -121,3 +121,9 @@ dialog { border: 0; border-radius: 16px; padding: 0; width: min(640px, 92vw); }
 .report { margin-top: 12px; }
 .report summary { cursor: pointer; font-weight: 700; font-size: 14px; }
 .report ul { margin: 6px 0 0; padding-left: 1.2em; }
+
+/* AI思考ルーチン（ふだんは閉じておく説明） */
+.ai-routine { margin-top: 12px; }
+.ai-routine h3 { margin: 12px 0 4px; font-size: 13px; color: var(--ink); }
+.ai-routine ul, .ai-routine ol { margin: 4px 0 0; padding-left: 1.4em; }
+.ai-routine li { margin: 2px 0; }
