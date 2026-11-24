@@ -52,6 +52,7 @@ export default {
       keep: [
         { ids: [KOTORI4], n: 1 },
         { ids: [HONOKA7], n: 1 },
+        { ids: [KOTORI13N], n: 1 }, // 新13ことりは1Tからキープ（3Tに出す）
         { ids: [WAO], n: 1 },
       ],
     },
