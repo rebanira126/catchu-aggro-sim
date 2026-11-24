@@ -15,6 +15,7 @@ const KUKU10 = 'PL!SP-pb2-013';   // 唐 可可（10・ランプ）
 const KINAKO10 = 'PL!SP-bp2-006'; // 桜小路きな子（10）
 const RAMP4 = ['PL!SP-bp1-021', 'PL!SP-PR-004', 'PL!SP-PR-013', 'PL!SP-sd1-016']; // 4コスト（手札1枚でランプ）
 const TENS = [KUKU10, KINAKO10];
+const REN2 = 'PL!SP-pb2-016';    // 葉月 恋（2・自分を控え室に置いて控え室のライブを手札に）
 
 export default {
   id: 'liella-karesco',
@@ -83,10 +84,15 @@ export default {
       5: { board: [[20, 17, 2], [17, 13, 11], [20, 17, 11]], lives: [[NEUT, TOKO], [WEWILL, NEUT], [TOKO]] },
       6: { board: [[20, 17, 11], [20, 17, 15], [20, 17, 13]], lives: [[WEWILL, LOVER, TOKO], [NEUT, TOKO], [WEWILL, TOKO]] },
     },
-    // 1〜2Tは15恋が手札に無ければ、ライブカード置き場に伏せて引き直す（2Tの10コスは残す）
+    // 1〜2Tは、ライブカード置き場に伏せて引き直して探す（2Tの10コスは残す）
+    //  優先：15恋 → ニュートラルと2恋 pb2-016（3Tに控え室からライブを持ってこられる）は同列（どちらかが無ければ探す）
     liveOpt: {
       fill: true, fillMaxCost: 4, pace: [3, 6, 9], minP: 0.45, th1: 0.3, thLast: 0.2,
-      digFor: [{ ids: [REN15], turns: [1, 2], n: 3, keep: TENS, label: '15恋' }],
+      digFor: [
+        { ids: [REN15], turns: [1, 2], n: 3, keep: TENS, label: '15恋' },
+        { ids: [NEUT], turns: [1, 2], n: 3, keep: [...TENS, REN15], label: 'ニュートラル' },
+        { ids: [REN2], turns: [1, 2], n: 3, keep: [...TENS, REN15], label: '2恋' },
+      ],
     },
   },
 };
