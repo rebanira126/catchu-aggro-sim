@@ -39,7 +39,7 @@ export default {
     [HANAYO17, 4], // 小泉花陽（コスト17）
   ],
   plan: {
-    board: "1T 4ことり（手札入れ替え）か2-2 → 2T 4-7 → 3T 2人ウェイトで新13ことり → 4T 15花陽を足す（13-15-x）→ 5T 17花陽へ（13-17-7）→ 13-17-17",
+    board: "1T 4ことり（手札入れ替え）か2-2 → 2T 4-7 → 3T 2人ウェイトで新13ことり（13-2-2）→ 4T 13ことり起動のあと15花陽・7穂乃果（15-7-2）→ 5T 17花陽へ → 13-17-17",
     score: '（2）→ 6（WAO-WAO）→ 10（WAO-WAO＋Hello）→ 13〜15 → 18',
     mulligan: '4ことり・2コス・7穂乃果、WAO-WAO',
     lives: '1T：2穂乃果2人なら小夜啼鳥恋詩（2点）／3T：WAO-WAO（3人起こして6点）／4T：WAO-WAO＋Hello,星を数えて／5T〜：Love marginalを足す',
@@ -74,6 +74,13 @@ export default {
         { play: { id: KOTORI13O }, onto: { id: HONOKA7 } },
         { play: { id: KOTORI13N }, onto: { cost: 4 } },
       ] }],
+      // 4T（noteの盤面 15花陽・7穂乃果・2ことり）：13ことりの起動（2コス2人をウェイト）でライブを拾ってから、
+      // ウェイトの13ことりから15花陽、2コス（2ことり以外）から7穂乃果へバトンタッチ。15花陽と7穂乃果が手札にあるときだけ
+      4: [
+        { activate: { id: KOTORI13N }, ifHand: [{ id: HANAYO15 }, { id: HONOKA7 }] },
+        { oneOf: [{ play: { id: HANAYO15 }, onto: { id: KOTORI13N }, ontoWait: true }] },
+        { oneOf: [{ play: { id: HONOKA7 }, onto: { ids: ['PL!-pb2-008', 'PL!-bp4-017', 'PL!-pb1-019', HONOKA2] } }, { play: { id: HONOKA7 }, onto: { cost: 2 } }] },
+      ],
     },
     liveOpt: { fill: true, pace: [2, 6, 10], minP: 0.45, th1: 0.3, thLast: 0.15 },
   },
