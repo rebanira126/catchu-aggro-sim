@@ -61,7 +61,7 @@ export default {
   },
   // 桜小路きな子（10）bp2-006
   'PL!SP-bp2-006': {
-    note: '登場：バトンタッチで控え室に置かれたLiella!メンバーを手札に。起動（ターン1回）：手札のコスト4以下のLiella!メンバーを1枚捨てて、その登場能力を使う（ランプの4コスト、なければ2可可・2恋）',
+    note: '登場：バトンタッチで控え室に置かれたLiella!メンバーを手札に。起動（ターン1回）：手札のコスト4以下のLiella!メンバーを1枚捨てて、その登場能力を使う（ランプの4コスト、なければ2恋。2可可はあとの進行に要るので使わない）',
     onEnter({ g, me, baton, batonFrom }) {
       if (!baton || !batonFrom) return;
       const c = batonFrom.card;
@@ -129,11 +129,11 @@ export default {
   },
 };
 
-// きな子の起動で捨てるカード：ランプの4コスト（ほかに捨てる手札があるとき）→ 2可可 → 2恋
+// きな子の起動で捨てるカード：ランプの4コスト（ほかに捨てる手札があるとき）→ 2恋（2可可はあとの進行に要るので使わない）
 function kinakoTarget(g, me) {
   const keep = new Set([...(me.reserved || [])]);
   const cand = me.hand.filter(c => isLiellaMember(c) && c.def.cost <= 4 && !keep.has(c.uid) && g.effect(c) && g.effect(c).onEnter);
   const ramp = cand.filter(c => /エネルギーカードを1枚ウェイト状態で置く/.test(c.def.text || '') && c.def.cost === 4);
   if (ramp.length && me.energyDeck > 0 && me.hand.length >= 3 && (g.turn <= 2 || willDiscard(g, me, 2))) return ramp[0];
-  return cand.find(c => c.def.id === 'PL!SP-bp2-002') || cand.find(c => c.def.id === 'PL!SP-bp1-005' && me.hand.length >= 3) || null;
+  return cand.find(c => c.def.id === 'PL!SP-bp1-005' && me.hand.length >= 3) || null;
 }

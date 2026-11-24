@@ -83,6 +83,10 @@ export default {
       5: { board: [[20, 17, 2], [17, 13, 11], [20, 17, 11]], lives: [[NEUT, TOKO], [WEWILL, NEUT], [TOKO]] },
       6: { board: [[20, 17, 11], [20, 17, 15], [20, 17, 13]], lives: [[WEWILL, LOVER, TOKO], [NEUT, TOKO], [WEWILL, TOKO]] },
     },
-    liveOpt: { fill: true, fillMaxCost: 4, pace: [3, 6, 9], minP: 0.45, th1: 0.3, thLast: 0.2 },
+    // 1〜2Tは15恋が手札に無ければ、ライブカード置き場に伏せて引き直す（2Tの10コスは残す）
+    liveOpt: {
+      fill: true, fillMaxCost: 4, pace: [3, 6, 9], minP: 0.45, th1: 0.3, thLast: 0.2,
+      digFor: [{ ids: [REN15], turns: [1, 2], n: 3, keep: TENS, label: '15恋' }],
+    },
   },
 };
