@@ -1,4 +1,5 @@
 // デッキのひとり回し：ターンごとのライブ成功率と成功時の平均点、点数の分布
+// ライブは「成功の見込みが70%以上の中で一番点数の高い組み合わせ」を置く（環境変数 SOLO_MAXP で変えられる。off なら対戦と同じ選び方）
 // 使い方：node match/tools/solo.mjs [デッキID] [回数=1000] [ターン数=6] [trace=seed番号]
 import { loadDbNode } from '../engine/load-node.js';
 import { EFFECTS } from '../cards/index.js';
@@ -10,8 +11,9 @@ const N = +nArg || 1000, T = +tArg || 6;
 const deck = BUILTIN_DECKS.find(d => d.id === id);
 if (!deck) throw new Error(`デッキがありません: ${id}`);
 const db = loadDbNode();
+const soloMaxP = process.env.SOLO_MAXP === 'off' ? null : process.env.SOLO_MAXP ? +process.env.SOLO_MAXP : 0.7;
 if (traceSeed) {
-  const g = playSolo({ db, effects: EFFECTS, deck, seed: +traceSeed, turns: T, trace: true });
+  const g = playSolo({ db, effects: EFFECTS, deck, seed: +traceSeed, turns: T, trace: true, soloMaxP });
   for (const l of g.logs) if (l.p === 0) {
     console.log(`${l.turn}T ${'  '.repeat(l.depth || 0)}[${l.kind}] ${l.msg}`);
     for (const it of l.items || []) console.log(`${l.turn}T ${'  '.repeat((l.depth || 0) + 1)}・${it}`);
@@ -21,7 +23,7 @@ if (traceSeed) {
 const acc = Array.from({ length: T }, () => ({ ok: 0, sum: 0, dist: {} }));
 const boards = Array.from({ length: T }, () => ({}));
 for (let i = 1; i <= N; i++) {
-  const g = playSolo({ db, effects: EFFECTS, deck, seed: i * 7919, turns: T });
+  const g = playSolo({ db, effects: EFFECTS, deck, seed: i * 7919, turns: T, soloMaxP });
   const P = g.p[0];
   P.turnLog.forEach((r, k) => { if (r.ok) { acc[k].ok++; acc[k].sum += r.score; acc[k].dist[r.score] = (acc[k].dist[r.score] || 0) + 1; } });
   (P.stageLog || []).forEach((s, k) => { if (k < T) boards[k][s.s] = (boards[k][s.s] || 0) + 1; });
