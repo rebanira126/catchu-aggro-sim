@@ -243,6 +243,12 @@ export default {
     handCost({ me, card, base }) {
       return me.hand.includes(card) && restPair(me) ? base - 2 : base;
     },
+    // バトンタッチ元がPrintempsでアクティブなら、コスト-2のウェイトに含める（4ことりの常時能力でバトンタッチの減る値が+1になる）
+    restsOnPlay({ me, card, slot }) {
+      if (!me.hand.includes(card) || !isPr(slot.card)) return false;
+      const pair = restPair(me, slot);
+      return !!pair && pair.includes(slot);
+    },
     onPay({ g, me, area, baton }) {
       const pair = restPair(me, baton ? me.stage[area] : null);
       if (!pair) return;

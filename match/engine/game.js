@@ -263,6 +263,10 @@ export class Game {
   // ステージのメンバーの常時能力 batonAura で増える（例：ウェイト状態のμ'sメンバーは「コスト＋1」減る。重複しない）
   // sources：常時能力を見るステージのカード（盤面を仮に組み立てるときに渡す。省略時は今のステージ）
   batonReduce(P, slot, card, sources = null) {
+    // 出すカードのコストの払い方で、バトンタッチの前にこのメンバーがウェイトになる（効果側の restsOnPlay）
+    //  例：新13ことりはコスト-2のためにバトンタッチ元のPrintempsをウェイトにできる（公式Q&A #320）→ ウェイトのメンバーとしてバトンタッチ
+    const ce = this.effect(card);
+    if (slot.active && ce && ce.restsOnPlay && ce.restsOnPlay({ g: this, me: P, card, slot })) slot = { ...slot, active: false };
     let extra = 0;
     for (const oc of sources || P.stage.map(o => o && o.card)) {
       const oe = oc && this.effect(oc);
