@@ -17,10 +17,25 @@ export default {
     liveSuccess({ g, me }) {
       const both = me.success.some(c => inGroup(c.def, NIJI));
       const energy = () => g.addEnergyByEffect(me, { label: 'Daydream Mermaid：' });
-      const member = () => recover(g, me, isMember, 'Daydream Mermaid：');
+      // 三神（コスト10）に足りない名前のメンバーが控え室にあれば、それを拾う（三神のコストをそろえる）
+      const trioPick = () => {
+        const san = me.hand.find(c => c.def.id === 'LL-bp7-001');
+        if (!san) return null;
+        const miss = ['国木田花丸', '優木せつ菜', '嵐 千砂都'].filter(n => !me.hand.some(x => x !== san && isMember(x) && x.def.names.length === 1 && hasName(x.def, n)));
+        if (miss.length !== 1) return null;
+        return me.waiting.find(x => isMember(x) && x.def.names.length === 1 && hasName(x.def, miss[0])) || null;
+      };
+      const tp = trioPick();
+      const member = () => {
+        if (!tp) return recover(g, me, isMember, 'Daydream Mermaid：');
+        me.waiting.splice(me.waiting.indexOf(tp), 1); me.hand.push(tp);
+        g.log(me, 'eff', `Daydream Mermaid：三神のために${cardLabel(tp)}を手札に加えた`);
+        return true;
+      };
       if (both) { energy(); member(); return; }
-      // 片方だけ：手札のメンバーが少なければメンバー、そうでなければエネルギー
-      if (me.energyDeck > 0 && me.hand.filter(isMember).length >= 2) energy(); else if (!member()) energy();
+      // 片方だけ：三神のコストをそろえられるならメンバー。手札のメンバーが少なければメンバー、そうでなければエネルギー
+      if (tp) member();
+      else if (me.energyDeck > 0 && me.hand.filter(isMember).length >= 2) energy(); else if (!member()) energy();
     },
   },
   // Burn!!（7点）
@@ -49,6 +64,8 @@ export default {
     note: 'ライブ開始時：エネルギー1を払ってよい→ライブ終了時まで好きな色のハート+1',
     order: { liveStart: 3 },
     liveStart({ g, me, slot }) { if (g.payEnergy(me, 1)) anyColorHeart(slot); },
+    // 見積もり：アクティブなエネルギーが残っていれば好きな色+1
+    estHearts({ me }) { return me.energy.active >= 1 ? { all: 1 } : null; },
   },
   // 優木せつ菜（4）sd2-019
   'PL!N-sd2-019': {

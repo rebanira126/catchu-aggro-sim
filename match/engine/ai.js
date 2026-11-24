@@ -67,6 +67,8 @@ function keepListMulligan(v, keep) {
   for (const rule of keep) {
     // ifKept：それより上のルールで1枚以上残せたときだけ使う（例：5コストか恋がある手札だけ、ほかのカードも残す）
     if (rule.ifKept && kept.size === 0) continue;
+    // ifKeptLive：それより上のルールでライブを1枚以上残せたときだけ使う（ライブが無い手札は、メンバーも戻してライブを探す）
+    if (rule.ifKeptLive && ![...kept].some(i => hand[i].def.kind === 'L')) continue;
     // ifGroups：書いたグループをどれも残せたときだけ使う（例：15エマ・9コスト・4コストがそろったときだけライブを1枚残す）
     if (rule.ifGroups && !rule.ifGroups.every(gr => groupLeft[gr] === 0)) continue;
     if (rule.group != null && groupLeft[rule.group] == null) groupLeft[rule.group] = rule.n ?? 1;
@@ -910,6 +912,7 @@ export function estimateContext(g, me) {
     // ライブ開始時に得る見込みのハート（効果側の estHearts：{c: [桃..紫]}）
     const eh = ef && ef.estHearts && ef.estHearts({ g, me, slot: s, area });
     if (eh && eh.c) addHearts(pool, eh.c);
+    if (eh && eh.all) pool.all += eh.all; // 好きな色のハート
   });
   // デッキの中身は分かるが順番は分からないので、残りデッキ（＋控え室）からランダムに引いて試す
   // ただし、効果でデッキの上に置いたカード（me.knownTop）はエールで必ずめくれ、
