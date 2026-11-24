@@ -711,11 +711,15 @@ function protectedCards0(g, me, opt = {}) {
       .sort((a, b) => (rank(a.def) - rank(b.def)) || (memberValue(b.def) - memberValue(a.def)))[0];
     if (c) keep.add(c.uid);
   }
-  // 必ず1枚持っておくライブ（strategy.prefer.keepLive：ids。前に書いたものほど優先）
+  // 必ず1枚ずつ持っておくライブ（strategy.prefer.keepLive：ids か { id, to }。to のターンまで。書いたライブを1枚ずつ残す）
   const kl = me.prefer && me.prefer.keepLive;
   if (kl) {
-    const L = me.hand.filter(c => c.def.kind === 'L' && kl.includes(c.def.id)).sort((a, b) => kl.indexOf(a.def.id) - kl.indexOf(b.def.id));
-    if (L[0]) keep.add(L[0].uid);
+    for (const k of kl) {
+      const id = typeof k === 'string' ? k : k.id;
+      if (typeof k === 'object' && k.to != null && g.turn > k.to) continue;
+      const c = me.hand.find(x => x.def.kind === 'L' && x.def.id === id);
+      if (c) keep.add(c.uid);
+    }
   }
   // 決めの大きいライブ（strategy.prefer.bigLive 点以上）は2ターン目から1枚残す
   const bl = me.prefer && me.prefer.bigLive;
