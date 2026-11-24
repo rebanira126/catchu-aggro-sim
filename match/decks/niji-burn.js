@@ -55,6 +55,8 @@ export default {
     // ライブが無い手札は、2コストの2枚目と11せつ菜も戻してライブを探す（brave_fairyさんの振り返りより）
     mulliganOpt: { keep: [{ ids: [CD], n: 1 }, { ids: [DM], n: 1 }, { cost: 2, n: 1 }, { cost: 2, n: 1, ifKeptLive: true }, { ids: [KARIN4], n: 1 }, { ids: [SETSUNA11], n: 1, ifKeptLive: true }] },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
+    // 手札にDaydream Mermaidが無ければ、2せつ菜（ライブ回収）で控え室から拾う（4T：エネルギーが足りなければ回収してDMでしゃがむ）
+    prefer: { wantLives: [DM] },
     // 1T：Chance Day, Chance Way!（赤1）のために赤の2コスと、2Tの Daydream Mermaid（青1紫3）のためにブレードの多い2コス
     // 2T：4果林（3ブレード・好きな色）かセラス（紫2）を足して Daydream Mermaid
     script: {
