@@ -255,8 +255,20 @@ export class Game {
   playCost(P, card, area, baton) {
     let cost = this.costOf(P, card);
     const s = P.stage[area];
-    if (baton && s && cost > 0) cost = Math.max(0, cost - s.card.def.cost);
+    if (baton && s && cost > 0) cost = Math.max(0, cost - this.batonReduce(P, s, card));
     return cost;
+  }
+
+  // バトンタッチで減るコスト（ふつうは控え室に置くメンバーのコスト）。
+  // ステージのメンバーの常時能力 batonAura で増える（例：ウェイト状態のμ'sメンバーは「コスト＋1」減る。重複しない）
+  // sources：常時能力を見るステージのカード（盤面を仮に組み立てるときに渡す。省略時は今のステージ）
+  batonReduce(P, slot, card, sources = null) {
+    let extra = 0;
+    for (const oc of sources || P.stage.map(o => o && o.card)) {
+      const oe = oc && this.effect(oc);
+      if (oe && oe.batonAura) extra = Math.max(extra, oe.batonAura({ g: this, me: P, slot, card, source: oc }) || 0);
+    }
+    return slot.card.def.cost + extra;
   }
 
   costOf(P, card) {
@@ -287,13 +299,13 @@ export class Game {
     if (area2 != null) {
       second = P.stage[area2];
       if (!doBaton || !ef || !ef.doubleBaton || area2 === area || !second || !this.canTarget(P, area2)) return false;
-      cost = Math.max(0, cost - second.card.def.cost);
+      cost = Math.max(0, cost - this.batonReduce(P, second, card));
     }
     if (!this.payEnergy(P, cost)) return false;
     const handCost = this.costOf(P, card);
     P.hand.splice(handIdx, 1);
     // 別のコストの払い方（手札を控え室に置いてコストを下げる、など）
-    if (ef && ef.onPay) this.runEffect(P, card, 'onPay', () => ef.onPay({ g: this, me: P, card, cost: handCost }));
+    if (ef && ef.onPay) this.runEffect(P, card, 'onPay', () => ef.onPay({ g: this, me: P, card, cost: handCost, area, baton: doBaton }));
     if (second) {
       P.stage[area2] = null;
       for (const u of second.under) { if (u.def.kind === 'E') P.energyDeck++; else P.waiting.push(u); }
