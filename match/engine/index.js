@@ -34,7 +34,7 @@ export function soloProfile({ db, effects, deck, n = 120, turns = 10 }) {
   if (profileCache.has(key)) return profileCache.get(key);
   const prof = Array.from({ length: turns + 1 }, () => ({ n: 0, none: 0, scores: {} }));
   for (let s = 1; s <= n; s++) {
-    const g = playSolo({ db, effects, deck, seed: 100003 + s * 7919, turns });
+    const g = playSolo({ db, effects, deck, seed: 100003 + s * 7919, turns, soloMaxP: null });
     g.p[0].turnLog.forEach((r, k) => {
       const t = prof[k + 1]; if (!t) return;
       t.n++;
@@ -72,7 +72,9 @@ export function makeMatchRunner({ db, effects, a, b, seedBase = 1, firstMode = '
 }
 
 // ひとり回し1試合：相手はライブをしない「かかし」。毎ターンの点数を見る（成功ライブは2枚までにして試合を続ける）
-export function playSolo({ db, effects, deck, seed, turns = 6, trace = false }) {
+// soloMaxP：ライブの選び方。成功の見込みがこの値以上の中で一番点数の高い組み合わせを置く（測る用。既定は70%）
+//  null なら対戦と同じ選び方（デッキの pace など）。相手の点数の見込み（soloProfile）は対戦と同じ選び方で調べる
+export function playSolo({ db, effects, deck, seed, turns = 6, trace = false, soloMaxP = 0.7 }) {
   const idle = { mulligan: () => [], main: () => {}, setLives: () => [], chooseSuccess: () => 0 };
   const g = new Game({
     db, effects, seed, first: 0, trace,
@@ -83,6 +85,7 @@ export function playSolo({ db, effects, deck, seed, turns = 6, trace = false }) 
   });
   g.setup();
   const P = g.p[0];
+  P.soloMaxP = soloMaxP;
   for (let t = 1; t <= turns; t++) {
     g.turn = t;
     g.first = 0;

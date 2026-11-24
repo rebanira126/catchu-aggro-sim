@@ -475,11 +475,18 @@ export function defaultSetLives(v, opt = {}) {
   // 相手の点数の見込みがあるとき（対戦）は、相手と比べた勝ち負けで選ぶ
   const oppD = opt.oppAware === false ? null : oppDistribution(g, me);
   let bestU = null;
+  // ひとり回しの測り方（me.soloMaxP）：成功の見込みがこの値以上の中で一番点数の高い組み合わせ（同じ点数なら見込みの高い方）
+  const soloMaxP = !oppD && me.soloMaxP != null ? me.soloMaxP : null;
   for (const pick of combos) {
     const st = {};
     const p = successRate(g, me, pick.map(x => x.c), est, samples, st);
     const score = pick.reduce((s, x) => s + previewScore(g, me, x.c), 0) + (st.adj || 0);
     if (g.trace) g.listLog(me, 'est', pick.map(x => x.c), t => `ライブの候補 ${t}：成功の見込み${Math.round(p * 100)}%・成功時の点数${score.toFixed(1)}点${planLives(g, me, pick.map(x => x.c.def.id)) ? '（このターンの目標の組み合わせ）' : ''}`);
+    if (soloMaxP != null) {
+      if (p < soloMaxP) continue;
+      if (!best || score > best.score + 1e-9 || (Math.abs(score - best.score) < 1e-9 && p > best.p + 1e-9)) best = { p, score, pick };
+      continue;
+    }
     if (minScore != null && score < minScore) continue;
     if (oppD) {
       const ids = pick.map(x => x.c.def.id);
