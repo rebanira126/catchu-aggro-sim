@@ -82,6 +82,15 @@ export default {
         { oneOf: [{ play: { id: HONOKA7 }, onto: { ids: ['PL!-pb2-008', 'PL!-bp4-017', 'PL!-pb1-019', HONOKA2] } }, { play: { id: HONOKA7 }, onto: { cost: 2 } }] },
       ],
     },
-    liveOpt: { fill: true, pace: [2, 6, 10], minP: 0.45, th1: 0.3, thLast: 0.15 },
+    // 1〜3Tは、ライブカード置き場に伏せて引き直して探す（4ことりは残す）
+    //  優先：新13ことり（1〜2T）→ 7穂乃果（1〜2T）→ WAO-WAO（1〜3T）
+    liveOpt: {
+      fill: true, pace: [2, 6, 10], minP: 0.45, th1: 0.3, thLast: 0.15,
+      digFor: [
+        { ids: [KOTORI13N], turns: [1, 2], n: 3, keep: [HONOKA7, KOTORI4], label: '新13ことり' },
+        { ids: [HONOKA7], turns: [1, 2], n: 3, keep: [KOTORI13N, KOTORI4], label: '7穂乃果' },
+        { ids: [WAO], turns: [1, 2, 3], n: 3, keep: [KOTORI13N, HONOKA7, KOTORI4], label: 'WAO-WAO' },
+      ],
+    },
   },
 };
