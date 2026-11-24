@@ -261,11 +261,12 @@ export class Game {
 
   // バトンタッチで減るコスト（ふつうは控え室に置くメンバーのコスト）。
   // ステージのメンバーの常時能力 batonAura で増える（例：ウェイト状態のμ'sメンバーは「コスト＋1」減る。重複しない）
-  batonReduce(P, slot, card) {
+  // sources：常時能力を見るステージのカード（盤面を仮に組み立てるときに渡す。省略時は今のステージ）
+  batonReduce(P, slot, card, sources = null) {
     let extra = 0;
-    for (const o of P.stage) {
-      const oe = o && this.effect(o.card);
-      if (oe && oe.batonAura) extra = Math.max(extra, oe.batonAura({ g: this, me: P, slot, card, source: o }) || 0);
+    for (const oc of sources || P.stage.map(o => o && o.card)) {
+      const oe = oc && this.effect(oc);
+      if (oe && oe.batonAura) extra = Math.max(extra, oe.batonAura({ g: this, me: P, slot, card, source: oc }) || 0);
     }
     return slot.card.def.cost + extra;
   }

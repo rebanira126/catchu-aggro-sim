@@ -199,6 +199,7 @@ export default {
     activated: [{
       once: 1,
       can: ({ slot, me }) => slot.active && me.hand.length >= 1,
+      restPlan: ({ slot }) => [{ rest: [slot] }],
       // 1〜2T（ライブより手札を整える）、WAO-WAOでアクティブに戻せるとき、手札にライブが無いとき
       ai: ({ g, me, slot }) => me.hand.length >= 2 && (g.turn <= 2 || me.hand.some(c => c.def.id === WAO) || under17(me) > 0 || !me.hand.some(isLive) || batonHelps(g, me, slot)),
       run({ g, me, slot }) {
@@ -251,11 +252,18 @@ export default {
       once: 1,
       can: ({ me, slot }) => slot.active && me.waiting.some(c => isLive(c) && isPr(c)) && (otherActivePr(me, slot).length >= 2 || me.hand.length >= 2),
       ai: ({ g, me, slot, late }) => late && payChoice(g, me, slot) != null,
-      run({ g, me, slot }) {
-        const how = payChoice(g, me, slot);
+      // 盤面の検討用：自分＋ほかのPrintempsメンバー2人をウェイトにする組み合わせ
+      restPlan: ({ me, slot }) => {
+        const o = otherActivePr(me, slot);
+        const out = [];
+        for (let i = 0; i < o.length; i++) for (let j = i + 1; j < o.length; j++) out.push({ rest: [slot, o[i], o[j]], force: [o[i], o[j]] });
+        return out;
+      },
+      run({ g, me, slot, force }) {
+        const how = force ? 'rest' : payChoice(g, me, slot);
         if (how == null) return false;
         rest(g, me, slot, '南 ことり：');
-        if (how === 'rest') for (const s of otherActivePr(me, slot).slice(0, 2)) rest(g, me, s, '南 ことり：');
+        if (how === 'rest') for (const s of force || otherActivePr(me, slot).slice(0, 2)) rest(g, me, s, '南 ことり：');
         else discardWorst(g, me, 2);
         // ウェイトにして払ったときは、アクティブに戻せる WAO-WAO を優先して拾う
         const wao = how === 'rest' && !me.hand.some(c => c.def.id === WAO) && me.waiting.find(c => c.def.id === WAO);
@@ -291,6 +299,7 @@ export default {
     activated: [{
       once: 1,
       can: ({ me, slot }) => slot.active && me.waiting.some(c => isLive(c) && isMuse(c)),
+      restPlan: ({ slot }) => [{ rest: [slot] }],
       ai: ({ me, late }) => me.hand.some(c => c.def.id === WAO) || under17(me) > 0 || !me.hand.some(isLive) || (late && me.hand.filter(isLive).length < 2),
       run({ g, me, slot }) {
         rest(g, me, slot, '小泉花陽：');

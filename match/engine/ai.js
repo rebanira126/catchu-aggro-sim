@@ -107,9 +107,13 @@ function groupCandidates(g, me, start) {
 function mainBody(api, opt) {
   const { g, me } = api;
   // 手順（strategy.script）があるターンは、runScript がバトンタッチ先を残して起動能力を使う
-  if (!(me.script && (me.script[g.turn] || []).length)) useAbilities(api);
+  const scripted = !!(me.script && (me.script[g.turn] || []).length);
+  // 起動能力でメンバーをウェイトにしてから出す手順（例：ウェイトのμ'sからのバトンタッチはコストが多く減る）を先に検討する
+  if (!scripted) preActivate(api, opt);
+  if (!scripted) useAbilities(api);
   // 手順に only（このカードだけ出す）があり、それが出せたターンは、ほかのカードは出さない
   const onlyDone = runScript(api);
+  if (scripted && !onlyDone) preActivate(api, opt);
   // 1枚出すごとに組み直す（登場時の効果で手札が変わるため）。出す予定の残りのカードは捨てないよう me.reserved に入れておく
   for (let k = 0; k < (onlyDone ? 0 : 4); k++) {
     const plan = bestPlays(g, me, opt);
@@ -131,11 +135,62 @@ function mainBody(api, opt) {
   useAbilities(api, { late: true });
 }
 
+// ---------------- 起動能力を使ってから出す手順の検討 ----------------
+// 起動能力の restPlan(ctx)：その能力で「ウェイトになるメンバー」の候補 [{ rest: [slot...], force }] を返す（手札の出入りは見ない）
+// 1つか2つの起動能力を使ったことにして（メンバーを仮にウェイトにして）盤面の候補を組み直し、
+// 使わないときより評価値がはっきり高いなら、その起動能力を使ってから出す
+function preActivate(api, opt) {
+  const { g, me } = api;
+  const singles = [];
+  me.stage.forEach((s, area) => {
+    if (!s) return;
+    g.abilities(s).forEach(({ ab, key }, k) => {
+      if (!ab.restPlan) return;
+      const ctx = { g, me, opp: g.opp(me), card: s.card, slot: s, area };
+      if (!s.active || (ab.can && !ab.can(ctx))) return;
+      const u = s.uses && s.uses[key];
+      if (ab.once && u && u.turn === g.turn && u.n >= ab.once) return;
+      for (const pl of ab.restPlan(ctx) || []) singles.push({ area, k, rest: pl.rest, force: pl.force || null });
+    });
+  });
+  if (!singles.length) return false;
+  const options = singles.map(x => [x]);
+  for (let i = 0; i < singles.length; i++) for (let j = i + 1; j < singles.length; j++) {
+    const a = singles[i], b = singles[j];
+    if (a.area === b.area) continue;
+    // 先に使う能力でウェイトになるメンバーは、あとの能力を使えない
+    if (a.rest.includes(g.p[me.i].stage[b.area]) || b.rest.includes(g.p[me.i].stage[a.area])) continue;
+    options.push([a, b]);
+  }
+  const trace = g.trace;
+  g.trace = false;
+  let base, best = null;
+  try {
+    base = bestPlays(g, me, { ...opt, returnBest: true });
+    for (const o of options) {
+      const slots = [...new Set(o.flatMap(x => x.rest))];
+      if (slots.some(s => !s.active)) continue;
+      slots.forEach(s => { s.active = false; });
+      try {
+        const r = bestPlays(g, me, { ...opt, returnBest: true });
+        if (r && (!best || r.score > best.r.score)) best = { o, r };
+      } finally { slots.forEach(s => { s.active = true; }); }
+    }
+  } finally { g.trace = trace; }
+  if (!best || !base || best.r.score <= base.score + (opt.preActMargin ?? 1)) return false;
+  g.log(me, 'plan', `起動能力を先に使ってから出す（評価値${base.score.toFixed(2)} → ${best.r.score.toFixed(2)}）`);
+  for (const x of best.o) api.activate(x.area, x.k, x.force ? { force: x.force } : {});
+  return true;
+}
+
 // 先に出すカード：登場時に手札を見る・引く効果のあるメンバーを先に（結果を見て組み直せるように）
 function firstStep(g, me, plan) {
   const rank = st => {
     const c = me.hand.find(x => x.uid === st.uid);
     const ef = c && g.effect(c);
+    // ウェイトのメンバーへのバトンタッチ（常時能力でコストが多く減る）は、その常時能力のメンバーがいるうちに先に出す
+    const s = me.stage[st.area];
+    if (c && s && !s.active && g.batonReduce(me, s, c) > s.card.def.cost) return -1;
     return ef && ef.onEnter ? 0 : 1;
   };
   // 今のエネルギーで出せる手順だけ（起動能力で起こすエネルギーを見込んだ手順は、出せるようになってから）
@@ -195,6 +250,9 @@ export function useAbilities(api, { late = false, keep = null } = {}) {
   }
 }
 
+// 仮の盤面にいるカード（バトンタッチの常時能力 batonAura を見るため）
+const srcOf = stage => stage.map(x => (x ? x.card || (x.slot && x.slot.card) || null : null));
+
 export function bestPlays(g, me, opt = {}) {
   const value = opt.value || memberValue;
   const energy = me.energy.active;
@@ -221,7 +279,7 @@ export function bestPlays(g, me, opt = {}) {
           for (let a2 = 0; a2 < 3; a2++) {
             const s2 = stage[a2];
             if (a2 === a || !s2 || s2.locked || (s2.slot && (!g.canTarget(me, a2) || isLocked(g, me, s2.slot, a2)))) continue;
-            const red = x => (x.slot ? g.batonReduce(me, x.slot, c) : x.def.cost);
+            const red = x => (x.slot ? g.batonReduce(me, x.slot, c, srcOf(stage)) : x.def.cost);
             const cost2 = Math.max(0, g.costOf(me, c) - red(s) - red(s2));
             if (cost2 > left) continue;
             const ns2 = stage.slice(); ns2[a] = { def: c.def, locked: true, card: c }; ns2[a2] = null;
@@ -234,7 +292,7 @@ export function bestPlays(g, me, opt = {}) {
           }
         }
         let cost = g.costOf(me, c);
-        if (s && cost > 0) cost = Math.max(0, cost - (s.slot ? g.batonReduce(me, s.slot, c) : s.def.cost));
+        if (s && cost > 0) cost = Math.max(0, cost - (s.slot ? g.batonReduce(me, s.slot, c, srcOf(stage)) : s.def.cost));
         // 足りない分は起動能力で起こす（起こせるのはウェイトのエネルギーの数まで）
         const usePot = Math.max(0, cost - left);
         if (usePot > Math.min(pot, me.energy.n - left)) continue;
@@ -298,6 +356,7 @@ export function bestPlays(g, me, opt = {}) {
     if (!best || c.score > best.score) best = c;
   }
   if (opt.debug) opt.debug(top);
+  if (opt.returnBest) return best;
   if (g.trace) {
     const plays = c => c.plan.map(st => { const x = me.hand.find(h => h.uid === st.uid); return x ? `${AREAS[st.area]}に${cardLabel(x)}` : '?'; });
     me.candRound = (me.candRound || 0) + 1;
