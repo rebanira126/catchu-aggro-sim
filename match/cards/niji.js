@@ -17,10 +17,27 @@ export default {
     liveSuccess({ g, me }) {
       const both = me.success.some(c => inGroup(c.def, NIJI));
       const energy = () => g.addEnergyByEffect(me, { label: 'Daydream Mermaid：' });
-      const member = () => recover(g, me, isMember, 'Daydream Mermaid：');
+      // 三神（コスト10）に足りない名前のメンバーが控え室にあれば、それを拾う（三神のコストをそろえる）
+      const trioPick = () => {
+        const san = me.hand.find(c => c.def.id === 'LL-bp7-001');
+        if (!san) return null;
+        const miss = trioMissing(me, san);
+        // 足りない名前が1つならそれを、2つ以上なら花丸（デッキに少ない）→ 千砂都 → せつ菜 の順に拾う
+        if (!miss.length) return null;
+        for (const n of miss) { const x = me.waiting.find(y => isMember(y) && hasName(y.def, n)); if (x) return x; }
+        return null;
+      };
+      const tp = trioPick();
+      const member = () => {
+        if (!tp) return recover(g, me, isMember, 'Daydream Mermaid：');
+        me.waiting.splice(me.waiting.indexOf(tp), 1); me.hand.push(tp);
+        g.log(me, 'eff', `Daydream Mermaid：三神のために${cardLabel(tp)}を手札に加えた`);
+        return true;
+      };
       if (both) { energy(); member(); return; }
-      // 片方だけ：手札のメンバーが少なければメンバー、そうでなければエネルギー
-      if (me.energyDeck > 0 && me.hand.filter(isMember).length >= 2) energy(); else if (!member()) energy();
+      // 片方だけ：三神のコストをそろえられるならメンバー。手札のメンバーが少なければメンバー、そうでなければエネルギー
+      if (tp) member();
+      else if (me.energyDeck > 0 && me.hand.filter(isMember).length >= 2) energy(); else if (!member()) energy();
     },
   },
   // Burn!!（7点）
@@ -49,6 +66,8 @@ export default {
     note: 'ライブ開始時：エネルギー1を払ってよい→ライブ終了時まで好きな色のハート+1',
     order: { liveStart: 3 },
     liveStart({ g, me, slot }) { if (g.payEnergy(me, 1)) anyColorHeart(slot); },
+    // 見積もり：アクティブなエネルギーが残っていれば好きな色+1
+    estHearts({ me }) { return me.energy.active >= 1 ? { all: 1 } : null; },
   },
   // 優木せつ菜（4）sd2-019
   'PL!N-sd2-019': {
@@ -99,12 +118,30 @@ export default {
 };
 
 // 「国木田花丸」「優木せつ菜」「嵐 千砂都」を1枚ずつ（このカード以外の手札から）。そろわなければ null
-function trio(me, card) {
-  const out = [];
-  for (const n of ['国木田花丸', '優木せつ菜', '嵐 千砂都']) {
-    const c = me.hand.find(x => x !== card && isMember(x) && !out.includes(x) && x.def.names.length === 1 && hasName(x.def, n));
-    if (!c) return null;
-    out.push(c);
-  }
-  return out;
+// 三神のコスト10に使う3枚：「国木田花丸」「優木せつ菜」「嵐 千砂都」を1枚ずつ（1枚は1人分にしか使えない）
+// 名前を複数持つカード（もう1枚の三神など）も、そのどれか1人として使える。名前が1つのカードを優先して使う
+const TRIO = ['国木田花丸', '優木せつ菜', '嵐 千砂都'];
+function trio(me, card, hand = me.hand) {
+  const cand = n => hand.filter(x => x !== card && isMember(x) && hasName(x.def, n)).sort((a, b) => a.def.names.length - b.def.names.length || cardWorth0(a) - cardWorth0(b));
+  const pick = (i, used) => {
+    if (i === TRIO.length) return [];
+    for (const c of cand(TRIO[i])) { if (used.includes(c)) continue; const r = pick(i + 1, [...used, c]); if (r) return [c, ...r]; }
+    return null;
+  };
+  return pick(0, []);
 }
+// 三神に足りない名前（いちばん少ない組み合わせ）
+function trioMissing(me, card) {
+  for (const k of [0, 1, 2]) {
+    // k 人分を足りないとして、残りでそろうか
+    const combos = k === 0 ? [[]] : k === 1 ? TRIO.map(n => [n]) : [[TRIO[0], TRIO[1]], [TRIO[0], TRIO[2]], [TRIO[1], TRIO[2]]];
+    for (const miss of combos) {
+      const rest = TRIO.filter(n => !miss.includes(n));
+      const cand = n => me.hand.filter(x => x !== card && isMember(x) && hasName(x.def, n));
+      const ok = (i, used) => i === rest.length || cand(rest[i]).some(c => !used.includes(c) && ok(i + 1, [...used, c]));
+      if (ok(0, [])) return miss;
+    }
+  }
+  return TRIO.slice();
+}
+const cardWorth0 = c => c.def.cost;

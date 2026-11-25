@@ -67,6 +67,8 @@ function keepListMulligan(v, keep) {
   for (const rule of keep) {
     // ifKept：それより上のルールで1枚以上残せたときだけ使う（例：5コストか恋がある手札だけ、ほかのカードも残す）
     if (rule.ifKept && kept.size === 0) continue;
+    // ifKeptLive：それより上のルールでライブを1枚以上残せたときだけ使う（ライブが無い手札は、メンバーも戻してライブを探す）
+    if (rule.ifKeptLive && ![...kept].some(i => hand[i].def.kind === 'L')) continue;
     // ifGroups：書いたグループをどれも残せたときだけ使う（例：15エマ・9コスト・4コストがそろったときだけライブを1枚残す）
     if (rule.ifGroups && !rule.ifGroups.every(gr => groupLeft[gr] === 0)) continue;
     if (rule.group != null && groupLeft[rule.group] == null) groupLeft[rule.group] = rule.n ?? 1;
@@ -533,6 +535,13 @@ export function defaultSetLives(v, opt = {}) {
     const u0 = -oppD.pSucc * (g.opp(me).success.length >= 2 ? 3 : 1);
     best = bestU && bestU.u > u0 + (opt.oppMargin ?? 0.02) ? bestU : null;
   }
+  // 必ず置くライブ（opt.tryLives：{ ターン: [カード] }）：成功の見込みが低くても、手札にあれば置く
+  //  例：三神人魚Burn!!の2TのDaydream Mermaid（成功すればエネルギー+1。失敗しても控え室から拾い直せる）
+  const tl = opt.tryLives && opt.tryLives[g.turn];
+  if (tl && !(best && best.pick.some(x => tl.includes(x.c.def.id)))) {
+    const t = lives.find(x => tl.includes(x.c.def.id));
+    if (t) { best = { pick: [t] }; g.log(me, 'plan', `${cardLabel(t.c)}はこのターン必ず置く`); }
+  }
   const out = best ? best.pick.map(x => x.i) : [];
   // わざと成功しないライブ（opt.dummyTurns）：そのターンにライブを置かないなら、一番いらないライブを1枚置いてエールをする
   // （エールでめくったカードが控え室に行く。控え室のメンバーを増やすテクニック）
@@ -766,7 +775,11 @@ function runScript(api) {
   // 手順の前に起動能力を使う（先に手札を整える能力など）
   if (steps.length) useAbilities(api, { keep: keepFrom(0) });
   let onlyDone = false;
+  // ifStartEmpty / ifStartEmptyLt：手順を始めたときのステージの空き枠が n 以上／n 未満のときだけ（例：1Tに1人しか出せなかったときは2コストを2枚）
+  const empty0 = me.stage.filter(x => !x).length;
   for (const [i, st0] of steps.entries()) {
+    if (st0.ifStartEmpty != null && empty0 < st0.ifStartEmpty) continue;
+    if (st0.ifStartEmptyLt != null && empty0 >= st0.ifStartEmptyLt) continue;
     // oneOf：書いた順に試して、最初にできたものだけ行う（例：9にこがいれば9にこ、いなければほかの9）
     // ifStage：ステージにこのメンバーがいるときだけ行う（例：15がいるときだけ9へバトンタッチ）
     if (st0.ifStage && !me.stage.some(x => x && matchSpec(st0.ifStage, x.card.def))) continue;
@@ -910,6 +923,7 @@ export function estimateContext(g, me) {
     // ライブ開始時に得る見込みのハート（効果側の estHearts：{c: [桃..紫]}）
     const eh = ef && ef.estHearts && ef.estHearts({ g, me, slot: s, area });
     if (eh && eh.c) addHearts(pool, eh.c);
+    if (eh && eh.all) pool.all += eh.all; // 好きな色のハート
   });
   // デッキの中身は分かるが順番は分からないので、残りデッキ（＋控え室）からランダムに引いて試す
   // ただし、効果でデッキの上に置いたカード（me.knownTop）はエールで必ずめくれ、

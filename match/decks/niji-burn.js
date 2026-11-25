@@ -1,4 +1,4 @@
-// Burn!!（虹ヶ咲）：北陸エリア予選 入賞（人魚Burn!!）
+// Burn!!（虹ヶ咲）：北陸エリア予選 入賞（三神人魚Burn!!）
 // レシピは出典の入賞レシピ（デッキコード）そのまま。回し方は plan に書いたnoteの内容を目安にしている。
 const CD = 'PL!SP-bp4-027';      // Chance Day, Chance Way!
 const DM = 'PL!N-bp4-030';      // Daydream Mermaid
@@ -12,11 +12,14 @@ const ERI2 = 'PL!-bp5-011';       // 絢瀬絵里（コスト2・2ブレード�
 const SANSHIN = 'LL-bp7-001';     // 国木田花丸&優木せつ菜&嵐 千砂都（手札の3人を捨ててコスト10）
 const KARIN4 = 'PL!N-bp7-016';    // 朝香果林（コスト4・3ブレード・ライブ開始時に好きな色+1）
 const CERES4 = 'PL!HS-PR-022';    // セラス（コスト4・紫ハート2）
+const KANATA2 = 'PL!N-sd1-006';   // 近江彼方（コスト2・紫ハート）
+const MARGARETE2 = 'PL!SP-bp7-010'; // ウィーン・マルガレーテ（コスト2・紫ハート）
+const HANAMARU2 = 'PL!S-bp2-016';  // 国木田花丸（コスト2・青ハート）
 
 export default {
   id: "niji-burn",
   type: "Burn!!（虹ヶ咲）",
-  name: "北陸エリア予選 入賞（人魚Burn!!）",
+  name: "北陸エリア予選 入賞（三神人魚Burn!!）",
   code: "FRYTS",
   lastPlaced: "2026/10/25",
   source: "https://llofficial-cardgame.com/deckrecipe/area2026hokuriku/",
@@ -52,27 +55,39 @@ export default {
   // プレイ方針（noteの回し方より）
   // ・マリガン：コスト2を2枚、Chance Day, Chance Way!、Daydream Mermaid、11優木せつ菜
   strategy: {
-    mulliganOpt: { keep: [{ cost: 2, n: 2 }, { ids: [CD], n: 1 }, { ids: [DM], n: 1 }, { ids: [KARIN4], n: 1 }, { ids: [SETSUNA11], n: 1 }] },
+    // ライブが無い手札は、2コストの2枚目と11せつ菜も戻してライブを探す（brave_fairyさんの振り返りより）
+    mulliganOpt: { keep: [{ ids: [CD], n: 1 }, { ids: [DM], n: 1 }, { cost: 2, n: 1 }, { cost: 2, n: 1, ifKeptLive: true }, { ids: [KARIN4], n: 1 }, { ids: [SETSUNA11], n: 1, ifKeptLive: true }] },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
+    // 手札にDaydream Mermaidが無ければ、2せつ菜（ライブ回収）で控え室から拾う（4T：エネルギーが足りなければ回収してDMでしゃがむ）
+    prefer: { wantLives: [DM] },
+    // 3T以降は11せつ菜にバトンタッチしない（4Tは三神をコスト10で2コストから出して 2-15-11 にする）
+    lock: [{ id: SETSUNA11, fromTurn: 3 }],
     // 1T：Chance Day, Chance Way!（赤1）のために赤の2コスと、2Tの Daydream Mermaid（青1紫3）のためにブレードの多い2コス
     // 2T：4果林（3ブレード・好きな色）かセラス（紫2）を足して Daydream Mermaid
     script: {
       1: [{ oneOf: [{ play: { id: SETSUNA2 } }, { play: { id: RUBY2 } }, { play: { cost: 2 } }] }, { oneOf: [{ play: { id: CHISATO2 } }, { play: { id: ERI2 } }, { play: { cost: 2 } }] }],
-      2: [{ oneOf: [{ play: { id: KARIN4 } }, { play: { id: CERES4 } }, { play: { cost: 4 } }] }],
+      // 1Tに1人しか出せなかったときは、2コストを2枚（紫ハート優先）出して3人にする（2人だとDaydream Mermaidはほぼ成功しない）
+      2: [
+        { ifStartEmpty: 2, oneOf: [{ play: { id: CHISATO2 } }, { play: { id: KANATA2 } }, { play: { id: MARGARETE2 } }, { play: { id: HANAMARU2 } }, { play: { cost: 2 } }] },
+        { ifStartEmpty: 2, oneOf: [{ play: { id: CHISATO2 } }, { play: { id: KANATA2 } }, { play: { id: MARGARETE2 } }, { play: { id: HANAMARU2 } }, { play: { cost: 2 } }] },
+        { ifStartEmptyLt: 2, oneOf: [{ play: { id: KARIN4 } }, { play: { id: CERES4 } }, { play: { cost: 4 } }] },
+      ],
       // 3T：4から11せつ菜（Daydream Mermaidでランプして7エネのとき）か、メロモ三神（手札の3人を捨ててコスト10→4からなら6エネ）
       3: [{ oneOf: [{ play: { id: SETSUNA11 }, onto: { cost: 4 } }, { play: { id: SANSHIN }, onto: { cost: 4 } }] }],
     },
     turnPlan: {
       1: { board: [[2, 2], [4]], lives: [[CD]] },
-      2: { board: [[4, 2, 2]], lives: [[DM]] },
+      2: { board: [[4, 2, 2], [2, 2, 2]], lives: [[DM]] },
       3: { board: [[11, 2, 2]], lives: [[BURN]] },
-      4: { board: [[15, 2, 2], [11, 11, 2]], lives: [[BURN, LOVEU], [BURN]] },
+      4: { board: [[15, 11, 2], [15, 2, 2], [11, 11, 2]], lives: [[BURN, LOVEU], [BURN]] },
       5: { board: [[15, 11, 2]], lives: [[BURN, LOVEU], [BURN, BURN]] },
     },
     liveOpt: {
       fill: true, fillMaxCost: 4, minP: 0.4, th1: 0.3,
-      // 手札交換：1Tは4果林（2TのDaydream Mermaidに要る3ブレード）を探す
-      digFor: [{ ids: [KARIN4], turns: [1], n: 3, keep: [DM, SETSUNA11, CHISATO2, ERI2], label: '4朝香果林' }],
+      // 2TのDaydream Mermaidは、成功の見込みが低くても必ず置く（成功すればエネルギー+1で3Tに11せつ菜、4Tに三神。失敗しても2せつ菜で拾い直せる）
+      tryLives: { 2: [DM] },
+      // 手札交換：1Tは、2TのDaydream Mermaidのために、まずDaydream Mermaid、次に4コスト（果林：3ブレード＋好きな色／セラス：紫2）を探す
+      digFor: [{ ids: [DM], turns: [1], n: 3, keep: [KARIN4, CERES4], label: 'Daydream Mermaid' }, { ids: [KARIN4, CERES4], turns: [1], n: 3, keep: [DM], label: '4コスト（果林・セラス）' }],
     },
   },
 };
