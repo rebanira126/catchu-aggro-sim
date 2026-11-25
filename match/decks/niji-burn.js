@@ -57,6 +57,8 @@ export default {
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
     // 手札にDaydream Mermaidが無ければ、2せつ菜（ライブ回収）で控え室から拾う（4T：エネルギーが足りなければ回収してDMでしゃがむ）
     prefer: { wantLives: [DM] },
+    // 3T以降は11せつ菜にバトンタッチしない（4Tは三神をコスト10で2コストから出して 2-15-11 にする）
+    lock: [{ id: SETSUNA11, fromTurn: 3 }],
     // 1T：Chance Day, Chance Way!（赤1）のために赤の2コスと、2Tの Daydream Mermaid（青1紫3）のためにブレードの多い2コス
     // 2T：4果林（3ブレード・好きな色）かセラス（紫2）を足して Daydream Mermaid
     script: {
@@ -69,11 +71,13 @@ export default {
       1: { board: [[2, 2], [4]], lives: [[CD]] },
       2: { board: [[4, 2, 2]], lives: [[DM]] },
       3: { board: [[11, 2, 2]], lives: [[BURN]] },
-      4: { board: [[15, 2, 2], [11, 11, 2]], lives: [[BURN, LOVEU], [BURN]] },
+      4: { board: [[15, 11, 2], [15, 2, 2], [11, 11, 2]], lives: [[BURN, LOVEU], [BURN]] },
       5: { board: [[15, 11, 2]], lives: [[BURN, LOVEU], [BURN, BURN]] },
     },
     liveOpt: {
       fill: true, fillMaxCost: 4, minP: 0.4, th1: 0.3,
+      // 2TのDaydream Mermaidは、成功の見込みが低くても必ず置く（成功すればエネルギー+1で3Tに11せつ菜、4Tに三神。失敗しても2せつ菜で拾い直せる）
+      tryLives: { 2: [DM] },
       // 手札交換：1Tは4果林（2TのDaydream Mermaidに要る3ブレード）を探す
       digFor: [{ ids: [KARIN4], turns: [1], n: 3, keep: [DM, SETSUNA11, CHISATO2, ERI2], label: '4朝香果林' }],
     },
