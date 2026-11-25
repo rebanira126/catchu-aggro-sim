@@ -21,9 +21,11 @@ export default {
       const trioPick = () => {
         const san = me.hand.find(c => c.def.id === 'LL-bp7-001');
         if (!san) return null;
-        const miss = ['国木田花丸', '優木せつ菜', '嵐 千砂都'].filter(n => !me.hand.some(x => x !== san && isMember(x) && x.def.names.length === 1 && hasName(x.def, n)));
-        if (miss.length !== 1) return null;
-        return me.waiting.find(x => isMember(x) && x.def.names.length === 1 && hasName(x.def, miss[0])) || null;
+        const miss = trioMissing(me, san);
+        // 足りない名前が1つならそれを、2つ以上なら花丸（デッキに少ない）→ 千砂都 → せつ菜 の順に拾う
+        if (!miss.length) return null;
+        for (const n of miss) { const x = me.waiting.find(y => isMember(y) && hasName(y.def, n)); if (x) return x; }
+        return null;
       };
       const tp = trioPick();
       const member = () => {
@@ -116,12 +118,30 @@ export default {
 };
 
 // 「国木田花丸」「優木せつ菜」「嵐 千砂都」を1枚ずつ（このカード以外の手札から）。そろわなければ null
-function trio(me, card) {
-  const out = [];
-  for (const n of ['国木田花丸', '優木せつ菜', '嵐 千砂都']) {
-    const c = me.hand.find(x => x !== card && isMember(x) && !out.includes(x) && x.def.names.length === 1 && hasName(x.def, n));
-    if (!c) return null;
-    out.push(c);
-  }
-  return out;
+// 三神のコスト10に使う3枚：「国木田花丸」「優木せつ菜」「嵐 千砂都」を1枚ずつ（1枚は1人分にしか使えない）
+// 名前を複数持つカード（もう1枚の三神など）も、そのどれか1人として使える。名前が1つのカードを優先して使う
+const TRIO = ['国木田花丸', '優木せつ菜', '嵐 千砂都'];
+function trio(me, card, hand = me.hand) {
+  const cand = n => hand.filter(x => x !== card && isMember(x) && hasName(x.def, n)).sort((a, b) => a.def.names.length - b.def.names.length || cardWorth0(a) - cardWorth0(b));
+  const pick = (i, used) => {
+    if (i === TRIO.length) return [];
+    for (const c of cand(TRIO[i])) { if (used.includes(c)) continue; const r = pick(i + 1, [...used, c]); if (r) return [c, ...r]; }
+    return null;
+  };
+  return pick(0, []);
 }
+// 三神に足りない名前（いちばん少ない組み合わせ）
+function trioMissing(me, card) {
+  for (const k of [0, 1, 2]) {
+    // k 人分を足りないとして、残りでそろうか
+    const combos = k === 0 ? [[]] : k === 1 ? TRIO.map(n => [n]) : [[TRIO[0], TRIO[1]], [TRIO[0], TRIO[2]], [TRIO[1], TRIO[2]]];
+    for (const miss of combos) {
+      const rest = TRIO.filter(n => !miss.includes(n));
+      const cand = n => me.hand.filter(x => x !== card && isMember(x) && hasName(x.def, n));
+      const ok = (i, used) => i === rest.length || cand(rest[i]).some(c => !used.includes(c) && ok(i + 1, [...used, c]));
+      if (ok(0, [])) return miss;
+    }
+  }
+  return TRIO.slice();
+}
+const cardWorth0 = c => c.def.cost;
