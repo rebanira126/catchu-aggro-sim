@@ -1,4 +1,4 @@
-// Burn!!（虹ヶ咲）：北陸エリア予選 入賞（三神人魚Burn!!）
+// 人魚Burn!!：三神人魚Burn!!（北陸エリア予選 入賞）。13せつ菜型は niji-mermaid-burn.js
 // レシピは出典の入賞レシピ（デッキコード）そのまま。回し方は plan に書いたnoteの内容を目安にしている。
 const CD = 'PL!SP-bp4-027';      // Chance Day, Chance Way!
 const DM = 'PL!N-bp4-030';      // Daydream Mermaid
@@ -18,8 +18,8 @@ const HANAMARU2 = 'PL!S-bp2-016';  // 国木田花丸（コスト2・青ハー�
 
 export default {
   id: "niji-burn",
-  type: "Burn!!（虹ヶ咲）",
-  name: "北陸エリア予選 入賞（三神人魚Burn!!）",
+  type: "人魚Burn!!",
+  name: "三神人魚Burn!!（北陸エリア予選 入賞）",
   code: "FRYTS",
   lastPlaced: "2026/10/25",
   source: "https://llofficial-cardgame.com/deckrecipe/area2026hokuriku/",
