@@ -536,7 +536,7 @@ export function defaultSetLives(v, opt = {}) {
     best = bestU && bestU.u > u0 + (opt.oppMargin ?? 0.02) ? bestU : null;
   }
   // 必ず置くライブ（opt.tryLives：{ ターン: [カード] }）：成功の見込みが低くても、手札にあれば置く
-  //  例：人魚Burn!!の2TのDaydream Mermaid（成功すればエネルギー+1。失敗しても控え室から拾い直せる）
+  //  例：三神人魚Burn!!の2TのDaydream Mermaid（成功すればエネルギー+1。失敗しても控え室から拾い直せる）
   const tl = opt.tryLives && opt.tryLives[g.turn];
   if (tl && !(best && best.pick.some(x => tl.includes(x.c.def.id)))) {
     const t = lives.find(x => tl.includes(x.c.def.id));

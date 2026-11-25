@@ -1,4 +1,4 @@
-// Burn!!（虹ヶ咲）：北陸エリア予選 入賞（人魚Burn!!）
+// Burn!!（虹ヶ咲）：北陸エリア予選 入賞（三神人魚Burn!!）
 // レシピは出典の入賞レシピ（デッキコード）そのまま。回し方は plan に書いたnoteの内容を目安にしている。
 const CD = 'PL!SP-bp4-027';      // Chance Day, Chance Way!
 const DM = 'PL!N-bp4-030';      // Daydream Mermaid
@@ -16,7 +16,7 @@ const CERES4 = 'PL!HS-PR-022';    // セラス（コスト4・紫ハート2）
 export default {
   id: "niji-burn",
   type: "Burn!!（虹ヶ咲）",
-  name: "北陸エリア予選 入賞（人魚Burn!!）",
+  name: "北陸エリア予選 入賞（三神人魚Burn!!）",
   code: "FRYTS",
   lastPlaced: "2026/10/25",
   source: "https://llofficial-cardgame.com/deckrecipe/area2026hokuriku/",
