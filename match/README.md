@@ -70,6 +70,7 @@ noteの回し方をデッキファイルに書き写すための項目です。�
 | `script` の `ifStage` / `ifWaiting` | ステージ／控え室にこのカードがあるときだけ、その手順を行う（`oneOf` の中の1つにも書ける） | `{ ifStage: { minCost: 13 }, play: { cost: 9 }, onto: { cost: 2 } }` |
 | `script` の `only` | その手順でカードを出せたターンは、ほかのカードを出さない（出せなかったときはいつもどおりAIが決める） | `{ play: { cost: 4 }, area: 0, only: true }` |
 | `script` の `ifHand` | 書いたカードが全部手札にあるときだけ、その手順を行う | `{ ifHand: [{ id: '4彼方' }, { id: '4花帆' }], play: { id: '4花帆' } }` |
+| `script` の `ifStartEmpty` / `ifStartEmptyLt` | そのターンの手順を始めたときのステージの空き枠が n 以上／n 未満のときだけ、その手順を行う | `{ ifStartEmpty: 2, play: { cost: 2 } }`（1Tに1人しか出せなかったら2コストを2枚） |
 | 手順のカードの指定 | `id`（1種類）／`ids`（どれか）／`minCost`（このコスト以上）／`cost`（ちょうど） | `{ play: { ids: CERES15 }, onto: { cost: 13 } }` |
 | 手順の `unlock` / `ontoWait` | `lock` を無視してバトンタッチする／バトンタッチ元がウェイト状態（起動能力を使ったあと）のときだけ行う | `{ play: { cost: 13 }, onto: { id: YOSHIKO13 }, unlock: true, ontoWait: true }` |
 | 手順・目標の条件 `ifSuccess` / `ifNoSuccess` / `ifNoStage` | 成功ライブ置き場にこのカードがある／無い、ステージにこのメンバーがいないときだけ | `{ ifNoStage: { id: MAKI17 }, ifSuccess: MS, play: { id: MAKI17 }, onto: { cost: 9 } }` |

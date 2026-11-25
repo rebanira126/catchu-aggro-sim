@@ -775,7 +775,11 @@ function runScript(api) {
   // 手順の前に起動能力を使う（先に手札を整える能力など）
   if (steps.length) useAbilities(api, { keep: keepFrom(0) });
   let onlyDone = false;
+  // ifStartEmpty / ifStartEmptyLt：手順を始めたときのステージの空き枠が n 以上／n 未満のときだけ（例：1Tに1人しか出せなかったときは2コストを2枚）
+  const empty0 = me.stage.filter(x => !x).length;
   for (const [i, st0] of steps.entries()) {
+    if (st0.ifStartEmpty != null && empty0 < st0.ifStartEmpty) continue;
+    if (st0.ifStartEmptyLt != null && empty0 >= st0.ifStartEmptyLt) continue;
     // oneOf：書いた順に試して、最初にできたものだけ行う（例：9にこがいれば9にこ、いなければほかの9）
     // ifStage：ステージにこのメンバーがいるときだけ行う（例：15がいるときだけ9へバトンタッチ）
     if (st0.ifStage && !me.stage.some(x => x && matchSpec(st0.ifStage, x.card.def))) continue;
