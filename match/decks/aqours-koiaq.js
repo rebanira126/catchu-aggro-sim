@@ -38,7 +38,7 @@ export default {
     ["PL!S-cl1-004", 1], // 黒澤ダイヤ（コスト15）
   ],
   plan: {
-    board: "4 → 9 → 13（センターウェイト）-4 → 13-13-2 → 15-15-2 → 15-15-9（13善子進行）",
+    board: "4 → 9 → 13（センターウェイト）-4 → 13-13-2 → 15-15-2 → 15-15-9（13善子進行）。13善子が無ければ 3T 4-11-2 → 4T 9-13-2（11花丸進行）",
     score: "0 → 3 → 3 → 9〜10 → 14〜16 → 18",
     mulligan: "1Tの4コス（優木あんじゅ優先）、9コス（千歌・徒町）、Guilty Night, Guilty Kiss!",
     lives: "2T・3T：Guilty Night, Guilty Kiss!（3点）／4T：Guilty Night＋MIRACLE WAVE（9〜10点）／5T：恋になりたいAQUARIUM＋MIRACLE WAVE かコワレヤスキ（14〜16点）／6T：恋アク×2（18点）",
@@ -63,11 +63,19 @@ export default {
     script: {
       1: [{ play: { cost: 4 }, area: 1 }],
       2: [{ play: { cost: 9 }, area: 1 }],
-      3: [{ play: { id: YOSHIKO13 }, area: 1 }, { play: { cost: 2 }, area: 0 }, { play: { cost: 2 }, area: 2 }],
+      //  13善子が手札に無ければ11花丸進行（noteの補足）：センターの9→11花丸（登場時に控え室の2善子・2ルビィを空き枠に出す）、サイドに4
+      3: [
+        { ifNoHand: { id: YOSHIKO13 }, play: { id: HANAMARU11 }, onto: { cost: 9 }, area: 1 },
+        { ifStage: { id: HANAMARU11 }, play: { cost: 4 } },
+        { play: { id: YOSHIKO13 }, area: 1 }, { play: { cost: 2 }, area: 0 }, { play: { cost: 2 }, area: 2 },
+      ],
       // 4T：4→11国木田花丸 → 善子の起動で 11→13 → 起動で寝たセンターの13善子に手札の13をバトンタッチで出し直す（0エネ・ブレードが戻る）→ 2コス
+      //  11花丸進行のとき（センターが11花丸）：4→9（千歌優先）、11→13 で 9-13-2
       4: [
-        { play: { id: HANAMARU11 }, onto: { cost: 4 } },
-        { oneOf: [{ play: { id: 'PL!S-bp2-005' }, onto: { id: YOSHIKO13 }, area: 1, unlock: true, ontoWait: true }, { play: { cost: 13 }, onto: { id: YOSHIKO13 }, area: 1, unlock: true, ontoWait: true }] },
+        { ifStage: { id: HANAMARU11 }, ifNoStage: { id: YOSHIKO13 }, oneOf: [{ play: { id: 'PL!S-bp7-001' }, onto: { cost: 4 } }, { play: { cost: 9 }, onto: { cost: 4 } }] },
+        { ifStage: { id: HANAMARU11 }, ifNoStage: { id: YOSHIKO13 }, oneOf: [{ play: { id: 'PL!S-bp2-005' }, onto: { id: HANAMARU11 } }, { play: { cost: 13 }, onto: { id: HANAMARU11 } }] },
+        { ifStage: { id: YOSHIKO13 }, play: { id: HANAMARU11 }, onto: { cost: 4 } },
+        { ifStage: { id: YOSHIKO13 }, oneOf: [{ play: { id: 'PL!S-bp2-005' }, onto: { id: YOSHIKO13 }, area: 1, unlock: true, ontoWait: true }, { play: { cost: 13 }, onto: { id: YOSHIKO13 }, area: 1, unlock: true, ontoWait: true }] },
         { play: { cost: 2 } },
       ],
       5: [{ play: { cost: 15 }, onto: { cost: 13 } }, { play: { cost: 15 }, onto: { cost: 13 } }],
@@ -81,9 +89,9 @@ export default {
       1: { board: [[{ cost: 4, area: 1 }]] },
       2: { board: [[{ cost: 9, area: 1 }]], lives: [[GN]] },
       // 3T：センターに13善子、横に2（善子の起動で2→4）。2コスを先に書いて、2Tの手札交換で2コスを残す
-      3: { board: [[{ id: YOSHIKO13, area: 1 }, 2], [{ id: YOSHIKO13, area: 1 }, 4]], lives: [[GN]] },
+      3: { board: [[{ id: YOSHIKO13, area: 1 }, 2], [{ id: YOSHIKO13, area: 1 }, 4]], lives: [[GN]], alt: [{ ifNoHand: { id: YOSHIKO13 }, ifNoStage: { id: YOSHIKO13 }, board: [[{ id: HANAMARU11, area: 1 }, 4, 2]] }] },
       // 4T：4→11国木田花丸、13善子の起動で 11→13（控え室の13）に入れ替えて 13-13-2
-      4: { board: [[{ id: YOSHIKO13, area: 1 }, 13, 2], [{ id: YOSHIKO13, area: 1 }, { id: 'PL!S-bp7-007' }, 2]], lives: [[GN, MW]] },
+      4: { board: [[{ id: YOSHIKO13, area: 1 }, 13, 2], [{ id: YOSHIKO13, area: 1 }, { id: 'PL!S-bp7-007' }, 2]], lives: [[GN, MW]], alt: [{ ifNoStage: { id: YOSHIKO13 }, board: [[9, 13, 2]] }] },
       5: { board: [[15, 15, 2], [15, 15, 4]], lives: [[KOIAQ, MW], [KOIAQ], [KOWARE]] },
       6: { board: [[15, 15, 9]], lives: [[KOIAQ, KOIAQ]] },
     },
