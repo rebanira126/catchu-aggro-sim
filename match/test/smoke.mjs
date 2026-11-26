@@ -4,6 +4,7 @@ import { EFFECTS } from '../cards/index.js';
 import { loadDbNode } from '../engine/load-node.js';
 import { BUILTIN_DECKS } from '../decks/index.js';
 import { playOne, makeMatchRunner, makeSoloRunner } from '../engine/index.js';
+import { plainDeck, makeJobRunner } from '../engine/jobs.js';
 import { meet } from '../engine/hearts.js';
 
 const db = loadDbNode();
@@ -41,6 +42,19 @@ for (const d of BUILTIN_DECKS) {
 const run = makeMatchRunner({ db, effects: EFFECTS, a: A, b: B });
 const t0 = Date.now(); const acc = run.step(400);
 console.log('CatChu基本形 vs 僕光', acc, `${Date.now() - t0}ms`);
+
+// ワーカーに送るデッキ（plainDeck）は複製できる形か（回し方に関数があるとブラウザのワーカーに送れない）
+//  そして、ワーカー側で回し方が戻るか
+for (const d of BUILTIN_DECKS) {
+  let cloned = null;
+  try { cloned = structuredClone(plainDeck(d)); } catch (e) { cloned = null; }
+  ok(!!cloned, `${d.id}：ワーカーに送れる形になっている`);
+  if (cloned) {
+    const r = makeJobRunner(db, EFFECTS, { kind: 'match', a: cloned, b: cloned, n: 2 });
+    r.step(2);
+    ok(r.result().n === 2, `${d.id}：ワーカーの形で試合が回る`);
+  }
+}
 
 console.log(fail ? `NG ${fail}件` : 'すべてOK');
 process.exit(fail ? 1 : 0);

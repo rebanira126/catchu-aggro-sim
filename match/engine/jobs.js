@@ -4,9 +4,19 @@
 //      { kind: 'solo', deck, seedBase, turns, start, n }
 // a・b・deck は { name, list, strategy, id } を持つデッキ（関数を含まない＝ワーカーに渡せる形）
 import { makeMatchRunner, makeSoloRunner, soloProfile, primeProfile } from './index.js';
+import { BUILTIN_DECKS } from '../decks/index.js';
+
+// 回し方（strategy）には関数（デッキ専用の手順など）が入ることがあり、ワーカーに送れない（postMessage で複製できない）
+// そのため、組み込みデッキの回し方は番号（stratId）だけを送り、ワーカー側で組み込みデッキから戻す
+function hydrate(d) {
+  if (!d || !d.stratId) return d;
+  const base = BUILTIN_DECKS.find(x => x.id === d.stratId);
+  return { ...d, strategy: base ? base.strategy : {} };
+}
 
 export function makeJobRunner(db, effects, job) {
   // profile：デッキの点数の見込み（ひとり回し120回）だけ調べる
+  job = { ...job, a: hydrate(job.a), b: hydrate(job.b), deck: hydrate(job.deck) };
   if (job.kind === 'profile') {
     let res = null;
     return { step() { res = soloProfile({ db, effects, deck: job.deck }); return res; }, result: () => res };
@@ -62,5 +72,9 @@ export function mergeAcc(kind, accs) {
 
 // ワーカーに渡すデッキ（画面の一覧の項目から、計算に要るものだけ取り出す）
 export function plainDeck(d) {
+  // 組み込みデッキを元にしたデッキは、回し方を番号で送る（関数を含むので複製できない）
+  //  組み込みデッキそのもの（tools から渡すとき）も同じ
+  const stratId = d.stratId || (BUILTIN_DECKS.some(x => x.id === d.id && x.strategy === d.strategy) ? d.id : null);
+  if (stratId) return { id: d.id || d.key, name: d.name, type: d.type, list: d.list, stratId };
   return { id: d.id || d.key, name: d.name, type: d.type, list: d.list, strategy: d.strategy || {} };
 }
