@@ -1,6 +1,6 @@
 // 人魚Burn!!（明星さんの13せつ菜型）で使うカードの効果（カード番号で登録）
 import { cardLabel } from '../engine/game.js';
-import { isLive, isMember, recover, sacrificeSelf, hasName, takeTop } from './lib.js';
+import { isLive, isMember, recover, sacrificeSelf, hasName } from './lib.js';
 
 // エネルギー置き場のエネルギーを1枚メンバーの下に置く（ウェイト状態のものから）。置けたら true
 export function energyUnder(g, me, slot, label = '') {
@@ -87,15 +87,6 @@ export default {
       g.draw(me, 1);
       for (const s of me.stage) if (s) s.mods.push({ blades: 2, untilLiveEnd: true });
       g.log(me, 'eff', '上原歩夢：1枚引き、メンバー全員ブレード+2');
-    },
-  },
-  // 高海千歌（2）cl1-001
-  'PL!S-cl1-001': {
-    note: '登場：デッキの上から5枚を控え室に置く',
-    onEnter({ g, me }) {
-      const top = takeTop(g, me, 5);
-      me.waiting.push(...top);
-      g.log(me, 'eff', `高海千歌：デッキの上から${top.length}枚を控え室に置いた`);
     },
   },
 };
