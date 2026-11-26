@@ -243,20 +243,28 @@ export default {
     handCost({ me, card, base }) {
       return me.hand.includes(card) && restPair(me) ? base - 2 : base;
     },
-    // バトンタッチ元がPrintempsでアクティブなら、コスト-2のウェイトに含める（4ことりの常時能力でバトンタッチの減る値が+1になる）
-    restsOnPlay({ me, card, slot }) {
-      if (!me.hand.includes(card) || !isPr(slot.card)) return false;
-      const pair = restPair(me, slot);
-      return !!pair && pair.includes(slot);
+    // コスト-2のためにウェイトにする2人は、なるべくバトンタッチ元以外から選ぶ（バトンタッチ元は控え室に行くので、ウェイトの人数が残らない）
+    //  ステージに3人いれば、残る2人をウェイトにして、ライブ開始時のWAO-WAOで起こせる人数を増やす（noteの「2コス2枚をウェイトにして新13ことり」）
+    //  バトンタッチ元以外で2人そろわないか、エネルギーが足りないときだけ、バトンタッチ元も含める（4ことりの常時能力でバトンタッチの減る値が+1になる）
+    restsOnPlay({ g, me, card, slot }) {
+      if (!me.hand.includes(card) || !isPr(slot.card)) { me.k13Choice = null; return false; }
+      const inc = includeSource(g, me, card, slot);
+      me.k13Choice = { card: card.uid, slot: slot.card.uid, inc };
+      return inc;
     },
-    onPay({ g, me, area, baton }) {
-      const pair = restPair(me, baton ? me.stage[area] : null);
+    onPay({ g, me, card, area, baton }) {
+      const src = baton ? me.stage[area] : null;
+      const ch = me.k13Choice;
+      const inc = !!(src && ch && ch.card === card.uid && ch.slot === src.card.uid ? ch.inc : src && restPair(me, src) && restPair(me, src).includes(src) && !restPair(me, null, src));
+      me.k13Choice = null;
+      const pair = inc ? restPair(me, src) : restPair(me, null, src);
       if (!pair) return;
       for (const s of pair) rest(g, me, s, '南 ことり（コスト）：');
     },
     activated: [{
       once: 1,
-      can: ({ me, slot }) => slot.active && me.waiting.some(c => isLive(c) && isPr(c)) && (otherActivePr(me, slot).length >= 2 || me.hand.length >= 2),
+      // 控え室にPrintempsのライブが無くても、コストを払って使える（自分をウェイトにして、WAO-WAOで起こす人数を増やすため）
+      can: ({ me, slot }) => slot.active && (otherActivePr(me, slot).length >= 2 || me.hand.length >= 2),
       ai: ({ g, me, slot, late }) => late && payChoice(g, me, slot) != null,
       // 盤面の検討用：自分＋ほかのPrintempsメンバー2人をウェイトにする組み合わせ
       restPlan: ({ me, slot }) => {
@@ -270,7 +278,7 @@ export default {
         if (how == null) return false;
         rest(g, me, slot, '南 ことり：');
         if (how === 'rest') for (const s of force || otherActivePr(me, slot).slice(0, 2)) rest(g, me, s, '南 ことり：');
-        else discardWorst(g, me, 2);
+        else discardWorst(g, me, 2, new Set(me.hand.filter(c => c.def.id === WAO).slice(0, 1).map(c => c.uid)));
         // ウェイトにして払ったときは、アクティブに戻せる WAO-WAO を優先して拾う
         const wao = how === 'rest' && !me.hand.some(c => c.def.id === WAO) && me.waiting.find(c => c.def.id === WAO);
         if (wao) { me.waiting.splice(me.waiting.indexOf(wao), 1); me.hand.push(wao); g.log(me, 'eff', `南 ことり：控え室から${cardLabel(wao)}を手札に加えた`); }
@@ -328,8 +336,8 @@ export default {
 };
 
 // 13ことりのコスト：名前の異なる、アクティブなPrintempsメンバー2人（バトンタッチ元を先に選ぶ）
-function restPair(me, first = null) {
-  const act = me.stage.filter(s => s && s.active && isPr(s.card));
+function restPair(me, first = null, without = null) {
+  const act = me.stage.filter(s => s && s !== without && s.active && isPr(s.card));
   const order = first && act.includes(first) ? [first, ...act.filter(s => s !== first)] : act;
   const pick = [];
   const names = new Set();
@@ -339,6 +347,16 @@ function restPair(me, first = null) {
     if (pick.length === 2) return pick;
   }
   return null;
+}
+// 新13ことりのコスト-2のウェイトに、バトンタッチ元を含めるか
+//  バトンタッチ元以外の2人でウェイトにでき、そのときのコストを払えるなら含めない
+function includeSource(g, me, card, slot) {
+  const withSrc = restPair(me, slot);
+  if (!withSrc || !withSrc.includes(slot)) return false;
+  if (!restPair(me, null, slot)) return true;
+  // 含めないときのコスト：手札でのコスト（-2済み）－バトンタッチ元のコスト（アクティブのまま）
+  const exCost = Math.max(0, g.costOf(me, card) - slot.card.def.cost);
+  return exCost > me.energy.active;
 }
 // ウェイトにすると「コスト+1」減って、手札のμ'sメンバーをこのメンバーからバトンタッチで出せるようになるか
 function batonHelps(g, me, slot) {
@@ -351,8 +369,16 @@ function otherActivePr(me, slot) {
 }
 // 13ことりの起動の払い方：'rest'（2人ウェイト）／'discard'（手札2枚）／null（使わない）
 function payChoice(g, me, slot) {
-  if (!slot.active || !me.waiting.some(c => isLive(c) && isPr(c))) return null;
+  if (!slot.active) return null;
   const others = otherActivePr(me, slot);
+  // 手札にWAO-WAOがあり、この起動でウェイトのPrintempsが3人以上になるなら使う（ライブ開始時に3人起こしてスコア+1。noteの3Tの6点）
+  //  2人ウェイトで払えるならそちら（手札を残す）、無理なら手札2枚（WAO-WAOは残す）
+  const waitPr = me.stage.filter(s => s && !s.active && isPr(s.card)).length;
+  if (me.hand.some(c => c.def.id === WAO) && waitPr < 3) {
+    if (others.length >= 2 && waitPr + 3 >= 3) return 'rest';
+    if (waitPr + 1 >= 3 && me.hand.length >= 3) return 'discard';
+  }
+  if (!me.waiting.some(c => isLive(c) && isPr(c))) return null;
   const react = me.hand.some(c => c.def.id === WAO) || me.waiting.some(c => c.def.id === WAO) || under17(me) >= 2;
   if (others.length >= 2 && react) return 'rest';
   if (willDiscard(g, me, 2)) return 'discard';
