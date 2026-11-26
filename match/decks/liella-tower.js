@@ -97,8 +97,9 @@ export default {
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
     main: (api, def) => { const r = def(api, { pace: [1, 1, 10], playPen: 0.3, topK: 60, setupWeight: 1 }); recoverLoop(api); return r; },
     // 1T・3Tのランプは手札を払ってでも必ず行う（4Tに9エネで 4→13）
+    // 4Tはセンターの2コストを起動で控え室に置かない（エネルギーが残らず埋め直せない。ハートとブレードが減ってShooting Voice!!＋Let's be ONEが置けなくなる）
     // 10千砂都の下に敷く10・20コストは、次のターンに敷く分（1枚）を手札に残す（noteの「次のターンに敷くメンバーは、手放さずにキープ」）
-    prefer: { rampTurns: [1, 3], hold: [{ from: 1, to: 5, ids: UNDER }] },
+    prefer: { rampTurns: [1, 3], noRecoverTurns: [4], hold: [{ from: 1, to: 5, ids: UNDER }] },
     // 手順（noteの回し方より）。出せないときはいつものAIの判断に戻る
     script: {
       // 1T：右サイドにランプの4（4かのんは1Tではランプできない）
@@ -127,6 +128,8 @@ export default {
       digFor: [
         { ids: [CHISATO10], turns: [1], n: 3, keep: [...RAMP4, KANON4, ...THIRTEENS, ...UNDER], label: '10嵐千砂都', skipIfStage: true },
         { ids: THIRTEENS, turns: [2, 3], n: 3, keep: [KANON4, ...RAMP4, SV, LBO, ...UNDER], label: '13' },
+        // 2〜4T：次のターンに10千砂都の下へ敷く10・20コストが手札に無ければ探す
+        { ids: UNDER, turns: [2, 3, 4], n: 2, keep: [KANON4, ...RAMP4, ...THIRTEENS, SV, LBO, KANON2, NATSUMI2], label: '10千砂都の下に敷く10・20コスト' },
       ],
     },
   },
