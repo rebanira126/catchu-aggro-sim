@@ -20,7 +20,7 @@ for (const deck of BUILTIN_DECKS) {
   const acc = Array.from({ length: T }, () => ({ ok: 0, sum: 0 }));
   let l1 = 0;
   for (let i = 1; i <= N; i++) {
-    const g = playSolo({ db, effects: EFFECTS, deck, seed: i * 7919, turns: T, soloMaxP: 0.7 });
+    const g = playSolo({ db, effects: EFFECTS, deck, seed: i * 7919, turns: T, soloMaxP: 0.5 });
     if (left1 >= 2) l1++;
     g.p[0].turnLog.forEach((r, k) => { if (r.ok) { acc[k].ok++; acc[k].sum += r.score; } });
   }
