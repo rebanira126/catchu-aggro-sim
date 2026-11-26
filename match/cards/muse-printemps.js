@@ -341,9 +341,11 @@ function restPair(me, first = null, without = null) {
   const order = first && act.includes(first) ? [first, ...act.filter(s => s !== first)] : act;
   const pick = [];
   const names = new Set();
+  // 名前は空白を除いて比べる（「南ことり」と「南 ことり」は同じ名前）
+  const nm = s => s.card.def.names.map(n => n.replace(/\s/g, ''));
   for (const s of order) {
-    if (s.card.def.names.some(n => names.has(n))) continue;
-    pick.push(s); s.card.def.names.forEach(n => names.add(n));
+    if (nm(s).some(n => names.has(n))) continue;
+    pick.push(s); nm(s).forEach(n => names.add(n));
     if (pick.length === 2) return pick;
   }
   return null;

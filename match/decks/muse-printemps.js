@@ -40,6 +40,21 @@ function fillBefore13(api) {
   if (api.play(idx, empty, false)) g.log(me, 'plan', '手順：新13ことりの前に、空いている枠へ2コストを出した（2コスト2人をウェイトにするため）');
 }
 
+// 3T：盤面が4ことり＋2コスト2人（7穂乃果なし）なら、先に4ことりの起動でウェイトにしてから新13ことりをバトンタッチする
+//  ウェイトの4ことりからなら減る値が5（4ことりの常時能力）なので、2コスト2人をウェイトにしてちょうど6エネルギー。2コスト2人のウェイトが残る
+function restKotori4Before13(api) {
+  const { g, me } = api;
+  if (g.turn !== 3 || !me.hand.some(c => c.def.id === KOTORI13N) || me.stage.some(x => x && x.card.def.id === HONOKA7)) return;
+  const a4 = me.stage.findIndex(x => x && x.card.def.id === KOTORI4 && x.active && x.enteredTurn !== g.turn);
+  if (a4 < 0 || me.hand.length < 2) return;
+  const isPrM = d => nameOf(d).some(n => PR_NAMES.map(x => x.replace(/\s/g, '')).includes(n));
+  const others = me.stage.filter((x, i) => x && i !== a4 && x.active && isPrM(x.card.def));
+  const names = others.map(x => nameOf(x.card.def).join('|'));
+  if (others.length < 2 || names[0] === names[1]) return;
+  if (me.hand.find(c => c.def.id === KOTORI13N).def.cost - 2 - 5 > me.energy.active) return;
+  if (api.activate(a4, 0)) g.log(me, 'plan', '手順：4ことりの起動でウェイトにした（ウェイトの4ことりから新13ことりへバトンタッチするため）');
+}
+
 // 3T：新13ことりを出したあと、ウェイトが3人に届かなければ、noteの手順で3人ウェイトにする
 //  ウェイトにした2コストへ手札の2コストをバトンタッチで出し直し（アクティブにする）、新13ことりの起動（自分＋Printemps2人をウェイト）で3人ウェイト
 //  （手札2枚で払う形は、起動能力の判断のほうで選ぶ）
@@ -108,7 +123,7 @@ export default {
       ],
     },
     mainOpt: { playPen: 0.3, topK: 60 },
-    main: (api, def) => { fillBefore13(api); const r = def(api, { pace: [2, 6, 10], playPen: 0.3, topK: 60 }); restThreeAfter13(api); return r; },
+    main: (api, def) => { fillBefore13(api); restKotori4Before13(api); const r = def(api, { pace: [2, 6, 10], playPen: 0.3, topK: 60 }); restThreeAfter13(api); return r; },
     turnPlan: {
       1: { board: [[4], [2, 2]], lives: [[SAYO]] },
       // 2T：7穂乃果＋2コスト（小夜啼鳥恋詩の5ハートに届く盤面）。1Tの手札交換で2コストを残す
@@ -136,6 +151,7 @@ export default {
       ] }],
       // 4T（noteの盤面 15花陽・7穂乃果・2ことり）：13ことりの起動（2コス2人をウェイト）でライブを拾ってから、
       // ウェイトの13ことりから15花陽、2コス（2ことり以外）から7穂乃果へバトンタッチ。15花陽と7穂乃果が手札にあるときだけ
+      //  15花陽が無く17花陽だけでも、13ことりの起動のあとウェイトの13ことりから17花陽へ（7穂乃果が無くても花陽だけは出す）
       4: [
         { activate: { id: KOTORI13N }, ifHand: [{ id: HANAYO15 }, { id: HONOKA7 }] },
         { oneOf: [{ play: { id: HANAYO15 }, onto: { id: KOTORI13N }, ontoWait: true }] },
