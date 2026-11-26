@@ -25,7 +25,8 @@ export default {
       // デッキの主力のライブ（strategy.prefer.wantLives）が手札に無く、控え室にあるときも使う
       // 目標のライブの組み合わせにあと1枚足りないときも使う（足りないライブが控え室にあれば）
       // strategy.prefer.noRecoverTurns のターンは使わない（ライブのハートに要るので、次のターンまでステージに残す）
-      ai: ({ g, me }) => !(me.prefer && me.prefer.noRecoverTurns && me.prefer.noRecoverTurns.includes(g.turn)) && ((me.hand.filter(isLive).length === 0 && me.waiting.some(isLive)) || (wanted(me) && !me.hand.some(wanted(me)) && me.waiting.some(wanted(me))) || comboReady(g, me)),
+      // strategy.prefer.recoverIfNoLiveTurns のターンは、手札にライブが1枚も無いときだけ使う（ステージを欠けさせたくないとき）
+      ai: ({ g, me }) => !(me.prefer && me.prefer.noRecoverTurns && me.prefer.noRecoverTurns.includes(g.turn)) && !(me.prefer && me.prefer.recoverIfNoLiveTurns && me.prefer.recoverIfNoLiveTurns.includes(g.turn) && me.hand.some(isLive)) && ((me.hand.filter(isLive).length === 0 && me.waiting.some(isLive)) || (wanted(me) && !me.hand.some(wanted(me)) && me.waiting.some(wanted(me))) || comboReady(g, me)),
       run: ({ g, me, slot, area }) => {
         sacrificeSelf(g, me, slot, area);
         const miss = comboMissing(g, me, { upTo: 2 });
