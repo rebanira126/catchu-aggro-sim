@@ -221,7 +221,7 @@ details.eff li .nt{color:var(--muted)}
   </div>
   <div id="oppTraceBox" hidden></div>
   <details><summary>この対戦の前提と限界</summary><ul>
-    <li>ターン数は最大12ターンまで回します。12ターンで決着しなかった分は「未決着」です。</li>
+    <li>ターン数は最大12ターンまで回します。引き分けや12ターンで決着しなかった試合はほとんど起きないので表示しません（「勝つ」では勝ち以外として数えます）。</li>
     <li>こちらはライブを出すかどうかを、勝てる見込みと負けた時の損を比べて決めています（出さない選択もあります）。相手の点数が高いターンは、無理に出さずに次のターンへ備えます。</li>
     <li>エール（応援）で出るスコアアイコンの加点は再現していません。効果を組み込んでいないカードは、数値だけの普通のカードとして動きます。</li>
     <li>相手の成功/失敗はターンごとに独立で、こちらの動きには影響されません。相手のデッキや手札は再現していません。</li>
@@ -1734,15 +1734,13 @@ async function goOpp(){
   }finally{$('goOpp').disabled=!current.ok;}
 }
 function oppShow(a,opp,T){
-  const n=a.n||1,w=a.win/n,d=a.draw/n,l=a.loss/n,u=a.unres/n;
+  const n=a.n||1,w=a.win/n,l=a.loss/n;
   const se=Math.sqrt(w*(1-w)/n);
   const tenths=(w*10).toFixed(1);
   $('oppTiles').innerHTML=
     `<div class="tile"><span class="k">勝つ</span><span class="v">${pct(w)}</span><span class="s">10回中およそ ${tenths} 回（±${(se*196).toFixed(1)}%）</span></div>`+
-    `<div class="tile"><span class="k">引き分け</span><span class="v">${pct(d)}</span></div>`+
-    `<div class="tile"><span class="k">負ける</span><span class="v">${pct(l)}</span></div>`+
-    (a.unres?`<div class="tile"><span class="k">未決着（${T}ターンまで）</span><span class="v">${pct(u)}</span></div>`:'');
-  let h='<table><thead><tr><th>決着ターン</th><th class="n">勝ち</th><th class="n">決着した割合（勝ち・引き分け・負け）</th></tr></thead><tbody>';
+    `<div class="tile"><span class="k">負ける</span><span class="v">${pct(l)}</span></div>`;
+  let h='<table><thead><tr><th>決着ターン</th><th class="n">勝ち</th><th class="n">決着した割合</th></tr></thead><tbody>';
   for(let t=3;t<=T;t++){
     const e=a.endT[t]/n,ww=a.winT[t]/n;
     if(e===0&&t>8)continue;
