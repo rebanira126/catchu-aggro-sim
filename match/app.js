@@ -182,12 +182,12 @@ function renderEnvResult(results) {
     ['後攻の勝率', sn ? (sw / sn * 100).toFixed(1) + '%' : '--'],
     ['平均決着ターン', en ? (et / en).toFixed(1) : '--'],
   ].map(([k, v, c, s]) => `<div class="tile"><span class="k">${k}</span><span class="v ${c || ''}">${v}</span>${s ? `<span class="hint">${s}</span>` : ''}</div>`).join('');
-  $('resultBox').innerHTML = `<table><thead><tr><th scope="col">相手デッキ</th><th scope="col">勝率</th><th scope="col" class="n">先攻</th><th scope="col" class="n">後攻</th><th scope="col" class="n">引分</th><th scope="col" class="n">未決着</th><th scope="col" class="n">決着T</th><th scope="col"><span class="sr">ログ</span></th></tr></thead><tbody>${results.map(({ b, acc }, i) => {
+  $('resultBox').innerHTML = `<table><thead><tr><th scope="col">相手デッキ</th><th scope="col">勝率</th><th scope="col" class="n">先攻</th><th scope="col" class="n">後攻</th><th scope="col" class="n">決着T</th><th scope="col"><span class="sr">ログ</span></th></tr></thead><tbody>${results.map(({ b, acc }, i) => {
     const wr = acc.win / acc.n * 100; const fin = acc.win + acc.loss + acc.draw;
     return `<tr><th scope="row">${esc(b.type)}<span class="sub">${esc(buildLabel(b))}</span></th>
       <td><div class="bar"><div class="track"><div class="fill" style="width:${wr.toFixed(1)}%"></div></div><span>${wr.toFixed(1)}%</span></div></td>
       <td class="n">${pct(acc.asFirst.win, acc.asFirst.n)}%</td><td class="n">${pct(acc.asSecond.win, acc.asSecond.n)}%</td>
-      <td class="n">${pct(acc.draw, acc.n)}%</td><td class="n">${pct(acc.unres, acc.n)}%</td><td class="n">${fin ? (acc.endTurn / fin).toFixed(1) : '-'}</td>
+      <td class="n">${fin ? (acc.endTurn / fin).toFixed(1) : '-'}</td>
       <td><button type="button" class="linkbtn" data-trace="${i}">1ゲーム見る</button></td></tr>`;
   }).join('')}</tbody></table>`;
   $('resultBox').querySelectorAll('[data-trace]').forEach(btn => btn.addEventListener('click', () => {
