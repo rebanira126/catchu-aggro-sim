@@ -49,23 +49,28 @@ export default {
   plan: {
     board: "2-2 → 2-2-5（5すみれは左・5千砂都は右で2枚引いて2枚捨てる）→ 2-2-11（5から11へバトンタッチ）→ 2-5-15 / 2-11-15",
     score: "1 → 1〜3 → 6（始まりは君の空）→ 9〜12",
-    mulligan: "1点ライブ（START!!・始まりは君の空）1〜2枚、2コス2枚、5コス1枚",
+    mulligan: "5コス1枚、1点ライブ（START!!・始まりは君の空）1〜2枚、2コス2枚（恋・ことり・絵里を優先、無ければほかの2コス）",
     lives: "1T：START!! か始まりは君の空（1点）／2T：1点ライブ、手札がよければアイコトバ！（3点）／3T：成功ライブが2枚あれば始まりは君の空（6点）／4T以降：始まりは君の空×2、始まりは君の空＋アイコトバ！",
     key: "始まりは君の空（成功ライブ2枚で6点）、2南ことり・2絢瀬絵里（成功ライブ1枚につきハート+1）、11澁谷かのん（赤4）",
     refs: ["https://hasami-kourin.jugem.jp/?eid=67", "https://note.com/witch0528/n/nc67a25b20780"],
   },
   strategy: {
-    prefer: { wantLives: [HAJI, START, AIKO] },
+    // 冬毬（bp1-011）の「自分を控え室に置いてライブ回収」は、3Tは手札にライブが無いときだけ使う（始まりは君の空の12ハートに3人とも要る）
+    // 始まりは君の空は1枚必ず手札に残す（11かのんのライブ開始時の2枚捨てなどで捨てない）
+    prefer: { wantLives: [HAJI, START, AIKO], recoverIfNoLiveTurns: [3], keepLive: [HAJI] },
     mulliganOpt: {
       keep: [
         { ids: [SUMIRE5, CHISATO5], n: 1 },
         { ids: [START, HAJI], n: 2 },
-        { ids: [REN2, KOTORI2, ERI2], n: 2 },
+        // 2コストは2枚：恋・ことり・絵里を優先し、足りなければほかの2コストでも（1Tの2-2のため）
+        { ids: [REN2, KOTORI2, ERI2], group: 'two', n: 2 },
+        { cost: 2, group: 'two' },
       ],
     },
     mainOpt: { playPen: 0.3, topK: 60 },
     turnPlan: {
-      1: { board: [[2, 2]], lives: ONE },
+      // 1T：2コストはセンターと右に置き、左を空けておく（2Tの5すみれは左に出す）。5千砂都しか無ければ右を空ける
+      1: { board: [[{ cost: 2, area: 1 }, { cost: 2, area: 2 }]], lives: ONE, alt: [{ ifHand: { id: CHISATO5 }, ifNoHand: { id: SUMIRE5 }, board: [[{ cost: 2, area: 0 }, { cost: 2, area: 1 }]] }] },
       2: { board: [[{ id: SUMIRE5, area: 0 }, 2, 2], [2, 2, { id: CHISATO5, area: 2 }], [5, 2, 2]], lives: [...ONE, [AIKO], [START, START]] },
       3: { board: [[11, 2, 2]], lives: [[HAJI], [AIKO], ...ONE] },
       4: { board: [[15, 5, 2], [15, 11, 2], [11, 11, 2]], lives: LATE },
