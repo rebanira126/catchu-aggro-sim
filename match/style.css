@@ -54,6 +54,9 @@ button { font: inherit; cursor: pointer; }
 .opp label { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 500; }
 .opp input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
 .opp select { font-size: 13px; padding: 7px 9px; }
+.opp-all { display: flex; align-items: center; gap: 10px; padding: 4px 10px 8px; font-size: 14px; font-weight: 600; }
+.opp-all input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
+.opp-count { margin-left: auto; font-size: 12px; font-weight: 400; color: var(--sub); }
 .hint { margin: 0; font-size: 12px; color: var(--sub); font-weight: 400; }
 .hint.light { color: #B8BCC4; }
 .head-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }

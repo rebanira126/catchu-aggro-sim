@@ -100,7 +100,18 @@ function renderMatchForm() {
   });
   $('myDeckField').hidden = matchState.mode === 'rr';
   $('oppLegend').textContent = matchState.mode === 'rr' ? '総当たりに入れるデッキ（タイプごとに構築を選ぶ）' : '相手のデッキ（タイプごとに構築を選ぶ）';
+  syncOppAll();
   updateEstimate();
+}
+
+// 「すべて選択」の表示を、相手のチェックの状態に合わせる（全部＝チェック、0件＝空、一部＝中間）
+function syncOppAll() {
+  const boxes = [...document.querySelectorAll('#oppList .opp input[type=checkbox]')];
+  const on = boxes.filter(b => b.checked).length;
+  const all = $('oppAll');
+  all.checked = boxes.length > 0 && on === boxes.length;
+  all.indeterminate = on > 0 && on < boxes.length;
+  $('oppCount').textContent = `${on}/${boxes.length}件`;
 }
 
 function selectedOpps() {
@@ -126,7 +137,14 @@ document.querySelectorAll('[data-first]').forEach(b => b.addEventListener('click
   document.querySelectorAll('[data-first]').forEach(x => x.classList.toggle('on', x === b));
 }));
 $('myType').addEventListener('change', () => fillBuildSelect($('myBuild'), $('myType').value));
-$('oppList').addEventListener('change', updateEstimate);
+$('oppList').addEventListener('change', () => { syncOppAll(); updateEstimate(); });
+// すべて選択：中間（一部だけ選択）のときに押すと全部選ぶ。全部選ばれているときに押すと全部外す
+$('oppAll').addEventListener('change', () => {
+  const on = $('oppAll').checked;
+  document.querySelectorAll('#oppList .opp input[type=checkbox]').forEach(b => { b.checked = on; });
+  syncOppAll();
+  updateEstimate();
+});
 $('nGames').addEventListener('change', updateEstimate);
 
 async function runPair(a, b, n, onProg) {

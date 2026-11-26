@@ -46,6 +46,8 @@
         </div>
         <fieldset class="field">
           <legend class="lbl" id="oppLegend">相手のデッキ（タイプごとに構築を選ぶ）</legend>
+          <!-- すべて選択：一部だけ選ばれているときは中間の表示（－）。押すと全部選ぶ／全部選ばれていれば全部外す -->
+          <label class="opp-all"><input type="checkbox" id="oppAll" aria-controls="oppList"><span>すべて選択</span><span class="opp-count" id="oppCount"></span></label>
           <div id="oppList" class="opp-list"></div>
         </fieldset>
         <div class="field">
