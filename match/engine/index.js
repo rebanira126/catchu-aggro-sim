@@ -72,9 +72,9 @@ export function makeMatchRunner({ db, effects, a, b, seedBase = 1, firstMode = '
 }
 
 // ひとり回し1試合：相手はライブをしない「かかし」。毎ターンの点数を見る（成功ライブは2枚までにして試合を続ける）
-// soloMaxP：ライブの選び方。成功の見込みがこの値以上の中で一番点数の高い組み合わせを置く（測る用。既定は70%）
+// soloMaxP：ライブの選び方。成功の見込みがこの値以上の中で一番点数の高い組み合わせを置く（測る用。既定は50%。2026-11に全デッキで40〜70%を比べ、平均がいちばん良く、どのデッキでも損が小さい値にした）
 //  null なら対戦と同じ選び方（デッキの pace など）。相手の点数の見込み（soloProfile）は対戦と同じ選び方で調べる
-export function playSolo({ db, effects, deck, seed, turns = 6, trace = false, soloMaxP = 0.7 }) {
+export function playSolo({ db, effects, deck, seed, turns = 6, trace = false, soloMaxP = 0.5 }) {
   const idle = { mulligan: () => [], main: () => {}, setLives: () => [], chooseSuccess: () => 0 };
   const g = new Game({
     db, effects, seed, first: 0, trace,

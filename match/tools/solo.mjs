@@ -1,5 +1,5 @@
 // デッキのひとり回し：ターンごとのライブ成功率と成功時の平均点、点数の分布
-// ライブは「成功の見込みが70%以上の中で一番点数の高い組み合わせ」を置く（環境変数 SOLO_MAXP で変えられる。off なら対戦と同じ選び方）
+// ライブは「成功の見込みが50%以上の中で一番点数の高い組み合わせ」を置く（環境変数 SOLO_MAXP で変えられる。off なら対戦と同じ選び方）
 // 使い方：node match/tools/solo.mjs [デッキID] [回数=1000] [ターン数=6] [trace=seed番号]
 import { loadDbNode } from '../engine/load-node.js';
 import { EFFECTS } from '../cards/index.js';
@@ -11,7 +11,7 @@ const N = +nArg || 1000, T = +tArg || 6;
 const deck = BUILTIN_DECKS.find(d => d.id === id);
 if (!deck) throw new Error(`デッキがありません: ${id}`);
 const db = loadDbNode();
-const soloMaxP = process.env.SOLO_MAXP === 'off' ? null : process.env.SOLO_MAXP ? +process.env.SOLO_MAXP : 0.7;
+const soloMaxP = process.env.SOLO_MAXP === 'off' ? null : process.env.SOLO_MAXP ? +process.env.SOLO_MAXP : 0.5;
 if (traceSeed) {
   const g = playSolo({ db, effects: EFFECTS, deck, seed: +traceSeed, turns: T, trace: true, soloMaxP });
   for (const l of g.logs) if (l.p === 0) {
