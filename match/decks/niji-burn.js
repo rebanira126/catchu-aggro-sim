@@ -65,7 +65,8 @@ export default {
     // 1T：Chance Day, Chance Way!（赤1）のために赤の2コスと、2Tの Daydream Mermaid（青1紫3）のためにブレードの多い2コス
     // 2T：4果林（3ブレード・好きな色）かセラス（紫2）を足して Daydream Mermaid
     script: {
-      1: [{ oneOf: [{ play: { id: SETSUNA2 } }, { play: { id: RUBY2 } }, { play: { cost: 2 } }] }, { oneOf: [{ play: { id: CHISATO2 } }, { play: { id: ERI2 } }, { play: { cost: 2 } }] }],
+      // 2コストが1枚しかなければ、4コスト（3ブレードの果林 → セラス → ほかの4）を出してエネルギーを使いきる。2コストは2Tに出す（2Tは4-2-2）
+      1: [{ ifHandLt: { spec: { cost: 2 }, n: 2 }, oneOf: [{ play: { id: KARIN4 } }, { play: { id: CERES4 } }, { play: { cost: 4 } }] }, { oneOf: [{ play: { id: SETSUNA2 } }, { play: { id: RUBY2 } }, { play: { cost: 2 } }] }, { oneOf: [{ play: { id: CHISATO2 } }, { play: { id: ERI2 } }, { play: { cost: 2 } }] }],
       // 1Tに1人しか出せなかったときは、2コストを2枚（紫ハート優先）出して3人にする（2人だとDaydream Mermaidはほぼ成功しない）
       2: [
         { ifStartEmpty: 2, oneOf: [{ play: { id: CHISATO2 } }, { play: { id: KANATA2 } }, { play: { id: MARGARETE2 } }, { play: { id: HANAMARU2 } }, { play: { cost: 2 } }] },
