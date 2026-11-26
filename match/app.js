@@ -129,8 +129,11 @@ $('myType').addEventListener('change', () => fillBuildSelect($('myBuild'), $('my
 $('oppList').addEventListener('change', updateEstimate);
 $('nGames').addEventListener('change', updateEstimate);
 
-async function runPair(a, b, n, onProg) {
-  return POOL.run({ kind: 'match', a: plainDeck(a), b: plainDeck(b), firstMode: matchState.first, seedBase: 1, n }, onProg);
+// 乱数の種：計算するたびに変える（前は毎回1で、同じ相手と何度回しても同じ結果になっていた）
+const newSeed = () => 1 + Math.floor(Math.random() * 1e9);
+
+async function runPair(a, b, n, onProg, seedBase) {
+  return POOL.run({ kind: 'match', a: plainDeck(a), b: plainDeck(b), firstMode: matchState.first, seedBase, n }, onProg);
 }
 
 $('matchForm').addEventListener('submit', async e => {
@@ -151,14 +154,15 @@ $('matchForm').addEventListener('submit', async e => {
   const bar = $('matchBar');
   $('matchMsg').textContent = '計算中…';
   const results = [];
+  const seedBase = newSeed();
   try {
     for (const [a, b] of pairs) {
-      const acc = await runPair(a, b, n, k => { done += k; bar.style.width = (done / total * 100).toFixed(1) + '%'; });
+      const acc = await runPair(a, b, n, k => { done += k; bar.style.width = (done / total * 100).toFixed(1) + '%'; }, seedBase);
       results.push({ a, b, acc });
     }
     matchState.last = { mode: matchState.mode, results, opps };
     if (matchState.mode === 'env') renderEnvResult(results); else renderRRResult(results, opps);
-    $('matchMsg').textContent = `計算が終わりました（1組 ${n.toLocaleString()}回・${(await POOL.usingWorkers()) ? POOL.size + 'コアで計算' : '1コアで計算'}）`;
+    $('matchMsg').textContent = `計算が終わりました（1組 ${n.toLocaleString()}回・${(await POOL.usingWorkers()) ? POOL.size + 'コアで計算' : '1コアで計算'}・乱数の種 ${seedBase}）`;
   } catch (err) {
     $('matchMsg').textContent = '計算中にエラーが起きました：' + err.message;
   } finally {
@@ -265,7 +269,7 @@ $('soloForm').addEventListener('submit', async e => {
   if (!deck) return;
   const n = +$('soloN').value;
   let done = 0;
-  const acc = await POOL.run({ kind: 'solo', deck: plainDeck(deck), turns: 6, seedBase: 1, n }, k => { done += k; $('soloBar').style.width = (done / n * 100) + '%'; });
+  const acc = await POOL.run({ kind: 'solo', deck: plainDeck(deck), turns: 6, seedBase: newSeed(), n }, k => { done += k; $('soloBar').style.width = (done / n * 100) + '%'; });
   const tg = targets(deck.plan);
   $('soloTable').innerHTML = `<table><thead><tr><th scope="col">ターン</th><th scope="col">目標の点数</th><th scope="col" class="n">ライブ成功率</th><th scope="col" class="n">成功時の平均点</th><th scope="col" class="n">目標に届いた割合</th><th scope="col">判定</th></tr></thead><tbody>${acc.turns.map((T, i) => {
     const target = tg[i] || '-';
