@@ -8,7 +8,45 @@ const CHISATO10 = 'PL!SP-bp7-003'; // 嵐 千砂都（コスト10・下にメン
 const KEKE13 = 'PL!SP-bp5-002';    // 唐 可可（コスト13・左サイドで起動）
 const RAMP4 = ['PL!SP-PR-006', 'PL!SP-PR-013', 'PL!SP-sd1-014']; // 4コスのランプ（手札1枚を払ってエネルギーを置く）
 const KANON4 = 'PL!SP-bp4-001';    // 澁谷かのん（コスト4・エネルギー7枚以上ならランプ）
+const KANON2 = 'PL!SP-pb2-012';  // 澁谷かのん（2）：起動で自分を控え室へ → ライブ回収
+const NATSUMI2 = 'PL!SP-pb2-031'; // 鬼塚夏美（2）：起動で自分を控え室へ → メンバー回収
+const UNDER = ['PL!SP-pb2-005', 'PL!SP-bp7-001', 'PL!SP-bp1-003', CHISATO10]; // 10千砂都の下に敷く（20恋 → 10かのん → 10千砂都）
 const THIRTEENS = [KEKE13, 'PL!SP-bp2-009']; // 13（唐可可・鬼塚夏美）
+
+// 4T以降：余ったエネルギーで2コストを出しては起動で控え室に置き、ライブを回収する（noteの5T「6エネルギー余る。3回収まで可能」）
+//  センターの2かのん → ライブ回収。2かのんが手札に無ければ、2夏美で控え室の2かのんを拾う。最後に空いたセンターは2〜4コストで埋める
+function recoverLoop(api) {
+  const { g, me } = api;
+  if (g.turn < 4) return;
+  const want = g.turn === 4 ? 2 : 3; // 4T：Shooting Voice!!＋Let's be ONE、5T以降：3枚
+  const lives = () => me.hand.filter(c => c.def.kind === 'L').length;
+  const center = 1;
+  for (let guard = 0; guard < 6 && lives() < want && me.waiting.some(c => c.def.kind === 'L'); guard++) {
+    const s = me.stage[center];
+    // センターを空けたら埋め直せる（エネルギー2以上）ときだけ起動する（空いたセンターはハートとブレードが減る）
+    if (s && me.energy.active < 2) break;
+    if (s && s.card.def.id === KANON2) { if (!api.activate(center, 0)) break; g.log(me, 'plan', '手順：2かのんでライブを回収した'); continue; }
+    if (s && s.card.def.id === NATSUMI2 && me.waiting.some(c => c.def.id === KANON2) && !me.hand.some(c => c.def.id === KANON2)) {
+      // 2夏美の回収先を2かのんにする（起動の間だけ、拾いたいメンバーを2かのんにしておく）
+      const pf = me.prefer;
+      me.prefer = { ...(pf || {}), wantMembers: [[KANON2]] };
+      const ok = api.activate(center, 0);
+      me.prefer = pf;
+      if (!ok) break;
+      g.log(me, 'plan', '手順：2夏美で2かのんを拾った'); continue;
+    }
+    const k2 = me.hand.findIndex(c => c.def.id === KANON2);
+    const pick = k2 >= 0 ? k2 : me.waiting.some(c => c.def.id === KANON2) ? me.hand.findIndex(c => c.def.id === NATSUMI2) : -1;
+    if (pick < 0) break;
+    if (s && (s.card.def.cost > 2 || !g.canTarget(me, center))) break;
+    if (g.playCost(me, me.hand[pick], center, !!s) > me.energy.active) break;
+    if (!api.play(pick, center, !!s)) break;
+  }
+  if (!me.stage[center]) {
+    const i = me.hand.findIndex(c => c.def.kind === 'M' && c.def.cost <= 4 && c.def.cost <= me.energy.active);
+    if (i >= 0) api.play(i, center, false);
+  }
+}
 
 export default {
   id: "liella-tower",
@@ -54,10 +92,14 @@ export default {
   // ・空いた枠にはコスト4以下のメンバーを伏せて引き直す（大型は残す）
   strategy: {
     // マリガン：10嵐千砂都 ＞ 4ランプ ＞ 10澁谷かのん（千砂都が無いとき）＞ 1点ライブ
-    mulliganOpt: { keep: [{ ids: [CHISATO10], group: 'ten', n: 1 }, { ids: ['PL!SP-bp7-001'], group: 'ten' }, { ids: ['PL!SP-PR-006', 'PL!SP-PR-013', 'PL!SP-sd1-014', 'PL!SP-bp4-001'], n: 1 }, { ids: [LBO, GO], n: 1 }] },
+    //  4かのん（bp4-001）はエネルギー7枚以上でしかランプしないので、1Tのランプとしては残さない（2Tに10千砂都へバトンタッチするエネルギー6に届かない）
+    mulliganOpt: { keep: [{ ids: [CHISATO10], group: 'ten', n: 1 }, { ids: ['PL!SP-bp7-001'], group: 'ten' }, { ids: RAMP4, n: 1 }, { ids: [LBO, GO], n: 1 }] },
     mainOpt: { playPen: 0.3, topK: 60, setupWeight: 1 },
+    main: (api, def) => { const r = def(api, { pace: [1, 1, 10], playPen: 0.3, topK: 60, setupWeight: 1 }); recoverLoop(api); return r; },
     // 1T・3Tのランプは手札を払ってでも必ず行う（4Tに9エネで 4→13）
-    prefer: { rampTurns: [1, 3] },
+    // 4Tはセンターの2コストを起動で控え室に置かない（エネルギーが残らず埋め直せない。ハートとブレードが減ってShooting Voice!!＋Let's be ONEが置けなくなる）
+    // 10千砂都の下に敷く10・20コストは、次のターンに敷く分（1枚）を手札に残す（noteの「次のターンに敷くメンバーは、手放さずにキープ」）
+    prefer: { rampTurns: [1, 3], noRecoverTurns: [4], hold: [{ from: 1, to: 5, ids: UNDER }] },
     // 手順（noteの回し方より）。出せないときはいつものAIの判断に戻る
     script: {
       // 1T：右サイドにランプの4（4かのんは1Tではランプできない）
@@ -84,8 +126,10 @@ export default {
       fill: true, fillMaxCost: 4, pace: [1, 1, 10], minP: 0.4, th1: 0.3, thLast: 0.3,
       // 手札交換：1Tは10嵐千砂都（2Tに出す）、2・3Tは13（4Tに出す）を探す
       digFor: [
-        { ids: [CHISATO10], turns: [1], n: 3, keep: [...RAMP4, KANON4, ...THIRTEENS], label: '10嵐千砂都', skipIfStage: true },
-        { ids: THIRTEENS, turns: [2, 3], n: 3, keep: [KANON4, ...RAMP4, SV, LBO], label: '13' },
+        { ids: [CHISATO10], turns: [1], n: 3, keep: [...RAMP4, KANON4, ...THIRTEENS, ...UNDER], label: '10嵐千砂都', skipIfStage: true },
+        { ids: THIRTEENS, turns: [2, 3], n: 3, keep: [KANON4, ...RAMP4, SV, LBO, ...UNDER], label: '13' },
+        // 2〜4T：次のターンに10千砂都の下へ敷く10・20コストが手札に無ければ探す
+        { ids: UNDER, turns: [2, 3, 4], n: 2, keep: [KANON4, ...RAMP4, ...THIRTEENS, SV, LBO, KANON2, NATSUMI2], label: '10千砂都の下に敷く10・20コスト' },
       ],
     },
   },
