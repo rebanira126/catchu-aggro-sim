@@ -44,10 +44,10 @@ function baseFor(s) {
 }
 
 function entries() {
-  const b = BUILTIN_DECKS.map(d => ({ key: 'b:' + d.id, builtin: true, type: d.type, name: d.name, lastPlaced: d.lastPlaced, source: d.source, list: d.list, plan: d.plan, strategy: d.strategy }));
+  const b = BUILTIN_DECKS.map(d => ({ key: 'b:' + d.id, stratId: d.id, builtin: true, type: d.type, name: d.name, lastPlaced: d.lastPlaced, source: d.source, list: d.list, plan: d.plan, strategy: d.strategy }));
   const u = saved.map(s => {
     const base = baseFor(s);
-    return { key: 'u:' + s.id, builtin: false, id: s.id, type: s.type, name: s.name, lastPlaced: s.lastPlaced || '－', source: s.source || '', list: s.list, plan: base ? base.plan : null, strategy: base ? base.strategy : {} };
+    return { key: 'u:' + s.id, stratId: base ? base.id : null, builtin: false, id: s.id, type: s.type, name: s.name, lastPlaced: s.lastPlaced || '－', source: s.source || '', list: s.list, plan: base ? base.plan : null, strategy: base ? base.strategy : {} };
   });
   return b.concat(u);
 }
