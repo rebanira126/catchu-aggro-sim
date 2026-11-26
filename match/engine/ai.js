@@ -831,7 +831,7 @@ export function turnTarget(me, turn) {
   return t;
 }
 
-// 手順・目標の条件：ifSuccess / ifNoSuccess（成功ライブ置き場にこのカードがある／無い）、ifNoStage（ステージにいない）、ifHand（手札にある）
+// 手順・目標の条件：ifSuccess / ifNoSuccess（成功ライブ置き場にこのカードがある／無い）、ifNoStage（ステージにいない）、ifHand（手札にある）、ifHandLt（手札に n 枚未満）
 const hasId = (cards, ids) => cards.some(c => [].concat(ids).includes(c.def.id));
 export function condOk(me, a) {
   if (a.ifSuccess && !hasId(me.success, a.ifSuccess)) return false;
@@ -841,6 +841,8 @@ export function condOk(me, a) {
   if (a.ifStage && !me.stage.some(x => x && matchSpec(a.ifStage, x.card.def))) return false;
   // ifHand：書いたカードが全部手札にあるときだけ（1つでも配列でもよい）
   if (a.ifHand && ![].concat(a.ifHand).every(sp => me.hand.some(c => matchSpec(sp, c.def)))) return false;
+  // ifHandLt：{ spec, n } 手札のメンバーでspecに合うものが n 枚未満のときだけ（例：2コストが1枚しかないときは4コストを出す）
+  if (a.ifHandLt && me.hand.filter(c => c.def.kind === 'M' && matchSpec(a.ifHandLt.spec, c.def)).length >= a.ifHandLt.n) return false;
   return true;
 }
 
