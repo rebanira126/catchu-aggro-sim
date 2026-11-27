@@ -26,6 +26,7 @@
 - **ツール**：`tools/vs.mjs`・`tools/matrix.mjs` は worker_threads（`engine/sim-worker-node.js`・`engine/pool-node.js`）で回します。使うコアの数は既定で「コア数−1」、環境変数 `SIM_THREADS` で指定できます
   - `node match/tools/vs.mjs liella-tomakanote 400`：1つのデッキとほかの全デッキ（1組400試合）。3つ目の引数に入れ替え案のモジュール（`export default deck => deck`）を渡せます
   - `node match/tools/matrix.mjs 400 out.json`：総当たり
+  - 入れ替え案のモジュールは `tools/variants/` に置く（`_swap.mjs` の `swap(deck, 抜くカード, 入れるカード)` で書ける）。ひとり回しでも `SOLO_VARIANT=match/tools/variants/〜.mjs node match/tools/solo.mjs デッキID` で使える
 - 相手の点数の見込み（ひとり回し120回）は一度だけ調べて、各ワーカーに配ります（`profA`・`profB`）
 - 仕事の形とまとめ方は `engine/jobs.js`
 
@@ -103,3 +104,6 @@ noteの回し方をデッキファイルに書き写すための項目です。�
 - タワーLiella!・恋アク・Edel Note は、4T以降の点数がnoteの目標より低い。そのためカード同士の総当たりでは CatChu! が強めに出る
 - 詳しい数字はプロジェクトのメモ（環境7デッキ 総当たり）にまとめています
 - 人魚Burn!!を2つの構築に分けた（2026-11-26）。三神人魚Burn!!（北陸エリア予選 入賞・niji-burn）と、13せつ菜型（明星さんのnote・niji-mermaid-burn）。13せつ菜型のレシピはnoteのリスト画像から読み取り、コスト分布とブレードハートの数で確かめた（読み取りにくかった上原歩夢15・米女メイ2・高海千歌2はユーザーさんが確認）。CHASE!・9せつ菜（起動で13以下のせつ菜に入れ替え）・13せつ菜・15歩夢の効果を `cards/niji-mermaid.js` に追加。DIVE!は効果なし（数値だけ）で動く。ひとり回しで 3T 60%（13-4は51%）・4T 66%（平均6.0点）・5T 82%（平均8.1点）。noteの理想（4T 11点・5T 19点）より低い。3Tに軽いライブ（Daydream Mermaid・CHASE!）が手札に無いことが多い
+- トマカノーテ（2026-11改訂版・liella-tomakanote-2611）を追加（2026-11-27）。依頼者が 234PYY をもとに組み直したもの（9コスト8枚・4Tの5コストは千砂都 pb2-036）。Butterfly Wing（自分のメンバーのライブ開始時能力を止める）・唐 可可 pb2-024・若菜四季 sd2-008 の効果を `cards/liella-tomakanote.js` に追加し、Butterfly Wing のためにライブ開始時の発動を止める仕組み（効果側の `blockMemberLiveStart`）を `engine/game.js` に足した。澁谷かのん bp5-012 は、ライブを置く前の見込みで黄ハート+1を数えるようにした（CatChu!基本形のひとり回しが+1pt前後変わる）
+  - ひとり回し（1000回）：2T 40%（2点）・3T 69%（4.0点）・4T 74%（4.8点）・5T 84%（5.9点）・6T 85%（7.6点）
+  - ほかの全デッキとの対戦（1組400試合）：平均 57.0%。入れ替え案（`tools/variants/tomakanote-2611-*.mjs`、1組200試合）は、葉月 恋 bp1-005×4 → 澁谷かのん bp5-012×4（案1）が 61.1%（400試合で 60.0%）、全部入り 60.8%（400試合で 60.4%）。ほかは 57〜59% で今の形と同じくらい。恋×4 を効果なしの2コス（若菜四季 sd1-019）にしても 59.1%（400試合）なので、上がった分の多くは恋を抜いたことによる

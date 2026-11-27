@@ -79,6 +79,11 @@ export default {
       const has = me.lives.some(l => inGroup(l.card.def, 'Liella!') && needSum(l.need) >= 8);
       return has ? { c: [0, 0, 1, 0, 0, 0] } : null;
     },
+    // 見込み：ライブを置く前（ライブ置き場が空）は、手札に必要ハート合計8以上のLiella!のライブがあれば置くものとして数える
+    estHearts({ me }) {
+      if (me.lives.length) return null;
+      return me.hand.some(c => c.def.kind === 'L' && inGroup(c.def, 'Liella!') && needSum(c.def.need) >= 8) ? { c: [0, 0, 1, 0, 0, 0] } : null;
+    },
   },
   // 平安名すみれ（2）：ライブ成功時、スコアが上がったライブかスコアアイコンのライブをエールで出していれば1枚引く
   'PL!SP-pb2-004': {

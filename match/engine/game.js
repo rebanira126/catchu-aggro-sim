@@ -225,11 +225,13 @@ export class Game {
   fire(P, hook, extra = {}) {
     const opp = this.opp(P);
     const list = [];
+    // 「自分のステージにいるメンバーが持つ【ライブ開始時】能力は発動しない」ライブ（効果側の blockMemberLiveStart）がライブ置き場にあるか
+    const blockLS = hook === 'liveStart' && P.lives.some(l => { const e = this.effect(l.card); return e && e.blockMemberLiveStart; });
     P.stage.forEach((s, area) => {
       if (!s) return;
       const ef = this.effect(s.card);
       // 「【ライブ開始時】能力を無効にする」効果（mods の noLiveStart）を受けたメンバーは、ライブ開始時能力を使わない
-      if (hook === 'liveStart' && s.mods.some(m => m.noLiveStart)) return;
+      if (hook === 'liveStart' && (blockLS || s.mods.some(m => m.noLiveStart))) return;
       if (ef && ef[hook]) list.push({ ef, ctx: { g: this, me: P, opp, card: s.card, slot: s, area, lives: P.lives, ...extra } });
     });
     for (const live of P.lives.slice()) {

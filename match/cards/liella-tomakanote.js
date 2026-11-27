@@ -42,6 +42,11 @@ function newHandNames(me) {
 // 15マルガレーテのライブ開始時能力が働くか（ほかのメンバーがいて、13かのんで無効にされていない）
 const marActive = (me, slot) => !slot.mods.some(m => m.noLiveStart) && me.stage.some(s => s && s !== slot);
 
+// ステージに【ライブ開始時】能力を持つメンバーがいるか（無効にされていても能力は持っている：総合ルール9.3.2）
+function hasLiveStartMember(g, me) {
+  return me.stage.some(s => { if (!s) return false; const e = g.effect(s.card); return !!(e && e.liveStart); });
+}
+
 // このターンと次のターンの目標のライブで、手札に足りないものがあるか
 function livesShort(g, me) {
   const miss = comboMissing(g, me, { upTo: 1 });
@@ -196,6 +201,31 @@ export default {
   'PL!SP-pb2-035': {
     note: '常時：左サイドにいるかぎりブレード+2',
     blades: ({ area }) => (area === 0 ? 2 : 0),
+  },
+  // ---------------- トマカノーテ（2026-11改訂版）で使うカード ----------------
+  // Butterfly Wing（2点）pb2-046
+  'PL!SP-pb2-046': {
+    note: '常時：自分のステージのメンバーのライブ開始時能力は発動しない。ライブ成功時：ステージにライブ開始時能力を持つメンバーがいればスコア+1',
+    blockMemberLiveStart: true,
+    liveSuccess({ g, me, live }) {
+      if (hasLiveStartMember(g, me)) { live.bonus += 1; g.log(me, 'eff', 'Butterfly Wing：スコア+1'); }
+    },
+    preview({ g, me, live, card, pick }) {
+      if (hasLiveStartMember(g, me)) live.bonus += 1;
+      // 15マルガレーテの「エール-8」は発動しないので、見込みで引いた分を戻す（2枚置いても1回だけ）
+      const first = !pick || pick.find(c => c.def.id === card.def.id) === card;
+      if (first) for (const s of me.stage) if (s && s.active && s.card.def.id === MAR15 && marActive(me, s)) live.cheer = (live.cheer || 0) + 8;
+    },
+  },
+  // 唐 可可（4）pb2-024
+  'PL!SP-pb2-024': {
+    note: '登場：相手のステージのコスト2以下のメンバー1人をウェイト',
+    onEnter({ g, opp }) { if (opp) waitOpp(g, opp, s => s.card.def.cost <= 2, '唐 可可：'); },
+  },
+  // 若菜四季（5）sd2-008
+  'PL!SP-sd2-008': {
+    note: '常時：自分のステージにコスト13以上のメンバーがいるかぎり黄ハート+1',
+    hearts: ({ me }) => (me.stage.some(s => s && s.card.def.cost >= 13) ? { c: [0, 0, 1, 0, 0, 0] } : null),
   },
   // ---------------- マルガレーテ強化の候補 ----------------
   // 鬼塚冬毬（9）bp5-011
