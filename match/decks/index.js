@@ -16,5 +16,7 @@ import d13 from './liella-kintaro.js';
 import d14 from './muse-printemps.js';
 import d15 from './liella-karesco.js';
 import d16 from './niji-mermaid-burn.js';
+import d17 from './liella-tomakanote-2611.js';
+import d18 from './liella-tomakanote-cfjug.js';
 
-export const BUILTIN_DECKS = [d0, d9, d1, d16, d2, d3, d4, d5, d6, d7, d8, d10, d11, d12, d13, d14, d15];
+export const BUILTIN_DECKS = [d0, d9, d1, d16, d2, d3, d4, d5, d6, d7, d8, d10, d11, d12, d17, d18, d13, d14, d15];
